@@ -108,7 +108,6 @@ function guardarDiaReset(){
   input.value = d;
   safeStorage.set("uberCambioDiaReset", String(d));
   actualizarInfoReset();
-  // Revisa de nuevo por si el cambio de día dispara un reset
   checkAutoReset();
 }
 
@@ -132,7 +131,6 @@ function checkAutoReset(){
   const ult = getUltimoReset();
 
   if(!ult){
-    // Primera vez: guardamos como último reset el más reciente ya pasado
     if(ahora >= resetEsteMes){
       safeStorage.set("uberCambioUltimoReset", resetEsteMes.toISOString());
     } else {
@@ -143,7 +141,6 @@ function checkAutoReset(){
     return false;
   }
 
-  // ¿Toca resetear? Sí, si ya pasó el día del reset de este mes y el último reset fue antes.
   if(ahora >= resetEsteMes && ult < resetEsteMes){
     totalTips = 0;
     saveTips();
@@ -402,7 +399,7 @@ function calculate(){
   pendingTransaction = { incoming, used, tip, tocaReserva };
 
   let header = "DEVOLVER: " + moneyText(targetChange);
-  if(tocaReserva) header += " ⚠️ (toca reserva mínima)";
+  if(tocaReserva) header += " ⚠️ (toca límite mínimo)";
   changeTotal.textContent = header;
   changeGrid.innerHTML = "";
 
@@ -490,7 +487,7 @@ function updateStockVal(index, val){
   saveStock();
 }
 
-/* ---------- Reserva mínima ---------- */
+/* ---------- Límite mínimo (antes Reserva) ---------- */
 
 function renderReservaList(){
   let box = document.getElementById("reservaList");
@@ -539,8 +536,8 @@ function updateReservaVal(index, val){
 }
 
 function resetReserva(){
-  if(!confirm("¿Restaurar la reserva mínima a los valores por defecto?")) return;
-  reservaMinima = Object.assign({}, RESERVA_MINIMA_DEFAULT);
+  if(!confirm("¿Restaurar el límite mínimo a los valores por defecto?")) return;
+  reservaMinima = Object.assign({}, RESERVA_MINIMA_DEFECTO_RESERVA_PLACEHOLDER);
   saveReserva();
   renderReservaList();
 }
@@ -915,7 +912,7 @@ function importInventory(file){
       if(!data || !Array.isArray(data.stock) || data.stock.length !== denominations.length){
         alert("El archivo no es una copia válida."); return;
       }
-      if(!confirm("¿Reemplazar el inventario, propinas y reserva actuales?")) return;
+      if(!confirm("¿Reemplazar el inventario, propinas y límite mínimo actuales?")) return;
       stock = data.stock.map(x => Math.max(0, parseInt(x) || 0));
       if(typeof data.totalTips === "number") totalTips = Math.max(0, data.totalTips);
       if(data.reservaMinima && typeof data.reservaMinima === "object"){
@@ -939,7 +936,6 @@ function importInventory(file){
 /* ---------- Init ---------- */
 
 function init(){
-  // Comprueba reset automático ANTES de renderizar
   checkAutoReset();
 
   try { renderButtons(); }         catch(e){ console.error(e); }

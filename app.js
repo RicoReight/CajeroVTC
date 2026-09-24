@@ -23,11 +23,12 @@ const denominations = [
   {c:1,     n:"0,01 €", short:"0.01", type:"coin", class:"c-copper"}
 ];
 
-/* ---------- Reserva mínima por defecto ---------- */
 const RESERVA_MINIMA_DEFAULT = {
   10000: 0, 5000: 0, 2000: 1, 1000: 1, 500: 1,
   200: 2, 100: 2, 50: 3, 20: 5, 10: 5, 5: 3, 2: 3, 1: 5
 };
+
+const DIA_RESET_DEFAULT = 20;
 
 let stock = loadStock();
 let totalTips = loadTips();
@@ -47,13 +48,10 @@ function loadStock(){
         return a.map(x => Math.max(0, parseInt(x) || 0));
     }catch(e){}
   }
-  // Valores por defecto: 0×100, 0×50, 2×20, 3×10, 4×5, 10×2, 10×1, 20×0,50, 40×0,20, 10×0,10, 10×0,05, 10×0,02, 10×0,01
   return [0, 0, 2, 3, 4, 10, 10, 20, 40, 10, 10, 10, 10];
 }
 
-function loadTips(){
-  return parseInt(safeStorage.get("uberCambioTips")) || 0;
-}
+function loadTips(){ return parseInt(safeStorage.get("uberCambioTips")) || 0; }
 
 function loadReserva(){
   const base = Object.assign({}, RESERVA_MINIMA_DEFAULT);
@@ -84,6 +82,77 @@ function saveReserva(){
 
 function moneyText(c){
   return (c/100).toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+}
+
+/* ---------- Reset automático mensual ---------- */
+
+function getDiaReset(){
+  const d = parseInt(safeStorage.get("uberCambioDiaReset"));
+  if(d >= 1 && d <= 31) return d;
+  return DIA_RESET_DEFAULT;
+}
+
+function getUltimoReset(){
+  const s = safeStorage.get("uberCambioUltimoReset");
+  if(!s) return null;
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function guardarDiaReset(){
+  const input = document.getElementById("diaResetInput");
+  if(!input) return;
+  let d = parseInt(input.value) || DIA_RESET_DEFAULT;
+  if(d < 1) d = 1;
+  if(d > 31) d = 31;
+  input.value = d;
+  safeStorage.set("uberCambioDiaReset", String(d));
+  actualizarInfoReset();
+  // Revisa de nuevo por si el cambio de día dispara un reset
+  checkAutoReset();
+}
+
+function actualizarInfoReset(){
+  const info = document.getElementById("ultimoResetInfo");
+  if(!info) return;
+  const ult = getUltimoReset();
+  const dia = getDiaReset();
+  if(!ult){
+    info.textContent = "Día configurado: " + dia + " (aún no se ha reseteado)";
+    return;
+  }
+  const f = ult.toLocaleDateString("es-ES") + " " + ult.toLocaleTimeString("es-ES", {hour:"2-digit", minute:"2-digit"});
+  info.textContent = "Último reset: " + f;
+}
+
+function checkAutoReset(){
+  const dia = getDiaReset();
+  const ahora = new Date();
+  const resetEsteMes = new Date(ahora.getFullYear(), ahora.getMonth(), dia, 0, 0, 0, 0);
+  const ult = getUltimoReset();
+
+  if(!ult){
+    // Primera vez: guardamos como último reset el más reciente ya pasado
+    if(ahora >= resetEsteMes){
+      safeStorage.set("uberCambioUltimoReset", resetEsteMes.toISOString());
+    } else {
+      const anterior = new Date(ahora.getFullYear(), ahora.getMonth() - 1, dia, 0, 0, 0, 0);
+      safeStorage.set("uberCambioUltimoReset", anterior.toISOString());
+    }
+    actualizarInfoReset();
+    return false;
+  }
+
+  // ¿Toca resetear? Sí, si ya pasó el día del reset de este mes y el último reset fue antes.
+  if(ahora >= resetEsteMes && ult < resetEsteMes){
+    totalTips = 0;
+    saveTips();
+    safeStorage.remove("uberCambioCierres");
+    safeStorage.set("uberCambioUltimoReset", resetEsteMes.toISOString());
+    return true;
+  }
+
+  return false;
 }
 
 /* ---------- Resumen de caja ---------- */
@@ -172,11 +241,13 @@ function toggleMenu(){
 function switchDrawerTab(tab){
   const panels = {
     inventario: document.getElementById("panelInventario"),
-    reserva:    document.getElementById("panelReserva")
+    reserva:    document.getElementById("panelReserva"),
+    reseteos:   document.getElementById("panelReseteos")
   };
   const tabs = {
     inventario: document.getElementById("tabInventario"),
-    reserva:    document.getElementById("tabReserva")
+    reserva:    document.getElementById("tabReserva"),
+    reseteos:   document.getElementById("tabReseteos")
   };
   const active   = "flex:1;padding:8px;border-radius:10px;border:1px solid #475569;background:#334155;color:#fff;font-weight:700;cursor:pointer;font-size:12px";
   const inactive = "flex:1;padding:8px;border-radius:10px;border:1px solid #475569;background:#1e293b;color:#94a3b8;font-weight:700;cursor:pointer;font-size:12px";
@@ -188,6 +259,13 @@ function switchDrawerTab(tab){
 
   if(tab === "inventario") renderStockList();
   if(tab === "reserva")    renderReservaList();
+  if(tab === "reseteos")   cargarPanelReseteos();
+}
+
+function cargarPanelReseteos(){
+  const input = document.getElementById("diaResetInput");
+  if(input) input.value = getDiaReset();
+  actualizarInfoReset();
 }
 
 /* ---------- Botones de dinero ---------- */
@@ -412,15 +490,6 @@ function updateStockVal(index, val){
   saveStock();
 }
 
-function resetStock(){
-  if(confirm("¿Seguro que quieres poner a CERO la caja y las propinas?")){
-    stock = Array(denominations.length).fill(0);
-    totalTips = 0;
-    saveStock(); saveTips(); renderStockList();
-    if(received.length > 0) calculate();
-  }
-}
-
 /* ---------- Reserva mínima ---------- */
 
 function renderReservaList(){
@@ -476,7 +545,46 @@ function resetReserva(){
   renderReservaList();
 }
 
-/* ---------- Cierre de caja ---------- */
+/* ---------- Reseteos manuales ---------- */
+
+function resetPropinasAhora(){
+  if(!confirm("¿Poner las propinas a 0,00 €?")) return;
+  totalTips = 0;
+  saveTips();
+  renderStockList();
+  alert("✅ Propinas reseteadas.");
+}
+
+function resetHistorialAhora(){
+  if(!confirm("¿Borrar el historial de ingresos a base?")) return;
+  safeStorage.remove("uberCambioCierres");
+  renderIngresoHistorico();
+  alert("✅ Historial borrado.");
+}
+
+function resetInventarioAhora(){
+  if(!confirm("¿Poner TODO el inventario a cero? (Las propinas y el historial no se tocan)")) return;
+  stock = Array(denominations.length).fill(0);
+  saveStock();
+  renderStockList();
+  updateCashSummary();
+  alert("✅ Inventario a cero.");
+}
+
+function resetTodoAhora(){
+  if(!confirm("⚠️ Esto borrará: inventario, propinas e historial de ingresos.\n\n¿Continuar?")) return;
+  stock = Array(denominations.length).fill(0);
+  totalTips = 0;
+  saveStock();
+  saveTips();
+  safeStorage.remove("uberCambioCierres");
+  renderStockList();
+  updateCashSummary();
+  renderIngresoHistorico();
+  alert("✅ Todo reseteado.");
+}
+
+/* ---------- Ingreso a Base ---------- */
 
 function loadCierres(){
   const saved = safeStorage.get("uberCambioCierres");
@@ -485,34 +593,34 @@ function loadCierres(){
 }
 function saveCierres(c){ safeStorage.set("uberCambioCierres", JSON.stringify(c)); }
 
-function abrirCierrePantalla(){
+function abrirIngresoPantalla(){
   const drawer = document.getElementById("drawer");
   const overlay = document.getElementById("overlay");
   if(drawer)  drawer.classList.remove("active");
   if(overlay) overlay.classList.remove("active");
 
-  const pantalla = document.getElementById("cierrePantalla");
+  const pantalla = document.getElementById("ingresoPantalla");
   if(pantalla) pantalla.style.display = "block";
 
-  const inp = document.getElementById("cierreInput");
+  const inp = document.getElementById("ingresoInput");
   if(inp) inp.value = "";
-  const cont = document.getElementById("cierreResultado");
+  const cont = document.getElementById("ingresoResultado");
   if(cont){ cont.style.display = "none"; cont.innerHTML = ""; }
-  const btn = document.getElementById("btnConfirmarCierre");
+  const btn = document.getElementById("btnConfirmarIngreso");
   if(btn) btn.style.display = "none";
 
-  renderCierreHistorico();
+  renderIngresoHistorico();
 }
 
-function cerrarCierrePantalla(){
-  const pantalla = document.getElementById("cierrePantalla");
+function cerrarIngresoPantalla(){
+  const pantalla = document.getElementById("ingresoPantalla");
   if(pantalla) pantalla.style.display = "none";
 }
 
-function calcularCierre(){
-  const cont = document.getElementById("cierreResultado");
-  const btn  = document.getElementById("btnConfirmarCierre");
-  const raw  = parseFloat(document.getElementById("cierreInput").value.replace(',', '.')) || 0;
+function calcularIngreso(){
+  const cont = document.getElementById("ingresoResultado");
+  const btn  = document.getElementById("btnConfirmarIngreso");
+  const raw  = parseFloat(document.getElementById("ingresoInput").value.replace(',', '.')) || 0;
   const target = Math.round(raw * 100);
 
   if(!cont || !btn) return;
@@ -537,7 +645,6 @@ function calcularCierre(){
     return;
   }
 
-  // BILLETES A ENTREGAR
   let html = "";
   html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;text-align:center'>💵 ENTREGAR EN BILLETES</div>";
   html += "<div style='font-size:32px;font-weight:900;color:#4ade80;margin:6px 0 14px;text-align:center'>" + moneyText(res.total) + "</div>";
@@ -553,7 +660,6 @@ function calcularCierre(){
   });
   html += "</div>";
 
-  // CÁLCULOS FINALES
   const sobrante      = target - res.total;
   const totalEnCaja   = stock.reduce((sum, n, i) => sum + n * denominations[i].c, 0);
   const quedaEnCaja   = totalEnCaja - res.total;
@@ -561,15 +667,15 @@ function calcularCierre(){
   html += "<div style='margin-top:16px;padding-top:16px;border-top:1px solid #334155;text-align:center'>";
 
   if(sobrante > 0){
-    html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px'>SOBRANTE NO ENTREGABLE</div>" +
-            "<div style='font-size:20px;font-weight:900;color:#eab308;margin-top:4px'>" + moneyText(sobrante) + "</div>" +
-            "<div style='font-size:11px;color:#64748b;margin-top:2px'>No se puede dar en billetes</div>";
+    html += "<div style='font-size:12px;color:#f87171;font-weight:800;letter-spacing:0.5px'>⚠️ TE QUITARÁN DE LA NÓMINA</div>" +
+            "<div style='font-size:22px;font-weight:900;color:#ef4444;margin-top:4px'>-" + moneyText(sobrante) + "</div>" +
+            "<div style='font-size:11px;color:#94a3b8;margin-top:2px'>Lo que no entregas en billetes</div>";
   }
 
   html += "<div style='margin-top:14px;padding:12px;background:#064e3b;border:1px solid #059669;border-radius:10px'>" +
             "<div style='font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px'>💼 TE QUEDA EN CAJA</div>" +
             "<div style='font-size:24px;font-weight:900;color:#4ade80;margin-top:4px'>" + moneyText(quedaEnCaja) + "</div>" +
-            "<div style='font-size:11px;color:#94a3b8;margin-top:4px'>Después del cierre, en monedas y billetes restantes</div>" +
+            "<div style='font-size:11px;color:#94a3b8;margin-top:4px'>Después del ingreso, en monedas y billetes restantes</div>" +
           "</div>";
 
   html += "</div>";
@@ -611,23 +717,18 @@ function buscarCombinacion(target, stock, denoms){
   return bt(0, target) ? usados : null;
 }
 
-function confirmarCierre(){
-  const btn = document.getElementById("btnConfirmarCierre");
+function confirmarIngreso(){
+  const btn = document.getElementById("btnConfirmarIngreso");
   if(!btn) return;
   const total  = parseInt(btn.dataset.total) || 0;
   const usados = JSON.parse(btn.dataset.usados || "[]");
   if(total <= 0) return;
 
-  if(!confirm("¿Confirmar cierre? Se entregarán " + moneyText(total) + " en billetes y las propinas se pondrán a cero.")) return;
-
-  const propinasDelPeriodo = totalTips;
+  if(!confirm("¿Confirmar ingreso a base? Se entregarán " + moneyText(total) + " en billetes.")) return;
 
   for(let i = 0; i < usados.length; i++){
     stock[i] = Math.max(0, stock[i] - usados[i]);
   }
-
-  totalTips = 0;
-  saveTips();
 
   saveStock();
   renderStockList();
@@ -636,42 +737,34 @@ function confirmarCierre(){
   const cierres = loadCierres();
   cierres.push({
     fecha: new Date().toISOString(),
-    total: total,
-    propinas: propinasDelPeriodo
+    total: total
   });
   saveCierres(cierres);
-  renderCierreHistorico();
+  renderIngresoHistorico();
 
-  document.getElementById("cierreInput").value = "";
-  const cont = document.getElementById("cierreResultado");
+  document.getElementById("ingresoInput").value = "";
+  const cont = document.getElementById("ingresoResultado");
   if(cont){ cont.style.display = "none"; cont.innerHTML = ""; }
   btn.style.display = "none";
 
-  alert("✅ Cierre realizado.\nEntregados: " + moneyText(total) +
-        "\nPropinas del periodo: " + moneyText(propinasDelPeriodo) +
-        "\nPropinas reseteadas.");
+  alert("✅ Ingreso realizado.\nEntregados: " + moneyText(total));
 }
 
-function renderCierreHistorico(){
-  const box = document.getElementById("cierreHistorico");
+function renderIngresoHistorico(){
+  const box = document.getElementById("ingresoHistorico");
   if(!box) return;
   const cierres = loadCierres();
   if(cierres.length === 0){ box.style.display = "none"; box.innerHTML = ""; return; }
 
-  let html = "<div style='font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:8px'>📜 ÚLTIMOS CIERRES</div>";
+  let html = "<div style='font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:8px'>📜 INGRESOS A BASE (últimos 10)</div>";
   cierres.slice(-10).reverse().forEach(c => {
-    const d = new Date(c.fecha);
-    const fecha = d.toLocaleDateString("es-ES") + " " +
-                  d.toLocaleTimeString("es-ES", {hour:"2-digit", minute:"2-digit"});
-    html += "<div style='padding:8px 0;border-bottom:1px solid #334155;font-size:13px'>" +
-              "<div style='display:flex;justify-content:space-between'>" +
-                "<span style='color:#94a3b8'>" + fecha + "</span>" +
-                "<span style='font-weight:800;color:#4ade80'>" + moneyText(c.total) + "</span>" +
-              "</div>";
-    if(typeof c.propinas === "number" && c.propinas > 0){
-      html += "<div style='font-size:11px;color:#64748b;margin-top:2px'>💶 Propinas del periodo: " + moneyText(c.propinas) + "</div>";
-    }
-    html += "</div>";
+    const dd = new Date(c.fecha);
+    const fecha = dd.toLocaleDateString("es-ES") + " " +
+                  dd.toLocaleTimeString("es-ES", {hour:"2-digit", minute:"2-digit"});
+    html += "<div style='padding:8px 0;border-bottom:1px solid #334155;font-size:13px;display:flex;justify-content:space-between'>" +
+              "<span style='color:#94a3b8'>" + fecha + "</span>" +
+              "<span style='font-weight:800;color:#4ade80'>" + moneyText(c.total) + "</span>" +
+            "</div>";
   });
   box.innerHTML = html;
   box.style.display = "block";
@@ -721,11 +814,12 @@ function setupBackupUI(){
 
 async function exportInventory(){
   const data = {
-    app: "uberCambioVTC", version: 3,
+    app: "uberCambioVTC", version: 4,
     exportedAt: new Date().toISOString(),
     stock: stock,
     totalTips: totalTips,
-    reservaMinima: reservaMinima
+    reservaMinima: reservaMinima,
+    diaReset: getDiaReset()
   };
   const jsonStr = JSON.stringify(data, null, 2);
   const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g, "-");
@@ -832,6 +926,9 @@ function importInventory(file){
         });
         safeStorage.set("uberCambioReserva", JSON.stringify(reservaMinima));
       }
+      if(typeof data.diaReset === "number"){
+        safeStorage.set("uberCambioDiaReset", String(data.diaReset));
+      }
       saveStock(); saveTips(); renderStockList(); renderReservaList(); updateCashSummary();
       alert("✅ Copia restaurada.");
     }catch(e){ alert("No se pudo leer el archivo."); }
@@ -842,12 +939,15 @@ function importInventory(file){
 /* ---------- Init ---------- */
 
 function init(){
+  // Comprueba reset automático ANTES de renderizar
+  checkAutoReset();
+
   try { renderButtons(); }         catch(e){ console.error(e); }
   try { renderStockList(); }       catch(e){ console.error(e); }
   try { renderReservaList(); }     catch(e){ console.error(e); }
   try { updateCashSummary(); }     catch(e){ console.error(e); }
   try { setupBackupUI(); }         catch(e){ console.error(e); }
-  try { renderCierreHistorico(); } catch(e){ console.error(e); }
+  try { renderIngresoHistorico(); }catch(e){ console.error(e); }
 }
 
 init();

@@ -12,7 +12,12 @@
 <div class="app">
   <header>
     <h1 class="title">Calculadora de Cambio</h1>
-    <button class="btn-menu" onclick="toggleMenu()" aria-label="Ajustes" style="font-size:22px;padding:8px 12px;line-height:1">⚙️</button>
+    <div style="display:flex; gap:8px; align-items:center">
+      <button class="btn-menu" onclick="abrirIngresoPantalla()" aria-label="Ingreso a base"
+        style="font-size:20px; padding:8px 12px; line-height:1">💼</button>
+      <button class="btn-menu" onclick="toggleMenu()" aria-label="Ajustes"
+        style="font-size:20px; padding:8px 12px; line-height:1">⚙️</button>
+    </div>
   </header>
 
   <div class="cash-summary-card">
@@ -29,14 +34,6 @@
       <div class="limit-card"><div class="limit-card-title">≤ 100 €</div><div id="status100" class="status-badge">--</div></div>
     </div>
   </div>
-
-  <!-- BOTÓN INGRESO A BASE -->
-  <button type="button" onclick="abrirIngresoPantalla()"
-    style="width:100%; background:#0284c7; color:#fff; border:none; padding:18px; border-radius:14px;
-           font-weight:900; font-size:17px; cursor:pointer; letter-spacing:0.5px;
-           box-shadow:0 3px 8px rgba(2,132,199,0.3)">
-    💼 INGRESO A BASE
-  </button>
 
   <div class="card">
     <label for="price">Precio del viaje (€)</label>
@@ -84,7 +81,7 @@
     </button>
     <button type="button" id="tabReserva" onclick="switchDrawerTab('reserva')"
       style="flex:1;padding:8px;border-radius:10px;border:1px solid #475569;background:#1e293b;color:#94a3b8;font-weight:700;cursor:pointer;font-size:12px">
-      🔒 Reserva
+      🔒 Límite
     </button>
     <button type="button" id="tabReseteos" onclick="switchDrawerTab('reseteos')"
       style="flex:1;padding:8px;border-radius:10px;border:1px solid #475569;background:#1e293b;color:#94a3b8;font-weight:700;cursor:pointer;font-size:12px">

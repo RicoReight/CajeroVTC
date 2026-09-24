@@ -23,6 +23,7 @@ const denominations = [
   {c:1,     n:"0,01 €", short:"0.01", type:"coin", class:"c-copper"}
 ];
 
+/* ---------- Reserva mínima por defecto ---------- */
 const RESERVA_MINIMA_DEFAULT = {
   10000: 0, 5000: 0, 2000: 1, 1000: 1, 500: 1,
   200: 2, 100: 2, 50: 3, 20: 5, 10: 5, 5: 3, 2: 3, 1: 5
@@ -46,7 +47,8 @@ function loadStock(){
         return a.map(x => Math.max(0, parseInt(x) || 0));
     }catch(e){}
   }
-  return [0,0,0,0,0,10,10,20,40,10,10,10,10];
+  // Valores por defecto: 0×100, 0×50, 2×20, 3×10, 4×5, 10×2, 10×1, 20×0,50, 40×0,20, 10×0,10, 10×0,05, 10×0,02, 10×0,01
+  return [0, 0, 2, 3, 4, 10, 10, 20, 40, 10, 10, 10, 10];
 }
 
 function loadTips(){
@@ -184,7 +186,6 @@ function switchDrawerTab(tab){
     if(tabs[k])   tabs[k].style.cssText   = (k === tab) ? active : inactive;
   });
 
-  // Si al cambiar de pestaña el contenido no está renderizado, lo forzamos
   if(tab === "inventario") renderStockList();
   if(tab === "reserva")    renderReservaList();
 }
@@ -361,7 +362,7 @@ function confirmTransaction(){
   alert("¡Operación guardada!");
 }
 
-/* ---------- Inventario (crea el contenedor si falta) ---------- */
+/* ---------- Inventario ---------- */
 
 function renderStockList(){
   let box = document.getElementById("stockList");
@@ -420,7 +421,7 @@ function resetStock(){
   }
 }
 
-/* ---------- Reserva mínima (crea el contenedor si falta) ---------- */
+/* ---------- Reserva mínima ---------- */
 
 function renderReservaList(){
   let box = document.getElementById("reservaList");
@@ -521,12 +522,22 @@ function calcularCierre(){
   const res = findBilletes(target, billetesStock);
 
   if(!res || res.total === 0){
-    cont.innerHTML = "<div style='color:#ef4444;font-weight:700;font-size:14px;text-align:center'>⚠️ No tienes billetes suficientes.</div>";
+    const maxBilletes = stock.slice(0,5).reduce((sum, n, i) =>
+      sum + n * denominations[i].c, 0);
+    let msg = "";
+    if(maxBilletes === 0){
+      msg = "⚠️ No tienes ningún billete en el inventario.<br>Añade billetes en Ajustes → Inventario.";
+    } else {
+      msg = "⚠️ No puedes formar " + moneyText(target) + ".<br>" +
+            "En billetes tienes como máximo " + moneyText(maxBilletes) + ".";
+    }
+    cont.innerHTML = "<div style='color:#ef4444;font-weight:700;font-size:14px;text-align:center;line-height:1.6'>" + msg + "</div>";
     cont.style.display = "block";
     btn.style.display = "none";
     return;
   }
 
+  // BILLETES A ENTREGAR
   let html = "";
   html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;text-align:center'>💵 ENTREGAR EN BILLETES</div>";
   html += "<div style='font-size:32px;font-weight:900;color:#4ade80;margin:6px 0 14px;text-align:center'>" + moneyText(res.total) + "</div>";
@@ -542,27 +553,26 @@ function calcularCierre(){
   });
   html += "</div>";
 
-  const monedasQuedan = stock.slice(5).map((n, i) => ({ n: n, idx: i + 5 })).filter(x => x.n > 0);
-  if(monedasQuedan.length > 0){
-    html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;text-align:center;margin-top:20px;padding-top:16px;border-top:1px solid #334155'>🪙 MONEDAS QUE QUEDAN EN CAJA</div>";
-    html += "<div class='change-grid' style='margin-top:10px'>";
-    monedasQuedan.forEach(x => {
-      const d = denominations[x.idx];
-      html += "<div class='cash-item'>" +
-                "<div class='badge'>x" + x.n + "</div>" +
-                "<div class='coin-graphic " + d.class + "'>" + d.short + "</div>" +
-              "</div>";
-    });
-    html += "</div>";
+  // CÁLCULOS FINALES
+  const sobrante      = target - res.total;
+  const totalEnCaja   = stock.reduce((sum, n, i) => sum + n * denominations[i].c, 0);
+  const quedaEnCaja   = totalEnCaja - res.total;
+
+  html += "<div style='margin-top:16px;padding-top:16px;border-top:1px solid #334155;text-align:center'>";
+
+  if(sobrante > 0){
+    html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px'>SOBRANTE NO ENTREGABLE</div>" +
+            "<div style='font-size:20px;font-weight:900;color:#eab308;margin-top:4px'>" + moneyText(sobrante) + "</div>" +
+            "<div style='font-size:11px;color:#64748b;margin-top:2px'>No se puede dar en billetes</div>";
   }
 
-  const sobrante = target - res.total;
-  if(sobrante > 0){
-    html += "<div style='margin-top:16px;padding-top:14px;border-top:1px solid #334155;text-align:center'>" +
-              "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px'>SOBRANTE NO ENTREGABLE</div>" +
-              "<div style='font-size:20px;font-weight:900;color:#eab308;margin-top:4px'>" + moneyText(sobrante) + "</div>" +
-            "</div>";
-  }
+  html += "<div style='margin-top:14px;padding:12px;background:#064e3b;border:1px solid #059669;border-radius:10px'>" +
+            "<div style='font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px'>💼 TE QUEDA EN CAJA</div>" +
+            "<div style='font-size:24px;font-weight:900;color:#4ade80;margin-top:4px'>" + moneyText(quedaEnCaja) + "</div>" +
+            "<div style='font-size:11px;color:#94a3b8;margin-top:4px'>Después del cierre, en monedas y billetes restantes</div>" +
+          "</div>";
+
+  html += "</div>";
 
   cont.innerHTML = html;
   cont.style.display = "block";

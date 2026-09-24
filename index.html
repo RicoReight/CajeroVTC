@@ -6,6 +6,32 @@
 <title>Calculadora de Cambio VTC / Taxi</title>
 <link rel="stylesheet" href="styles.css">
 <link rel="manifest" href="manifest.json">
+<style>
+  /* Botones del header estandarizados */
+  .btn-header {
+    height: 42px;
+    min-width: 42px;
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: #334155;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-family: inherit;
+  }
+  .btn-header:active { background: #475569; }
+  .btn-header.icon-only { padding: 0; width: 42px; }
+  .btn-header svg { display: block; }
+</style>
 </head>
 <body>
 
@@ -13,12 +39,16 @@
   <header>
     <h1 class="title">Calculadora de Cambio</h1>
     <div style="display:flex; gap:8px; align-items:center">
-      <button class="btn-menu" onclick="abrirIngresoPantalla()" aria-label="Ingreso a base"
-        style="font-size:13px; padding:8px 12px; line-height:1; font-weight:800; letter-spacing:0.5px">
+      <button class="btn-header" onclick="abrirIngresoPantalla()" aria-label="Ingreso a base">
         INGRESO
       </button>
-      <button class="btn-menu" onclick="toggleMenu()" aria-label="Ajustes"
-        style="font-size:20px; padding:8px 12px; line-height:1">⚙️</button>
+      <button class="btn-header icon-only" onclick="toggleMenu()" aria-label="Ajustes">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
     </div>
   </header>
 

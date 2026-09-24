@@ -537,7 +537,7 @@ function updateReservaVal(index, val){
 
 function resetReserva(){
   if(!confirm("¿Restaurar el límite mínimo a los valores por defecto?")) return;
-  reservaMinima = Object.assign({}, RESERVA_MINIMA_DEFECTO_RESERVA_PLACEHOLDER);
+  reservaMinima = Object.assign({}, RESERVA_MINIMA_DEFAULT);
   saveReserva();
   renderReservaList();
 }

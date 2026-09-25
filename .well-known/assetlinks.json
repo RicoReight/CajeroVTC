@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.ricoreight.twa",
+        "sha256_cert_fingerprints": ["46:02:F4:7A:81:93:37:CF:7D:0F:5F:5D:7F:4C:33:9B:B7:29:50:49:47:06:56:59:E1:73:63:BD:8B:A7:0C:A0"]
+      }
+    }]

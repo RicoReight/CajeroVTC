@@ -35,6 +35,7 @@ let pendingTransaction = null;
 let stockInputs = [];
 let reservaInputs = [];
 let summaryTimer = null;
+let precioInterval = null;
 
 function loadStock(){
   const saved = safeStorage.get("uberCambioStock");
@@ -229,6 +230,8 @@ function setAllTip(){
   }
 }
 
+/* ---------- Mostrar precio en grande al cliente (ES/EN cada 3 s) ---------- */
+
 function mostrarPrecio(){
   const inp = document.getElementById("price");
   if(!inp) return;
@@ -237,17 +240,44 @@ function mostrarPrecio(){
     alert("Escribe primero el precio del viaje.");
     return;
   }
+
   const el = document.getElementById("precioGrande");
   if(el) el.textContent = moneyText(Math.round(raw * 100));
+
   const pantalla = document.getElementById("precioPantalla");
   if(pantalla) pantalla.style.display = "flex";
+
+  iniciarAlternanciaPrecio();
+}
+
+function iniciarAlternanciaPrecio(){
+  detenerAlternanciaPrecio();
+  const titulo = document.getElementById("precioTitulo");
+  if(!titulo) return;
+
+  let esIngles = false;
+  titulo.textContent = "A PAGAR";
+
+  precioInterval = setInterval(() => {
+    esIngles = !esIngles;
+    titulo.textContent = esIngles ? "TO PAY" : "A PAGAR";
+  }, 3000);
+}
+
+function detenerAlternanciaPrecio(){
+  if(precioInterval){
+    clearInterval(precioInterval);
+    precioInterval = null;
+  }
 }
 
 function cerrarPrecio(){
+  detenerAlternanciaPrecio();
   const pantalla = document.getElementById("precioPantalla");
   if(pantalla) pantalla.style.display = "none";
 }
 
+/* ---------- findSmartChange ---------- */
 function findSmartChange(target, availableStock) {
   let bestSolution = null;
   let minScore = Infinity;

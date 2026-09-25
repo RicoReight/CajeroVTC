@@ -38,7 +38,7 @@ let stockInputs = [];
 let reservaInputs = [];
 let summaryTimer = null;
 let precioInterval = null;
-let precioActual = 0; // en céntimos
+let precioActual = 0;
 
 function loadStock(){
   const s = safeStorage.get("uberCambioStock");
@@ -202,17 +202,40 @@ function cerrarPrecio(){
   const p = document.getElementById("precioPantalla"); if(p) p.style.display="none";
 }
 
-/* ---------- Lectura de precio por voz ---------- */
-function leerPrecio(idioma){
+/* ---------- Voz con soporte móvil ---------- */
+function precargarVoces(){
   if(!("speechSynthesis" in window)) return;
+  window.speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = () => {
+    console.log("Voces cargadas:", window.speechSynthesis.getVoices().length);
+  };
+}
+
+function leerPrecio(idioma){
+  if(!("speechSynthesis" in window)){
+    alert("Tu móvil no soporta la voz. Instala 'Speech Services' o revisa los ajustes de texto a voz.");
+    return;
+  }
   window.speechSynthesis.cancel();
   const txt = frasePrecio(precioActual, idioma);
   const u = new SpeechSynthesisUtterance(txt);
   u.lang = idioma === "es" ? "es-ES" : idioma === "en" ? "en-GB" : "fr-FR";
   u.rate = 0.95;
   u.pitch = 1;
-  window.speechSynthesis.speak(u);
+
+  const voces = window.speechSynthesis.getVoices();
+  if(voces.length > 0){
+    const prefijo = u.lang.slice(0,2);
+    const vozIdioma = voces.find(v => v.lang && v.lang.toLowerCase().startsWith(prefijo));
+    if(vozIdioma) u.voice = vozIdioma;
+  }
+
+  // Pequeño retardo para asegurar que las voces están listas en móvil
+  setTimeout(() => {
+    window.speechSynthesis.speak(u);
+  }, 80);
 }
+
 function frasePrecio(cents, idioma){
   const euros = Math.floor(cents/100);
   const cent  = cents % 100;
@@ -227,7 +250,6 @@ function frasePrecio(cents, idioma){
     if(cent > 0) t += " " + cent;
     return t;
   }
-  // francés
   let t = "Ça fait " + euros + (euros === 1 ? " euro" : " euros");
   if(cent > 0) t += " " + cent;
   return t;
@@ -774,6 +796,7 @@ function init(){
   try { setupBackupUI(); }         catch(e){ console.error("setupBackupUI", e); }
   try { renderCierreHistorico(); } catch(e){ console.error("renderCierreHistorico", e); }
   try { checkAutoResetPropinas(); }catch(e){ console.error("checkAutoResetPropinas", e); }
+  try { precargarVoces(); }        catch(e){ console.error("precargarVoces", e); }
 }
 
 init();

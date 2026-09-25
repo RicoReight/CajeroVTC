@@ -1,6 +1,5 @@
 "use strict";
 
-/* ---------- Acceso seguro a localStorage ---------- */
 const safeStorage = {
   get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
   set(k,v){ try { localStorage.setItem(k,v); } catch(e){} },
@@ -84,8 +83,6 @@ function moneyText(c){
   return (c/100).toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
 }
 
-/* ---------- Resumen de caja ---------- */
-
 function scheduleCashSummary(){
   if(summaryTimer) clearTimeout(summaryTimer);
   summaryTimer = setTimeout(() => { summaryTimer = null; updateCashSummary(); }, 120);
@@ -157,8 +154,6 @@ function setStatusBadge(elemId, estado){
   }
 }
 
-/* ---------- Menú + pestañas ---------- */
-
 function toggleMenu(){
   const drawer = document.getElementById("drawer");
   const overlay = document.getElementById("overlay");
@@ -187,8 +182,6 @@ function switchDrawerTab(tab){
   if(tab === "inventario") renderStockList();
   if(tab === "reserva")    renderReservaList();
 }
-
-/* ---------- Botones de dinero ---------- */
 
 function renderButtons(){
   const box = document.getElementById("moneyButtons");
@@ -236,8 +229,6 @@ function setAllTip(){
   }
 }
 
-/* ---------- Mostrar precio en grande al cliente ---------- */
-
 function mostrarPrecio(){
   const inp = document.getElementById("price");
   if(!inp) return;
@@ -257,7 +248,6 @@ function cerrarPrecio(){
   if(pantalla) pantalla.style.display = "none";
 }
 
-/* ---------- findSmartChange ---------- */
 function findSmartChange(target, availableStock) {
   let bestSolution = null;
   let minScore = Infinity;
@@ -282,7 +272,6 @@ function findSmartChange(target, availableStock) {
   return bestSolution;
 }
 
-/* ---------- calculate ---------- */
 function calculate(){
   const rawPrice = parseFloat(document.getElementById("price").value.replace(',', '.')) || 0;
   const price = Math.round(rawPrice * 100);
@@ -381,8 +370,6 @@ function confirmTransaction(){
   alert("¡Operación guardada!");
 }
 
-/* ---------- Inventario ---------- */
-
 function renderStockList(){
   let box = document.getElementById("stockList");
   if(!box){
@@ -440,8 +427,6 @@ function resetStock(){
   }
 }
 
-/* ---------- Reserva mínima ---------- */
-
 function renderReservaList(){
   let box = document.getElementById("reservaList");
   if(!box){
@@ -494,8 +479,6 @@ function resetReserva(){
   saveReserva();
   renderReservaList();
 }
-
-/* ---------- Cierre de caja ---------- */
 
 function loadCierres(){
   const saved = safeStorage.get("uberCambioCierres");
@@ -556,7 +539,6 @@ function calcularCierre(){
     return;
   }
 
-  // BILLETES A ENTREGAR
   let html = "";
   html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;text-align:center'>💵 ENTREGAR EN BILLETES</div>";
   html += "<div style='font-size:32px;font-weight:900;color:#4ade80;margin:6px 0 14px;text-align:center'>" + moneyText(res.total) + "</div>";
@@ -572,12 +554,296 @@ function calcularCierre(){
   });
   html += "</div>";
 
-  // CÁLCULOS FINALES
-  const sobrante      = target - res.total;
-  const totalEnCaja   = stock.reduce((sum, n, i) => sum + n * denominations[i].c, 0);
-  const quedaEnCaja   = totalEnCaja - res.total;
+  const sobrante    = target - res.total;
+  const totalEnCaja = stock.reduce((sum, n, i) => sum + n * denominations[i].c, 0);
+  const quedaEnCaja = totalEnCaja - res.total;
 
   html += "<div style='margin-top:16px;padding-top:16px;border-top:1px solid #334155;text-align:center'>";
 
   if(sobrante > 0){
-    html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px'>SOBRANTE NO ENT
+    html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px'>SOBRANTE NO ENTREGABLE</div>" +
+            "<div style='font-size:20px;font-weight:900;color:#eab308;margin-top:4px'>" + moneyText(sobrante) + "</div>" +
+            "<div style='font-size:11px;color:#64748b;margin-top:2px'>No se puede dar en billetes</div>";
+  }
+
+  html += "<div style='margin-top:14px;padding:12px;background:#064e3b;border:1px solid #059669;border-radius:10px'>" +
+            "<div style='font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px'>💼 TE QUEDA EN CAJA</div>" +
+            "<div style='font-size:24px;font-weight:900;color:#4ade80;margin-top:4px'>" + moneyText(quedaEnCaja) + "</div>" +
+            "<div style='font-size:11px;color:#94a3b8;margin-top:4px'>Después del cierre, en monedas y billetes restantes</div>" +
+          "</div>";
+
+  html += "</div>";
+
+  cont.innerHTML = html;
+  cont.style.display = "block";
+  btn.style.display = "block";
+  btn.dataset.total  = String(res.total);
+  btn.dataset.usados = JSON.stringify(res.usados);
+}
+
+function findBilletes(target, billetesStock){
+  const denoms = [
+    {c:10000, idx:0}, {c:5000, idx:1}, {c:2000, idx:2},
+    {c:1000,  idx:3}, {c:500,  idx:4}
+  ];
+  const maxTarget = Math.floor(target / 5) * 5;
+  for(let t = maxTarget; t >= 0; t -= 5){
+    const res = buscarCombinacion(t, billetesStock, denoms);
+    if(res) return { total: t, usados: res };
+  }
+  return { total: 0, usados: [0,0,0,0,0] };
+}
+
+function buscarCombinacion(target, stock, denoms){
+  const usados = [0,0,0,0,0];
+  function bt(i, restante){
+    if(restante === 0) return true;
+    if(i >= denoms.length) return false;
+    const d = denoms[i];
+    const max = Math.min(stock[d.idx], Math.floor(restante / d.c));
+    for(let n = max; n >= 0; n--){
+      usados[i] = n;
+      if(bt(i + 1, restante - n * d.c)) return true;
+    }
+    usados[i] = 0;
+    return false;
+  }
+  return bt(0, target) ? usados : null;
+}
+
+function confirmarCierre(){
+  const btn = document.getElementById("btnConfirmarCierre");
+  if(!btn) return;
+  const total  = parseInt(btn.dataset.total) || 0;
+  const usados = JSON.parse(btn.dataset.usados || "[]");
+  if(total <= 0) return;
+
+  if(!confirm("¿Confirmar cierre? Se entregarán " + moneyText(total) + " en billetes y las propinas se pondrán a cero.")) return;
+
+  const propinasDelPeriodo = totalTips;
+
+  for(let i = 0; i < usados.length; i++){
+    stock[i] = Math.max(0, stock[i] - usados[i]);
+  }
+
+  totalTips = 0;
+  saveTips();
+
+  saveStock();
+  renderStockList();
+  updateCashSummary();
+
+  const cierres = loadCierres();
+  cierres.push({
+    fecha: new Date().toISOString(),
+    total: total,
+    propinas: propinasDelPeriodo
+  });
+  saveCierres(cierres);
+  renderCierreHistorico();
+
+  document.getElementById("cierreInput").value = "";
+  const cont = document.getElementById("cierreResultado");
+  if(cont){ cont.style.display = "none"; cont.innerHTML = ""; }
+  btn.style.display = "none";
+
+  alert("✅ Cierre realizado.\nEntregados: " + moneyText(total) +
+        "\nPropinas del periodo: " + moneyText(propinasDelPeriodo) +
+        "\nPropinas reseteadas.");
+}
+
+function renderCierreHistorico(){
+  const box = document.getElementById("cierreHistorico");
+  if(!box) return;
+  const cierres = loadCierres();
+  if(cierres.length === 0){ box.style.display = "none"; box.innerHTML = ""; return; }
+
+  let html = "<div style='font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:8px'>📜 ÚLTIMOS CIERRES</div>";
+  cierres.slice(-10).reverse().forEach(c => {
+    const d = new Date(c.fecha);
+    const fecha = d.toLocaleDateString("es-ES") + " " +
+                  d.toLocaleTimeString("es-ES", {hour:"2-digit", minute:"2-digit"});
+    html += "<div style='padding:8px 0;border-bottom:1px solid #334155;font-size:13px'>" +
+              "<div style='display:flex;justify-content:space-between'>" +
+                "<span style='color:#94a3b8'>" + fecha + "</span>" +
+                "<span style='font-weight:800;color:#4ade80'>" + moneyText(c.total) + "</span>" +
+              "</div>";
+    if(typeof c.propinas === "number" && c.propinas > 0){
+      html += "<div style='font-size:11px;color:#64748b;margin-top:2px'>💶 Propinas del periodo: " + moneyText(c.propinas) + "</div>";
+    }
+    html += "</div>";
+  });
+  box.innerHTML = html;
+  box.style.display = "block";
+}
+
+function setupBackupUI(){
+  let panelInv = document.getElementById("panelInventario");
+  if(!panelInv) panelInv = document.getElementById("drawer");
+  if(!panelInv) return;
+  if(document.getElementById("backupBox")) return;
+
+  const box = document.createElement("div");
+  box.id = "backupBox";
+  box.style.cssText = "margin-top:16px;border-top:1px solid #334155;padding-top:14px";
+
+  const title = document.createElement("div");
+  title.textContent = "COPIA DE SEGURIDAD";
+  title.style.cssText = "font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:8px";
+
+  const btnExport = document.createElement("button");
+  btnExport.type = "button"; btnExport.textContent = "💾 Guardar copia";
+  btnExport.style.cssText = "width:100%;background:#334155;color:#fff;padding:12px;border-radius:10px;margin-bottom:8px;font-weight:700;font-size:15px;border:none;cursor:pointer";
+  btnExport.onclick = exportInventory;
+
+  const btnImport = document.createElement("button");
+  btnImport.type = "button"; btnImport.textContent = "📂 Cargar copia";
+  btnImport.style.cssText = btnExport.style.cssText;
+  btnImport.onclick = () => fileInput.click();
+
+  const fileInput = document.createElement("input");
+  fileInput.type = "file"; fileInput.accept = "application/json,.json";
+  fileInput.style.display = "none";
+  fileInput.onchange = (e) => {
+    const f = e.target.files[0];
+    if(f) importInventory(f);
+    fileInput.value = "";
+  };
+
+  box.appendChild(title);
+  box.appendChild(btnExport);
+  box.appendChild(btnImport);
+  box.appendChild(fileInput);
+  panelInv.appendChild(box);
+}
+
+async function exportInventory(){
+  const data = {
+    app: "uberCambioVTC", version: 3,
+    exportedAt: new Date().toISOString(),
+    stock: stock,
+    totalTips: totalTips,
+    reservaMinima: reservaMinima
+  };
+  const jsonStr = JSON.stringify(data, null, 2);
+  const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g, "-");
+  const filename = `cambio-vtc-${stamp}.json`;
+
+  try {
+    if (typeof navigator.canShare === "function" && typeof File !== "undefined") {
+      const file = new File([jsonStr], filename, { type: "application/json" });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "Copia de seguridad VTC" });
+        return;
+      }
+    }
+  } catch (err) { if (err && err.name === "AbortError") return; }
+
+  let downloadAttempted = false;
+  try {
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.rel = "noopener";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloadAttempted = true;
+  } catch (e) {}
+
+  setTimeout(() => showCopyFallback(jsonStr, downloadAttempted), downloadAttempted ? 400 : 0);
+}
+
+function showCopyFallback(jsonStr, afterDownloadAttempt){
+  const prev = document.getElementById("copyBackupModal");
+  if(prev) prev.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "copyBackupModal";
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";
+
+  const box = document.createElement("div");
+  box.style.cssText = "background:#1e293b;color:#f8fafc;border-radius:14px;padding:16px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto";
+
+  const title = document.createElement("h3");
+  title.textContent = "Copia de seguridad";
+  title.style.cssText = "margin:0 0 8px;font-size:16px";
+
+  const info = document.createElement("p");
+  info.textContent = afterDownloadAttempt
+    ? "Si no se ha descargado, copia este texto y guárdalo como .json."
+    : "Copia este texto y guárdalo como .json.";
+  info.style.cssText = "font-size:13px;color:#94a3b8;margin:0 0 10px";
+
+  const ta = document.createElement("textarea");
+  ta.value = jsonStr; ta.readOnly = true;
+  ta.style.cssText = "width:100%;height:180px;background:#0f172a;color:#f8fafc;border:1px solid #475569;border-radius:10px;padding:10px;font-family:monospace;font-size:12px";
+
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex;gap:8px;margin-top:12px";
+
+  const btnCopy = document.createElement("button");
+  btnCopy.type = "button"; btnCopy.textContent = "📋 Copiar";
+  btnCopy.style.cssText = "flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:700;cursor:pointer";
+  btnCopy.onclick = async () => {
+    ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length);
+    try {
+      if(navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(jsonStr);
+      else document.execCommand("copy");
+      btnCopy.textContent = "✅ Copiado";
+      setTimeout(() => { btnCopy.textContent = "📋 Copiar"; }, 1500);
+    } catch(e){
+      try { document.execCommand("copy"); btnCopy.textContent = "✅ Copiado"; }
+      catch(_) { btnCopy.textContent = "Selecciona y copia"; }
+      setTimeout(() => { btnCopy.textContent = "📋 Copiar"; }, 1500);
+    }
+  };
+
+  const btnClose = document.createElement("button");
+  btnClose.type = "button"; btnClose.textContent = "Cerrar";
+  btnClose.style.cssText = "flex:1;background:#0f172a;color:#f8fafc;border:1px solid #475569;padding:12px;border-radius:10px;font-weight:700;cursor:pointer";
+  btnClose.onclick = () => modal.remove();
+
+  modal.addEventListener("click", (e) => { if(e.target === modal) modal.remove(); });
+
+  row.appendChild(btnCopy); row.appendChild(btnClose);
+  box.appendChild(title); box.appendChild(info); box.appendChild(ta); box.appendChild(row);
+  modal.appendChild(box); document.body.appendChild(modal);
+  setTimeout(() => { ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length); }, 50);
+}
+
+function importInventory(file){
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = JSON.parse(reader.result);
+      if(!data || !Array.isArray(data.stock) || data.stock.length !== denominations.length){
+        alert("El archivo no es una copia válida."); return;
+      }
+      if(!confirm("¿Reemplazar el inventario, propinas y reserva actuales?")) return;
+      stock = data.stock.map(x => Math.max(0, parseInt(x) || 0));
+      if(typeof data.totalTips === "number") totalTips = Math.max(0, data.totalTips);
+      if(data.reservaMinima && typeof data.reservaMinima === "object"){
+        reservaMinima = Object.assign({}, RESERVA_MINIMA_DEFAULT);
+        denominations.forEach(d => {
+          if(typeof data.reservaMinima[d.c] === "number")
+            reservaMinima[d.c] = Math.max(0, parseInt(data.reservaMinima[d.c]) || 0);
+        });
+        safeStorage.set("uberCambioReserva", JSON.stringify(reservaMinima));
+      }
+      saveStock(); saveTips(); renderStockList(); renderReservaList(); updateCashSummary();
+      alert("✅ Copia restaurada.");
+    }catch(e){ alert("No se pudo leer el archivo."); }
+  };
+  reader.readAsText(file);
+}
+
+function init(){
+  try { renderButtons(); }         catch(e){ console.error("renderButtons", e); }
+  try { renderStockList(); }       catch(e){ console.error("renderStockList", e); }
+  try { renderReservaList(); }     catch(e){ console.error("renderReservaList", e); }
+  try { updateCashSummary(); }     catch(e){ console.error("updateCashSummary", e); }
+  try { setupBackupUI(); }         catch(e){ console.error("setupBackupUI", e); }
+  try { renderCierreHistorico(); } catch(e){ console.error("renderCierreHistorico", e); }
+}
+
+init();

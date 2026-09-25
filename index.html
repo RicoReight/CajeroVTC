@@ -6,50 +6,13 @@
 <title>Calculadora de Cambio VTC / Taxi</title>
 <link rel="stylesheet" href="styles.css">
 <link rel="manifest" href="manifest.json">
-<style>
-  /* Botones del header estandarizados */
-  .btn-header {
-    height: 42px;
-    min-width: 42px;
-    padding: 0 14px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    background: #334155;
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    font-weight: 800;
-    font-size: 13px;
-    letter-spacing: 0.5px;
-    line-height: 1;
-    cursor: pointer;
-    transition: background 0.15s;
-    font-family: inherit;
-  }
-  .btn-header:active { background: #475569; }
-  .btn-header.icon-only { padding: 0; width: 42px; }
-  .btn-header svg { display: block; }
-</style>
 </head>
 <body>
 
 <div class="app">
   <header>
     <h1 class="title">Calculadora de Cambio</h1>
-    <div style="display:flex; gap:8px; align-items:center">
-      <button class="btn-header" onclick="abrirIngresoPantalla()" aria-label="Ingreso a base">
-        INGRESO
-      </button>
-      <button class="btn-header icon-only" onclick="toggleMenu()" aria-label="Ajustes">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-        </svg>
-      </button>
-    </div>
+    <button class="btn-menu" onclick="toggleMenu()">⚙️ AJUSTES</button>
   </header>
 
   <div class="cash-summary-card">
@@ -69,7 +32,13 @@
 
   <div class="card">
     <label for="price">Precio del viaje (€)</label>
-    <input id="price" type="number" inputmode="decimal" step="0.01" placeholder="Ej. 14.50" oninput="calculate()">
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="price" type="number" inputmode="decimal" step="0.01" placeholder="Ej. 14.50" oninput="calculate()" style="flex:1">
+      <button type="button" onclick="mostrarPrecio()" title="Enseñar precio al cliente"
+        style="background:#334155;color:#fff;border:1px solid #475569;border-radius:10px;padding:14px 16px;font-size:20px;cursor:pointer;flex-shrink:0">
+        👁️
+      </button>
+    </div>
 
     <label>Dinero recibido</label>
     <div class="grid" id="moneyButtons"></div>
@@ -113,16 +82,17 @@
     </button>
     <button type="button" id="tabReserva" onclick="switchDrawerTab('reserva')"
       style="flex:1;padding:8px;border-radius:10px;border:1px solid #475569;background:#1e293b;color:#94a3b8;font-weight:700;cursor:pointer;font-size:12px">
-      🔒 Límite
+      🔒 Reserva
     </button>
-    <button type="button" id="tabReseteos" onclick="switchDrawerTab('reseteos')"
+    <button type="button" id="tabCierre" onclick="abrirCierrePantalla()"
       style="flex:1;padding:8px;border-radius:10px;border:1px solid #475569;background:#1e293b;color:#94a3b8;font-weight:700;cursor:pointer;font-size:12px">
-      🔄 Reseteos
+      🏦 Cierre
     </button>
   </div>
 
   <div id="panelInventario" style="display:block">
     <div class="tip-total-box" id="totalTipDisplay">💶 Propinas: 0,00 €</div>
+    <button type="button" class="btn-reset-stock" onclick="resetStock()">⚠️ RESETEAR A CERO</button>
     <div id="stockList" style="min-height:60px"></div>
   </div>
 
@@ -134,70 +104,51 @@
     <div id="reservaList" style="min-height:60px"></div>
     <button type="button" class="btn-reset-stock" onclick="resetReserva()" style="margin-top:12px">↺ RESTAURAR POR DEFECTO</button>
   </div>
-
-  <div id="panelReseteos" style="display:none">
-    <div style="background:#0f172a;border:1px solid #475569;border-radius:10px;padding:12px;margin-bottom:12px">
-      <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">🔄 RESET AUTOMÁTICO MENSUAL</div>
-      <label style="font-size:13px;color:#94a3b8;font-weight:700">Día del mes (1-31)</label>
-      <input id="diaResetInput" type="number" min="1" max="31" value="20"
-        onchange="guardarDiaReset()"
-        style="width:100%;font-size:22px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin:6px 0;outline:none;text-align:center">
-      <div id="ultimoResetInfo" style="font-size:12px;color:#64748b;margin-top:6px;text-align:center"></div>
-      <div style="font-size:11px;color:#64748b;margin-top:8px;line-height:1.4">
-        El día configurado se borrarán automáticamente las propinas y el historial de ingresos.
-      </div>
-    </div>
-
-    <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">RESETEOS MANUALES</div>
-
-    <button type="button" onclick="resetPropinasAhora()"
-      style="width:100%;background:#334155;color:#fff;padding:12px;border-radius:10px;margin-bottom:8px;font-weight:700;font-size:14px;border:none;cursor:pointer">
-      💶 Resetear propinas
-    </button>
-
-    <button type="button" onclick="resetHistorialAhora()"
-      style="width:100%;background:#334155;color:#fff;padding:12px;border-radius:10px;margin-bottom:8px;font-weight:700;font-size:14px;border:none;cursor:pointer">
-      📜 Borrar historial de ingresos
-    </button>
-
-    <button type="button" onclick="resetInventarioAhora()"
-      style="width:100%;background:#334155;color:#fff;padding:12px;border-radius:10px;margin-bottom:8px;font-weight:700;font-size:14px;border:none;cursor:pointer">
-      📦 Resetear inventario a cero
-    </button>
-
-    <button type="button" onclick="resetTodoAhora()"
-      style="width:100%;background:#b91c1c;color:#fff;padding:12px;border-radius:10px;font-weight:900;font-size:14px;border:none;cursor:pointer;margin-top:6px">
-      ⚠️ RESETEAR TODO (inventario + propinas + historial)
-    </button>
-  </div>
 </div>
 
-<!-- PANTALLA COMPLETA: INGRESO A BASE -->
-<div id="ingresoPantalla" style="
+<!-- Pantalla completa de cierre -->
+<div id="cierrePantalla" style="
   position:fixed; inset:0; background:#0f172a; z-index:300;
   display:none; overflow-y:auto; padding:14px;">
   <div style="max-width:550px; margin:0 auto;">
     <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
-      <button type="button" onclick="cerrarIngresoPantalla()"
+      <button type="button" onclick="cerrarCierrePantalla()"
         style="background:#334155;color:#fff;border:none;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px">
         ← Volver
       </button>
-      <h2 style="margin:0;font-size:18px;color:#38bdf8">💼 Ingreso a Base</h2>
+      <h2 style="margin:0;font-size:18px;color:#38bdf8">🏦 Cierre de caja</h2>
     </div>
 
     <div class="card" style="margin:0 0 12px 0">
       <label style="font-size:13px;color:#94a3b8;font-weight:700">💰 Importe a entregar (€)</label>
-      <input id="ingresoInput" type="number" inputmode="decimal" step="0.01" placeholder="Ej. 135.67"
-        oninput="calcularIngreso()"
+      <input id="cierreInput" type="number" inputmode="decimal" step="0.01" placeholder="Ej. 135.67"
+        oninput="calcularCierre()"
         style="width:100%;font-size:22px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin:6px 0;outline:none">
     </div>
 
-    <div id="ingresoResultado" class="card" style="margin:0 0 12px 0; display:none"></div>
+    <div id="cierreResultado" class="card" style="margin:0 0 12px 0; display:none"></div>
 
-    <button type="button" id="btnConfirmarIngreso" class="primary" onclick="confirmarIngreso()"
-      style="display:none; margin-top:0">✅ CONFIRMAR INGRESO</button>
+    <button type="button" id="btnConfirmarCierre" class="primary" onclick="confirmarCierre()"
+      style="display:none; margin-top:0">✅ CONFIRMAR CIERRE</button>
 
-    <div id="ingresoHistorico" class="card" style="margin-top:14px; display:none"></div>
+    <div id="cierreHistorico" class="card" style="margin-top:14px; display:none"></div>
+  </div>
+</div>
+
+<!-- Modal de precio en grande -->
+<div id="precioPantalla" onclick="cerrarPrecio()" style="
+  position:fixed; inset:0; background:#0f172a; z-index:400;
+  display:none; align-items:center; justify-content:center; padding:20px; cursor:pointer;">
+  <div style="text-align:center; user-select:none;">
+    <div style="font-size:22px;color:#94a3b8;font-weight:800;letter-spacing:2px;margin-bottom:16px">
+      A PAGAR
+    </div>
+    <div id="precioGrande" style="font-size:96px;font-weight:900;color:#38bdf8;line-height:1;word-break:break-word">
+      0,00 €
+    </div>
+    <div style="font-size:14px;color:#64748b;margin-top:24px">
+      Toca en cualquier sitio para cerrar
+    </div>
   </div>
 </div>
 

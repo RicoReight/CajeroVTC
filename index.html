@@ -13,7 +13,7 @@
   <header style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:nowrap">
     <h1 class="title" style="margin:0;flex:1;min-width:0">Calculadora de Cambio</h1>
     <div style="display:flex;gap:6px;flex-shrink:0">
-      <button class="btn-menu" onclick="abrirCierrePantalla()" style="padding:10px 12px;font-size:14px;white-space:nowrap">💰 CIERRE</button>
+      <button class="btn-menu" onclick="abrirCierrePantalla()" style="padding:10px 12px;font-size:14px;white-space:nowrap">💰 DEPOSITAR</button>
       <button class="btn-menu" onclick="toggleMenu()" style="padding:10px 14px;font-size:18px;white-space:nowrap;min-width:46px">⚙️</button>
     </div>
   </header>
@@ -107,19 +107,19 @@
   </div>
 
   <div id="panelReset" style="display:none">
-    <div style="background:#064e3b;border:2px solid #059669;border-radius:12px;padding:14px;margin-bottom:14px;text-align:center">
-      <div style="font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px">🔄 RESET AUTOMÁTICO DE PROPINAS</div>
-      <div style="font-size:13px;color:#a7f3d0;margin-top:8px">Se reseteará el día</div>
+    <div style="background:#064e3b;border:2px solid #059669;border-radius:12px;padding:10px;margin-bottom:12px;text-align:center">
+      <div style="font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px">🔄 RESET AUTOMÁTICO DE PROPINAS</div>
+      <div style="font-size:12px;color:#a7f3d0;margin-top:6px">Se reseteará el día</div>
       <input type="number" id="resetDia" min="1" max="31" value="20" onchange="guardarDiaReset()"
-        style="width:90px;font-size:36px;font-weight:900;padding:8px;border-radius:10px;border:1px solid #059669;background:#0f172a;color:#4ade80;text-align:center;outline:none;margin-top:6px">
-      <div style="font-size:13px;color:#a7f3d0;margin-top:6px">de cada mes</div>
-      <div id="resetUltimaVez" style="font-size:11px;color:#94a3b8;margin-top:10px">Última vez: —</div>
+        style="width:64px;font-size:22px;font-weight:900;padding:4px;border-radius:8px;border:1px solid #059669;background:#0f172a;color:#4ade80;text-align:center;outline:none;margin-top:4px">
+      <div style="font-size:12px;color:#a7f3d0;margin-top:4px">de cada mes</div>
+      <div id="resetUltimaVez" style="font-size:11px;color:#94a3b8;margin-top:8px">Última vez: —</div>
     </div>
 
-    <button type="button" class="btn-reset-stock" onclick="resetCuenta()" style="margin-bottom:8px">💰 RESETEAR CUENTA (caja)</button>
-    <button type="button" class="btn-reset-stock" onclick="resetPropinas()" style="margin-bottom:8px;background:#78350f;border-color:#b45309">💶 RESETEAR PROPINAS</button>
-    <button type="button" class="btn-reset-stock" onclick="resetHistorial()" style="margin-bottom:8px">📜 RESETEAR HISTORIAL</button>
-    <button type="button" class="btn-reset-stock" onclick="resetTodo()" style="background:#7f1d1d;border-color:#b91c1c">⚠️ RESETEAR TODO</button>
+    <button type="button" class="btn-reset-stock" onclick="resetCuenta()" style="margin-bottom:8px;background:#b91c1c;border-color:#7f1d1d">💰 RESETEAR CUENTA (caja)</button>
+    <button type="button" class="btn-reset-stock" onclick="resetPropinas()" style="margin-bottom:8px;background:#b91c1c;border-color:#7f1d1d">💶 RESETEAR PROPINAS</button>
+    <button type="button" class="btn-reset-stock" onclick="resetHistorial()" style="margin-bottom:8px;background:#b91c1c;border-color:#7f1d1d">📜 RESETEAR HISTORIAL</button>
+    <button type="button" class="btn-reset-stock" onclick="resetTodo()" style="background:#b91c1c;border-color:#7f1d1d">⚠️ RESETEAR TODO</button>
 
     <div id="historialPanel" style="margin-top:16px"></div>
   </div>
@@ -134,7 +134,7 @@
         style="background:#334155;color:#fff;border:none;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px">
         ← Volver
       </button>
-      <h2 style="margin:0;font-size:18px;color:#38bdf8">🏦 Cierre de caja</h2>
+      <h2 style="margin:0;font-size:18px;color:#38bdf8">🏦 Depósito de caja</h2>
     </div>
 
     <div class="card" style="margin:0 0 12px 0">
@@ -147,7 +147,7 @@
     <div id="cierreResultado" class="card" style="margin:0 0 12px 0; display:none"></div>
 
     <button type="button" id="btnConfirmarCierre" class="primary" onclick="confirmarCierre()"
-      style="display:none; margin-top:0">✅ CONFIRMAR CIERRE</button>
+      style="display:none; margin-top:0">✅ CONFIRMAR DEPÓSITO</button>
 
     <div id="cierreHistorico" class="card" style="margin-top:14px; display:none"></div>
   </div>
@@ -155,7 +155,7 @@
 
 <div id="precioPantalla" onclick="cerrarPrecio()" style="
   position:fixed; inset:0; background:#0f172a; z-index:400;
-  display:none; align-items:center; justify-content:center; padding:16px; cursor:pointer;">
+  display:none; flex-direction:column; align-items:center; justify-content:center; padding:16px; cursor:pointer;">
   <div style="text-align:center; user-select:none; width:100%;">
     <div id="precioTitulo" style="
       font-size:clamp(28px, 8vw, 56px);
@@ -165,10 +165,16 @@
       font-size:clamp(90px, 32vw, 260px);
       font-weight:900; color:#38bdf8; line-height:1;
       word-break:break-word; margin:0;">0,00 €</div>
-    <div style="
-      font-size:clamp(14px, 3.5vw, 22px);
-      color:#64748b; margin-top:28px;">Toca en cualquier sitio para cerrar</div>
   </div>
+  <div style="display:flex;gap:14px;margin-top:32px;cursor:default" onclick="event.stopPropagation()">
+    <button type="button" onclick="leerPrecio('es')"
+      style="background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:14px;padding:16px 22px;font-size:18px;font-weight:900;cursor:pointer;min-width:90px">ESP</button>
+    <button type="button" onclick="leerPrecio('en')"
+      style="background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:14px;padding:16px 22px;font-size:18px;font-weight:900;cursor:pointer;min-width:90px">ENG</button>
+    <button type="button" onclick="leerPrecio('fr')"
+      style="background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:14px;padding:16px 22px;font-size:18px;font-weight:900;cursor:pointer;min-width:90px">FRA</button>
+  </div>
+  <div style="font-size:14px;color:#64748b;margin-top:28px;">Toca en cualquier sitio para cerrar</div>
 </div>
 
 <script src="app.js"></script>

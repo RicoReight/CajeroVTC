@@ -38,6 +38,7 @@ let stockInputs = [];
 let reservaInputs = [];
 let summaryTimer = null;
 let precioInterval = null;
+let precioActual = 0; // en céntimos
 
 function loadStock(){
   const s = safeStorage.get("uberCambioStock");
@@ -180,8 +181,9 @@ function mostrarPrecio(){
   const inp = document.getElementById("price"); if(!inp) return;
   const raw = parseFloat(inp.value.replace(',','.'))||0;
   if(raw<=0){ alert("Escribe primero el precio del viaje."); return; }
+  precioActual = Math.round(raw*100);
   const el = document.getElementById("precioGrande");
-  if(el) el.textContent = moneyText(Math.round(raw*100));
+  if(el) el.textContent = moneyText(precioActual);
   const p = document.getElementById("precioPantalla");
   if(p) p.style.display = "flex";
   iniciarAlternanciaPrecio();
@@ -196,9 +198,42 @@ function iniciarAlternanciaPrecio(){
 function detenerAlternanciaPrecio(){ if(precioInterval){ clearInterval(precioInterval); precioInterval=null; } }
 function cerrarPrecio(){
   detenerAlternanciaPrecio();
+  if("speechSynthesis" in window) window.speechSynthesis.cancel();
   const p = document.getElementById("precioPantalla"); if(p) p.style.display="none";
 }
 
+/* ---------- Lectura de precio por voz ---------- */
+function leerPrecio(idioma){
+  if(!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const txt = frasePrecio(precioActual, idioma);
+  const u = new SpeechSynthesisUtterance(txt);
+  u.lang = idioma === "es" ? "es-ES" : idioma === "en" ? "en-GB" : "fr-FR";
+  u.rate = 0.95;
+  u.pitch = 1;
+  window.speechSynthesis.speak(u);
+}
+function frasePrecio(cents, idioma){
+  const euros = Math.floor(cents/100);
+  const cent  = cents % 100;
+  if(idioma === "es"){
+    const verbo = euros === 1 ? "Es" : "Son";
+    let t = verbo + " " + euros + (euros === 1 ? " euro" : " euros");
+    if(cent > 0) t += " con " + cent;
+    return t;
+  }
+  if(idioma === "en"){
+    let t = "It's " + euros + (euros === 1 ? " euro" : " euros");
+    if(cent > 0) t += " " + cent;
+    return t;
+  }
+  // francés
+  let t = "Ça fait " + euros + (euros === 1 ? " euro" : " euros");
+  if(cent > 0) t += " " + cent;
+  return t;
+}
+
+/* ---------- Cambio óptimo ---------- */
 function findSmartChange(target, avail){
   let best = null, bestScore = Infinity;
   function bt(i, rest, used, score){
@@ -394,7 +429,7 @@ function resetPropinas(){
   totalTips = 0; saveTips(); renderStockList(); renderResetPanel();
 }
 function resetHistorial(){
-  if(!confirm("¿Borrar el HISTORIAL de cierres y de resets?")) return;
+  if(!confirm("¿Borrar el HISTORIAL de depósitos y de resets?")) return;
   safeStorage.remove("uberCambioCierres");
   safeStorage.remove("uberCambioHistoricoResets");
   renderHistorialPanel();
@@ -440,7 +475,7 @@ function renderHistorialPanel(){
   const resets  = loadHistoricoResets();
   let html = "";
   if(cierres.length > 0){
-    html += "<div style='font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:6px'>📜 ÚLTIMOS CIERRES</div>";
+    html += "<div style='font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:6px'>📜 ÚLTIMOS DEPÓSITOS</div>";
     cierres.slice(-10).reverse().forEach(c=>{
       const d = new Date(c.fecha);
       const fecha = d.toLocaleDateString("es-ES")+" "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
@@ -526,7 +561,7 @@ function calcularCierre(){
   html += "<div style='margin-top:14px;padding:12px;background:#064e3b;border:1px solid #059669;border-radius:10px'>" +
             "<div style='font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px'>💼 TE QUEDA EN CAJA</div>" +
             "<div style='font-size:24px;font-weight:900;color:#4ade80;margin-top:4px'>"+moneyText(quedaEnCaja)+"</div>" +
-            "<div style='font-size:11px;color:#94a3b8;margin-top:4px'>Después del cierre, en monedas y billetes restantes</div>" +
+            "<div style='font-size:11px;color:#94a3b8;margin-top:4px'>Después del depósito, en monedas y billetes restantes</div>" +
           "</div>";
   html += "</div>";
   cont.innerHTML = html;
@@ -560,7 +595,7 @@ function confirmarCierre(){
   const total  = parseInt(btn.dataset.total)||0;
   const usados = JSON.parse(btn.dataset.usados||"[]");
   if(total<=0) return;
-  if(!confirm("¿Confirmar cierre? Se entregarán "+moneyText(total)+" en billetes.\n\nLas propinas NO se tocan.")) return;
+  if(!confirm("¿Confirmar depósito? Se entregarán "+moneyText(total)+" en billetes.\n\nLas propinas NO se tocan.")) return;
   for(let i=0;i<usados.length;i++) stock[i] = Math.max(0, stock[i] - usados[i]);
   saveStock(); renderStockList(); updateCashSummary();
   const cierres = loadCierres();
@@ -570,7 +605,7 @@ function confirmarCierre(){
   const cont = document.getElementById("cierreResultado");
   if(cont){ cont.style.display = "none"; cont.innerHTML = ""; }
   btn.style.display = "none";
-  alert("✅ Cierre realizado.\nEntregados: " + moneyText(total));
+  alert("✅ Depósito realizado.\nEntregados: " + moneyText(total));
 }
 function renderCierreHistorico(){
   const box = document.getElementById("cierreHistorico"); if(!box) return;
@@ -620,8 +655,12 @@ function setupBackupUI(){
   panelInv.appendChild(box);
 }
 async function exportInventory(){
-  const data = { app:"uberCambioVTC", version:3, exportedAt:new Date().toISOString(),
-                 stock:stock, totalTips:totalTips, reservaMinima:reservaMinima };
+  const data = {
+    app:"uberCambioVTC", version:4,
+    exportedAt:new Date().toISOString(),
+    stock:stock, totalTips:totalTips, reservaMinima:reservaMinima,
+    diaReset:diaReset, ultimoResetPropinas:ultimoResetPropinas
+  };
   const jsonStr = JSON.stringify(data, null, 2);
   const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g, "-");
   const filename = `cambio-vtc-${stamp}.json`;
@@ -701,7 +740,7 @@ function importInventory(file){
       if(!data || !Array.isArray(data.stock) || data.stock.length !== denominations.length){
         alert("El archivo no es una copia válida."); return;
       }
-      if(!confirm("¿Reemplazar el inventario, propinas y reserva actuales?")) return;
+      if(!confirm("¿Reemplazar el inventario, propinas, reserva y configuración actuales?")) return;
       stock = data.stock.map(x => Math.max(0, parseInt(x) || 0));
       if(typeof data.totalTips === "number") totalTips = Math.max(0, data.totalTips);
       if(data.reservaMinima && typeof data.reservaMinima === "object"){
@@ -711,6 +750,14 @@ function importInventory(file){
             reservaMinima[d.c] = Math.max(0, parseInt(data.reservaMinima[d.c]) || 0);
         });
         safeStorage.set("uberCambioReserva", JSON.stringify(reservaMinima));
+      }
+      if(typeof data.diaReset === "number"){
+        diaReset = Math.max(1, Math.min(31, parseInt(data.diaReset)||20));
+        saveDiaReset();
+      }
+      if(typeof data.ultimoResetPropinas === "string"){
+        ultimoResetPropinas = data.ultimoResetPropinas;
+        saveUltimoResetPropinas();
       }
       saveStock(); saveTips(); renderStockList(); renderReservaList(); updateCashSummary();
       alert("✅ Copia restaurada.");

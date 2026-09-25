@@ -10,9 +10,12 @@
 <body>
 
 <div class="app">
-  <header>
-    <h1 class="title">Calculadora de Cambio</h1>
-    <button class="btn-menu" onclick="toggleMenu()">⚙️ AJUSTES</button>
+  <header style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:nowrap">
+    <h1 class="title" style="margin:0;flex:1;min-width:0">Calculadora de Cambio</h1>
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      <button class="btn-menu" onclick="toggleMenu()" style="padding:10px 12px;font-size:14px;white-space:nowrap">⚙️ AJUSTES</button>
+      <button class="btn-menu" onclick="abrirCierrePantalla()" style="padding:10px 12px;font-size:14px;white-space:nowrap;background:#334155">💰 CIERRE</button>
+    </div>
   </header>
 
   <div class="cash-summary-card">
@@ -82,17 +85,16 @@
     </button>
     <button type="button" id="tabReserva" onclick="switchDrawerTab('reserva')"
       style="flex:1;padding:8px;border-radius:10px;border:1px solid #475569;background:#1e293b;color:#94a3b8;font-weight:700;cursor:pointer;font-size:12px">
-      🔒 Reserva
+      🔒 Límite
     </button>
-    <button type="button" id="tabCierre" onclick="abrirCierrePantalla()"
+    <button type="button" id="tabReset" onclick="switchDrawerTab('reset')"
       style="flex:1;padding:8px;border-radius:10px;border:1px solid #475569;background:#1e293b;color:#94a3b8;font-weight:700;cursor:pointer;font-size:12px">
-      🏦 Cierre
+      🔄 Reset
     </button>
   </div>
 
   <div id="panelInventario" style="display:block">
     <div class="tip-total-box" id="totalTipDisplay">💶 Propinas: 0,00 €</div>
-    <button type="button" class="btn-reset-stock" onclick="resetStock()">⚠️ RESETEAR A CERO</button>
     <div id="stockList" style="min-height:60px"></div>
   </div>
 
@@ -103,6 +105,33 @@
     </div>
     <div id="reservaList" style="min-height:60px"></div>
     <button type="button" class="btn-reset-stock" onclick="resetReserva()" style="margin-top:12px">↺ RESTAURAR POR DEFECTO</button>
+  </div>
+
+  <div id="panelReset" style="display:none">
+    <!-- Cuadro grande: día del reset -->
+    <div style="background:#064e3b;border:2px solid #059669;border-radius:12px;padding:14px;margin-bottom:14px;text-align:center">
+      <div style="font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px">🔄 RESET AUTOMÁTICO DE PROPINAS</div>
+      <div style="font-size:13px;color:#a7f3d0;margin-top:8px">Se reseteará el día</div>
+      <input type="number" id="resetDia" min="1" max="31" value="20"
+        onchange="guardarDiaReset()"
+        style="width:90px;font-size:36px;font-weight:900;padding:8px;border-radius:10px;border:1px solid #059669;background:#0f172a;color:#4ade80;text-align:center;outline:none;margin-top:6px">
+      <div style="font-size:13px;color:#a7f3d0;margin-top:6px">de cada mes</div>
+      <div id="resetUltimaVez" style="font-size:11px;color:#94a3b8;margin-top:10px">Última vez: —</div>
+    </div>
+
+    <!-- Botones de reset juntos -->
+    <button type="button" class="btn-reset-stock" onclick="resetCuenta()" style="margin-bottom:8px">
+      💰 RESETEAR CUENTA (caja)
+    </button>
+    <button type="button" class="btn-reset-stock" onclick="resetPropinas()" style="margin-bottom:8px;background:#78350f;border-color:#b45309">
+      💶 RESETEAR PROPINAS
+    </button>
+    <button type="button" class="btn-reset-stock" onclick="resetHistorial()" style="margin-bottom:8px">
+      📜 RESETEAR HISTORIAL
+    </button>
+    <button type="button" class="btn-reset-stock" onclick="resetTodo()" style="background:#7f1d1d;border-color:#b91c1c">
+      ⚠️ RESETEAR TODO
+    </button>
   </div>
 </div>
 

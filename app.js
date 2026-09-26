@@ -133,6 +133,12 @@ function estadoPara(target, disp){
   if(canMakeAmount(target, stock)) return "warn";
   return "no";
 }
+function estadoParaStock(target, stockArr){
+  const disp = stockArr.map((n,i) => Math.max(0, n - (reservaMinima[denominations[i].c]||0)));
+  if(canMakeAmount(target, disp)) return "yes";
+  if(canMakeAmount(target, stockArr)) return "warn";
+  return "no";
+}
 function stockDisponible(){ return stock.map((n,i) => Math.max(0, n - (reservaMinima[denominations[i].c]||0))); }
 function canMakeAmount(target, avail){
   if(target <= 0) return true;
@@ -643,10 +649,13 @@ function calcularCierre(){
   const btn  = document.getElementById("btnConfirmarCierre");
   const raw  = parseFloat(document.getElementById("cierreInput").value.replace(',','.'))||0;
   const target = Math.round(raw*100);
+
   if(!cont||!btn) return;
   if(target<=0){ cont.style.display="none"; cont.innerHTML=""; btn.style.display="none"; return; }
+
   const billetesStock = stock.slice(0,5);
   const res = findBilletes(target, billetesStock);
+
   if(!res || res.total===0){
     const maxB = stock.slice(0,5).reduce((s,n,i)=>s+n*denominations[i].c,0);
     let msg;
@@ -655,6 +664,7 @@ function calcularCierre(){
     cont.innerHTML = "<div style='color:#ef4444;font-weight:700;font-size:14px;text-align:center;line-height:1.6'>"+msg+"</div>";
     cont.style.display="block"; btn.style.display="none"; return;
   }
+
   let html = "";
   html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;text-align:center'>💵 ENTREGAR EN BILLETES</div>";
   html += "<div style='font-size:32px;font-weight:900;color:#4ade80;margin:6px 0 14px;text-align:center'>"+moneyText(res.total)+"</div>";
@@ -666,6 +676,54 @@ function calcularCierre(){
     }
   });
   html += "</div>";
+
+  // Simular stock después del depósito
+  const stockDespues = stock.slice();
+  for(let i = 0; i < res.usados.length; i++){
+    stockDespues[i] = Math.max(0, stockDespues[i] - res.usados[i]);
+  }
+
+  // Calcular estados de "después del depósito"
+  const checks = [
+    ["≤ 20 €", 2000],
+    ["≤ 30 €", 3000],
+    ["≤ 50 €", 5000],
+    ["≤ 80 €", 8000],
+    ["≤ 100 €", 10000]
+  ];
+
+  let htmlEstados = "";
+  let hayProblema = false;
+  checks.forEach(([label, t]) => {
+    const estado = estadoParaStock(t, stockDespues);
+    let icono, color, texto;
+    if(estado === "yes"){ icono = "🟢"; color = "#4ade80"; texto = "SÍ"; }
+    else if(estado === "warn"){ icono = "🟡"; color = "#eab308"; texto = "MÍN"; hayProblema = true; }
+    else { icono = "🔴"; color = "#ef4444"; texto = "NO"; hayProblema = true; }
+    htmlEstados += "<div style='display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#fff;border-bottom:1px solid #1e293b'>" +
+                     "<span>" + label + "</span>" +
+                     "<span style='color:" + color + ";font-weight:800'>" + icono + " " + texto + "</span>" +
+                   "</div>";
+  });
+
+  // Aviso del estado después del depósito
+  html += "<div style='margin-top:16px;padding-top:14px;border-top:1px solid #334155'>";
+  if(hayProblema){
+    html += "<div style='font-size:12px;color:#fbbf24;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>⚠️ DESPUÉS DEL DEPÓSITO</div>";
+    html += htmlEstados;
+    html += "<div style='margin-top:10px;padding:10px;background:#78350f;border:1px solid #b45309;border-radius:8px;font-size:12px;color:#fbbf24;line-height:1.5'>" +
+              "⚠️ Ojo: después de este depósito te quedarás justo para dar cambio. Puedes depositar menos o revisar tu inventario."
+            + "</div>";
+  } else {
+    html += "<div style='font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>✅ DESPUÉS DEL DEPÓSITO</div>";
+    html += htmlEstados;
+    html += "<div style='margin-top:10px;padding:10px;background:#064e3b;border:1px solid #059669;border-radius:8px;font-size:12px;color:#4ade80;line-height:1.5'>" +
+              "✅ Después de este depósito seguirás teniendo cambio suficiente."
+            + "</div>";
+  }
+  html += "</div>";
+
+  // Sobrante y queda en caja
   const sobrante = target - res.total;
   const totalEnCaja = stock.reduce((s,n,i)=>s+n*denominations[i].c,0);
   const quedaEnCaja = totalEnCaja - res.total;
@@ -681,6 +739,7 @@ function calcularCierre(){
             "<div style='font-size:11px;color:#94a3b8;margin-top:4px'>Después del depósito, en monedas y billetes restantes</div>" +
           "</div>";
   html += "</div>";
+
   cont.innerHTML = html;
   cont.style.display = "block"; btn.style.display = "block";
   btn.dataset.total  = String(res.total);

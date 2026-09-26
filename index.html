@@ -155,7 +155,7 @@
 
 <div id="precioPantalla" onclick="cerrarPrecio()" style="
   position:fixed; inset:0; background:#0f172a; z-index:400;
-  display:none; flex-direction:column; align-items:center; justify-content:center; padding:16px; cursor:pointer;">
+  display:none; align-items:center; justify-content:center; padding:16px; cursor:pointer;">
   <div style="text-align:center; user-select:none; width:100%;">
     <div id="precioTitulo" style="
       font-size:clamp(28px, 8vw, 56px);
@@ -165,16 +165,10 @@
       font-size:clamp(90px, 32vw, 260px);
       font-weight:900; color:#38bdf8; line-height:1;
       word-break:break-word; margin:0;">0,00 €</div>
+    <div style="
+      font-size:clamp(14px, 3.5vw, 22px);
+      color:#64748b; margin-top:28px;">Toca en cualquier sitio para cerrar</div>
   </div>
-  <div style="display:flex;gap:14px;margin-top:32px;cursor:default" onclick="event.stopPropagation()">
-    <button type="button" onclick="leerPrecio('es')"
-      style="background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:14px;padding:16px 22px;font-size:18px;font-weight:900;cursor:pointer;min-width:90px">ESP</button>
-    <button type="button" onclick="leerPrecio('en')"
-      style="background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:14px;padding:16px 22px;font-size:18px;font-weight:900;cursor:pointer;min-width:90px">ENG</button>
-    <button type="button" onclick="leerPrecio('fr')"
-      style="background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:14px;padding:16px 22px;font-size:18px;font-weight:900;cursor:pointer;min-width:90px">FRA</button>
-  </div>
-  <div style="font-size:14px;color:#64748b;margin-top:28px;">Toca en cualquier sitio para cerrar</div>
 </div>
 
 <script src="app.js"></script>

@@ -40,7 +40,7 @@ let reservaInputs = [];
 let summaryTimer = null;
 let precioInterval = null;
 let precioActual = 0;
-let cambioState = { aEntregar: {}, aRecibir: {}, modo: null };
+let cambioState = { aEntregar: {}, aRecibir: {}, modo: null, orden: [], ordenRecibir: [] };
 
 function loadStock(){
   const s = safeStorage.get("uberCambioStock");
@@ -90,7 +90,6 @@ function saveTips(){ safeStorage.set("uberCambioTips", String(totalTips)); }
 function saveReserva(){ safeStorage.set("uberCambioReserva", JSON.stringify(reservaMinima)); scheduleCashSummary(); if(received.length) calculate(); }
 
 function moneyText(c){ return (c/100).toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})+" €"; }
-function piezaText(c){ const d = denominations.find(x=>x.c===c); return d ? d.n : (c/100)+" €"; }
 
 function scheduleCashSummary(){
   if(summaryTimer) clearTimeout(summaryTimer);
@@ -838,7 +837,7 @@ function abrirCambioPantalla(){
   if(o) o.classList.remove("active");
   const p = document.getElementById("cambioPantalla");
   if(p) p.style.display = "block";
-  cambioState = { aEntregar: {}, aRecibir: {}, modo: null };
+  cambioState = { aEntregar: {}, aRecibir: {}, modo: null, orden: [], ordenRecibir: [] };
   renderCambioInicio();
 }
 function cerrarCambioPantalla(){
@@ -859,13 +858,16 @@ function renderCambioInicio(){
   html += "<span style='font-size:13px;color:#94a3b8;font-weight:700'>Total a cambiar:</span>";
   html += "<span id='cambioTotal' style='font-size:18px;font-weight:900;color:#38bdf8'>0,00 €</span>";
   html += "</div>";
-  html += "<div style='display:flex;gap:8px'>";
-  html += "<button type='button' onclick='calcularCambio()' style='flex:1;background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>🔀 Continuar</button>";
+  html += "<div style='display:flex;gap:8px;margin-bottom:8px'>";
+  html += "<button type='button' onclick='calcularCambio()' style='flex:2;background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>🔀 Continuar</button>";
   html += "<button type='button' onclick='cerrarCambioPantalla()' style='flex:1;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>Cancelar</button>";
+  html += "</div>";
+  html += "<div style='display:flex;gap:8px'>";
+  html += "<button type='button' onclick='deshacerCambioEntregar()' style='flex:1;background:#78350f;color:#fbbf24;border:1px solid #b45309;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>↩ Deshacer último</button>";
+  html += "<button type='button' onclick='resetCambioEntregar()' style='flex:1;background:#7f1d1d;color:#fff;border:1px solid #b91c1c;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>🗑️ Limpiar todo</button>";
   html += "</div>";
   html += "</div>";
 
-  // Historial debajo
   html += "<div id='cambioHistorial'></div>";
 
   cont.innerHTML = html;
@@ -880,6 +882,7 @@ function renderCambioInicio(){
     b.style.cssText = "width:100%;background:#283548;border:1px solid #475569;color:#fff;font-weight:800;padding:12px 4px;font-size:14px;border-radius:10px;cursor:pointer";
     b.onclick = ()=>{
       cambioState.aEntregar[c] = (cambioState.aEntregar[c] || 0) + 1;
+      cambioState.orden.push(c);
       actualizarCambioInicio();
     };
     const badge = document.createElement("div");
@@ -906,6 +909,23 @@ function actualizarCambioInicio(){
   });
   const el = document.getElementById("cambioTotal");
   if(el) el.textContent = moneyText(total);
+}
+
+function deshacerCambioEntregar(){
+  if(!cambioState.orden) cambioState.orden = [];
+  const last = cambioState.orden.pop();
+  if(last == null) return;
+  if(cambioState.aEntregar[last] > 0){
+    cambioState.aEntregar[last]--;
+    if(cambioState.aEntregar[last] <= 0) delete cambioState.aEntregar[last];
+  }
+  actualizarCambioInicio();
+}
+
+function resetCambioEntregar(){
+  cambioState.aEntregar = {};
+  cambioState.orden = [];
+  actualizarCambioInicio();
 }
 
 function calcularCambio(){
@@ -954,6 +974,7 @@ function renderCambioSinDatos(total){
 function pasarAModoManual(total){
   cambioState.modo = "manual";
   cambioState.aRecibir = {};
+  cambioState.ordenRecibir = [];
   renderCambioManual(total);
 }
 
@@ -983,9 +1004,12 @@ function renderCambioManual(total){
   html += "<div id='cambioManEstado' style='text-align:center;font-size:13px;font-weight:700;margin-top:10px'></div>";
   html += "</div>";
 
-  html += "<div style='display:flex;gap:8px;margin-bottom:12px'>";
+  html += "<div style='display:flex;gap:8px;margin-bottom:8px'>";
   html += "<button type='button' onclick='confirmarCambio(" + total + ")' id='cambioManBtn' style='flex:1;background:#059669;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>✅ Confirmar cambio</button>";
-  html += "<button type='button' onclick='resetCambioManual(" + total + ")' style='flex:1;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>↺ Limpiar</button>";
+  html += "</div>";
+  html += "<div style='display:flex;gap:8px;margin-bottom:12px'>";
+  html += "<button type='button' onclick='deshacerCambioRecibir(" + total + ")' style='flex:1;background:#78350f;color:#fbbf24;border:1px solid #b45309;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>↩ Deshacer último</button>";
+  html += "<button type='button' onclick='resetCambioManual(" + total + ")' style='flex:1;background:#7f1d1d;color:#fff;border:1px solid #b91c1c;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>🗑️ Limpiar todo</button>";
   html += "</div>";
   html += "<div style='text-align:center'>";
   html += "<button type='button' onclick='cerrarCambioPantalla()' style='background:transparent;color:#64748b;border:none;font-size:12px;text-decoration:underline;cursor:pointer'>Cancelar</button>";
@@ -1003,6 +1027,8 @@ function renderCambioManual(total){
     b.style.cssText = "width:100%;background:#283548;border:1px solid #475569;color:#fff;font-weight:800;padding:10px 4px;font-size:13px;border-radius:10px;cursor:pointer";
     b.onclick = ()=>{
       cambioState.aRecibir[d.c] = (cambioState.aRecibir[d.c] || 0) + 1;
+      if(!cambioState.ordenRecibir) cambioState.ordenRecibir = [];
+      cambioState.ordenRecibir.push(d.c);
       actualizarCambioManual(total);
     };
     const badge = document.createElement("div");
@@ -1017,7 +1043,19 @@ function renderCambioManual(total){
 
 function resetCambioManual(total){
   cambioState.aRecibir = {};
+  cambioState.ordenRecibir = [];
   renderCambioManual(total);
+}
+
+function deshacerCambioRecibir(total){
+  if(!cambioState.ordenRecibir) cambioState.ordenRecibir = [];
+  const last = cambioState.ordenRecibir.pop();
+  if(last == null) return;
+  if(cambioState.aRecibir[last] > 0){
+    cambioState.aRecibir[last]--;
+    if(cambioState.aRecibir[last] <= 0) delete cambioState.aRecibir[last];
+  }
+  actualizarCambioManual(total);
 }
 
 function actualizarCambioManual(total){
@@ -1061,7 +1099,6 @@ function confirmarCambio(total){
 
   if(!confirm("¿Confirmar el cambio?\n\nEntregas lo seleccionado al banco y tu inventario se actualizará con las piezas marcadas.")) return;
 
-  // Restar billetes entregados
   Object.keys(cambioState.aEntregar).forEach(k=>{
     const c = parseInt(k);
     const n = cambioState.aEntregar[c];
@@ -1069,7 +1106,6 @@ function confirmarCambio(total){
     if(idx >= 0 && n > 0) stock[idx] = Math.max(0, stock[idx] - n);
   });
 
-  // Sumar piezas recibidas
   denominations.forEach(d=>{
     const n = cambioState.aRecibir[d.c] || 0;
     if(n > 0){
@@ -1078,7 +1114,6 @@ function confirmarCambio(total){
     }
   });
 
-  // Guardar en historial
   const cambios = loadCambios();
   cambios.push({
     fecha: new Date().toISOString(),
@@ -1095,7 +1130,6 @@ function confirmarCambio(total){
   cerrarCambioPantalla();
 }
 
-/* ---------- Cálculo automático del cambio ---------- */
 function calcularCambioAutomatico(total, billeteMasPequeno){
   const ops = statsOps.operations || 1;
   const candidatas = denominations
@@ -1116,7 +1150,6 @@ function calcularCambioAutomatico(total, billeteMasPequeno){
   });
 
   if(restante !== 0){
-    // Fallback por orden natural
     const fallback = {};
     let r2 = total;
     const candidatas2 = denominations.filter(d => d.c < billeteMasPequeno).sort((a,b)=>b.c-a.c);
@@ -1131,7 +1164,6 @@ function calcularCambioAutomatico(total, billeteMasPequeno){
   return propuesta;
 }
 
-/* ---------- Resultado modo auto ---------- */
 function renderCambioResultado(total){
   const cont = document.getElementById("cambioContenido");
   if(!cont) return;
@@ -1180,7 +1212,6 @@ function renderCambioResultado(total){
   cont.innerHTML = html;
 }
 
-/* ---------- Historial de cambios ---------- */
 function renderCambioHistorial(){
   const box = document.getElementById("cambioHistorial");
   if(!box) return;
@@ -1195,7 +1226,6 @@ function renderCambioHistorial(){
     const fecha = d.toLocaleDateString("es-ES") + " · " +
                   d.toLocaleTimeString("es-ES", {hour:"2-digit", minute:"2-digit"});
 
-    // Texto de lo entregado
     const entregas = Object.keys(c.aEntregar).map(k=>{
       const cents = parseInt(k);
       const n = c.aEntregar[k];
@@ -1204,7 +1234,6 @@ function renderCambioHistorial(){
       return n + "×" + nom;
     }).join(" + ");
 
-    // Texto de lo recibido
     const recibidas = Object.keys(c.aRecibir).map(k=>{
       const cents = parseInt(k);
       const n = c.aRecibir[k];

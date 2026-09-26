@@ -1122,35 +1122,43 @@ function confirmarCambio(total){
   cerrarCambioPantalla();
 }
 
+/* ---------- Cálculo automático del cambio (repartido) ---------- */
 function calcularCambioAutomatico(total, billeteMasPequeno){
-  const ops = statsOps.operations || 1;
-  const candidatas = denominations
-    .map((d, i)=>({ d, i, ritmo: (statsOps.spent[i]||0) / ops }))
-    .filter(x => x.d.c < billeteMasPequeno);
+  const candidatas = denominations.filter(d => d.c < billeteMasPequeno);
+  candidatas.sort((a,b) => a.c - b.c); // de pequeña a grande
 
-  candidatas.sort((a,b) => (b.ritmo - a.ritmo) || (b.d.c - a.d.c));
+  // Topes por denominación (máximo de piezas a recibir de cada tipo)
+  // Pensados para que quepan bien en un monedero y no se acumulen montañas
+  const topes = {
+    1: 5, 2: 5, 5: 8, 10: 8, 20: 8, 50: 8,
+    100: 8, 200: 8, 500: 3, 1000: 3, 2000: 2, 5000: 1, 10000: 1
+  };
 
   let restante = total;
   const propuesta = {};
-  candidatas.forEach(x=>{
+
+  // Primera pasada: rellenar de pequeñas a grandes, con topes
+  candidatas.forEach(d => {
     if(restante <= 0) return;
-    const cuantas = Math.floor(restante / x.d.c);
+    const tope = topes[d.c] || 8;
+    const cuantas = Math.min(Math.floor(restante / d.c), tope);
     if(cuantas > 0){
-      propuesta[x.d.c] = cuantas;
-      restante -= cuantas * x.d.c;
+      propuesta[d.c] = cuantas;
+      restante -= cuantas * d.c;
     }
   });
 
-  if(restante !== 0){
-    const fallback = {};
-    let r2 = total;
-    const candidatas2 = denominations.filter(d => d.c < billeteMasPequeno).sort((a,b)=>b.c-a.c);
-    candidatas2.forEach(d=>{
-      if(r2 <= 0) return;
-      const cuantas = Math.floor(r2 / d.c);
-      if(cuantas > 0){ fallback[d.c] = cuantas; r2 -= cuantas * d.c; }
-    });
-    return fallback;
+  // Segunda pasada: si aún queda, tirar de las grandes sin tope
+  if(restante > 0){
+    const desc = candidatas.slice().sort((a,b) => b.c - a.c);
+    for(const d of desc){
+      if(restante <= 0) break;
+      const cuantas = Math.floor(restante / d.c);
+      if(cuantas > 0){
+        propuesta[d.c] = (propuesta[d.c] || 0) + cuantas;
+        restante -= cuantas * d.c;
+      }
+    }
   }
 
   return propuesta;

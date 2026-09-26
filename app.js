@@ -1127,8 +1127,6 @@ function calcularCambioAutomatico(total, billeteMasPequeno){
   const candidatas = denominations.filter(d => d.c < billeteMasPequeno);
   candidatas.sort((a,b) => a.c - b.c); // de pequeña a grande
 
-  // Topes por denominación (máximo de piezas a recibir de cada tipo)
-  // Pensados para que quepan bien en un monedero y no se acumulen montañas
   const topes = {
     1: 5, 2: 5, 5: 8, 10: 8, 20: 8, 50: 8,
     100: 8, 200: 8, 500: 3, 1000: 3, 2000: 2, 5000: 1, 10000: 1
@@ -1137,7 +1135,6 @@ function calcularCambioAutomatico(total, billeteMasPequeno){
   let restante = total;
   const propuesta = {};
 
-  // Primera pasada: rellenar de pequeñas a grandes, con topes
   candidatas.forEach(d => {
     if(restante <= 0) return;
     const tope = topes[d.c] || 8;
@@ -1148,7 +1145,6 @@ function calcularCambioAutomatico(total, billeteMasPequeno){
     }
   });
 
-  // Segunda pasada: si aún queda, tirar de las grandes sin tope
   if(restante > 0){
     const desc = candidatas.slice().sort((a,b) => b.c - a.c);
     for(const d of desc){
@@ -1164,41 +1160,57 @@ function calcularCambioAutomatico(total, billeteMasPequeno){
   return propuesta;
 }
 
+/* ---------- Render de resultado con gráficos ---------- */
 function renderCambioResultado(total){
   const cont = document.getElementById("cambioContenido");
   if(!cont) return;
 
   let html = "";
   html += "<div class='card' style='margin:0 0 12px 0'>";
-  html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>🤖 PROPUESTA BASADA EN TUS HÁBITOS</div>";
+  html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:12px'>🤖 PROPUESTA BASADA EN TUS HÁBITOS</div>";
 
-  html += "<div style='font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>ENTREGAS AL BANCO</div>";
+  // ENTREGAS AL BANCO (con gráficos)
+  html += "<div style='font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>ENTREGAS AL BANCO</div>";
+  html += "<div class='change-grid'>";
   Object.keys(cambioState.aEntregar).forEach(k=>{
     const c = parseInt(k);
     const n = cambioState.aEntregar[c];
     if(n > 0){
       const d = denominations.find(x=>x.c===c);
-      html += "<div style='display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff'>" +
-                "<span>" + d.n + " × " + n + "</span>" +
-                "<span style='font-weight:700'>" + moneyText(c*n) + "</span></div>";
+      if(d){
+        html += "<div class='cash-item'>" +
+                  "<div class='badge'>x" + n + "</div>" +
+                  "<div class='bill-graphic " + d.class + "'>" + d.short + "</div>" +
+                "</div>";
+      }
     }
   });
+  html += "</div>";
 
-  html += "<div style='font-size:12px;color:#38bdf8;font-weight:800;letter-spacing:0.5px;margin:12px 0 6px;padding-top:10px;border-top:1px solid #334155'>PIDE QUE TE DEVUELVAN</div>";
-  Object.keys(cambioState.aRecibir).forEach(k=>{
-    const c = parseInt(k);
+  // PIDE QUE TE DEVUELVAN (con gráficos)
+  html += "<div style='font-size:12px;color:#38bdf8;font-weight:800;letter-spacing:0.5px;margin:16px 0 8px;padding-top:14px;border-top:1px solid #334155'>PIDE QUE TE DEVUELVAN</div>";
+  html += "<div class='change-grid'>";
+  const orden = Object.keys(cambioState.aRecibir)
+    .map(k => parseInt(k))
+    .filter(c => cambioState.aRecibir[c] > 0)
+    .sort((a,b) => b - a);
+  orden.forEach(c=>{
     const n = cambioState.aRecibir[c];
-    if(n > 0){
-      const d = denominations.find(x=>x.c===c);
-      html += "<div style='display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff'>" +
-                "<span>" + d.n + " × " + n + "</span>" +
-                "<span style='font-weight:700'>" + moneyText(c*n) + "</span></div>";
+    const d = denominations.find(x=>x.c===c);
+    if(d){
+      const clase = d.type === "bill" ? "bill-graphic " : "coin-graphic ";
+      html += "<div class='cash-item'>" +
+                "<div class='badge'>x" + n + "</div>" +
+                "<div class='" + clase + d.class + "'>" + d.short + "</div>" +
+              "</div>";
     }
   });
+  html += "</div>";
 
-  html += "<div style='display:flex;justify-content:space-between;padding:8px 0 0;margin-top:8px;border-top:1px solid #334155;font-size:15px;color:#fff'>" +
+  // Total
+  html += "<div style='display:flex;justify-content:space-between;padding:14px 0 0;margin-top:14px;border-top:1px solid #334155;font-size:16px;color:#fff'>" +
             "<span style='font-weight:800'>Total:</span>" +
-            "<span style='font-weight:900'>" + moneyText(total) + "</span></div>";
+            "<span style='font-weight:900;color:#4ade80'>" + moneyText(total) + "</span></div>";
   html += "</div>";
 
   html += "<button type='button' onclick='confirmarCambio(" + total + ")' style='width:100%;background:#059669;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>✅ Confirmar cambio</button>";

@@ -858,14 +858,12 @@ function renderCambioInicio(){
   html += "<span style='font-size:13px;color:#94a3b8;font-weight:700'>Total a cambiar:</span>";
   html += "<span id='cambioTotal' style='font-size:18px;font-weight:900;color:#38bdf8'>0,00 €</span>";
   html += "</div>";
+  html += "<button type='button' onclick='calcularCambio()' style='width:100%;background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>🔀 Continuar</button>";
   html += "<div style='display:flex;gap:8px;margin-bottom:8px'>";
-  html += "<button type='button' onclick='calcularCambio()' style='flex:2;background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>🔀 Continuar</button>";
-  html += "<button type='button' onclick='cerrarCambioPantalla()' style='flex:1;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>Cancelar</button>";
-  html += "</div>";
-  html += "<div style='display:flex;gap:8px'>";
-  html += "<button type='button' onclick='deshacerCambioEntregar()' style='flex:1;background:#78350f;color:#fbbf24;border:1px solid #b45309;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>↩ Deshacer último</button>";
+  html += "<button type='button' onclick='deshacerCambioEntregar()' style='flex:1;background:#78350f;color:#fbbf24;border:1px solid #b45309;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>↩ Deshacer</button>";
   html += "<button type='button' onclick='resetCambioEntregar()' style='flex:1;background:#7f1d1d;color:#fff;border:1px solid #b91c1c;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>🗑️ Limpiar todo</button>";
   html += "</div>";
+  html += "<button type='button' onclick='cerrarCambioPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button>";
   html += "</div>";
 
   html += "<div id='cambioHistorial'></div>";
@@ -963,10 +961,8 @@ function renderCambioSinDatos(total){
   html += "Para darte una sugerencia basada en tus hábitos necesito al menos 10 operaciones registradas.<br><br>";
   html += "Puedes elegir manualmente las piezas que quieres recibir a cambio.";
   html += "</div>";
-  html += "<div style='display:flex;gap:8px'>";
-  html += "<button type='button' onclick='pasarAModoManual(" + total + ")' style='flex:1;background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>✍️ Elegir a mano</button>";
-  html += "<button type='button' onclick='cerrarCambioPantalla()' style='flex:1;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>Cancelar</button>";
-  html += "</div>";
+  html += "<button type='button' onclick='pasarAModoManual(" + total + ")' style='width:100%;background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>✍️ Elegir a mano</button>";
+  html += "<button type='button' onclick='cerrarCambioPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button>";
   html += "</div>";
   cont.innerHTML = html;
 }
@@ -1004,16 +1000,12 @@ function renderCambioManual(total){
   html += "<div id='cambioManEstado' style='text-align:center;font-size:13px;font-weight:700;margin-top:10px'></div>";
   html += "</div>";
 
+  html += "<button type='button' onclick='confirmarCambio(" + total + ")' id='cambioManBtn' style='width:100%;background:#059669;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>✅ Confirmar cambio</button>";
   html += "<div style='display:flex;gap:8px;margin-bottom:8px'>";
-  html += "<button type='button' onclick='confirmarCambio(" + total + ")' id='cambioManBtn' style='flex:1;background:#059669;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>✅ Confirmar cambio</button>";
-  html += "</div>";
-  html += "<div style='display:flex;gap:8px;margin-bottom:12px'>";
-  html += "<button type='button' onclick='deshacerCambioRecibir(" + total + ")' style='flex:1;background:#78350f;color:#fbbf24;border:1px solid #b45309;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>↩ Deshacer último</button>";
+  html += "<button type='button' onclick='deshacerCambioRecibir(" + total + ")' style='flex:1;background:#78350f;color:#fbbf24;border:1px solid #b45309;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>↩ Deshacer</button>";
   html += "<button type='button' onclick='resetCambioManual(" + total + ")' style='flex:1;background:#7f1d1d;color:#fff;border:1px solid #b91c1c;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>🗑️ Limpiar todo</button>";
   html += "</div>";
-  html += "<div style='text-align:center'>";
-  html += "<button type='button' onclick='cerrarCambioPantalla()' style='background:transparent;color:#64748b;border:none;font-size:12px;text-decoration:underline;cursor:pointer'>Cancelar</button>";
-  html += "</div>";
+  html += "<button type='button' onclick='cerrarCambioPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button>";
 
   cont.innerHTML = html;
 
@@ -1201,13 +1193,9 @@ function renderCambioResultado(total){
             "<span style='font-weight:900'>" + moneyText(total) + "</span></div>";
   html += "</div>";
 
-  html += "<div style='display:flex;gap:8px;margin-bottom:12px'>";
-  html += "<button type='button' onclick='confirmarCambio(" + total + ")' style='flex:1;background:#059669;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>✅ Confirmar cambio</button>";
-  html += "<button type='button' onclick='pasarAModoManual(" + total + ")' style='flex:1;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>✍️ Ajustar a mano</button>";
-  html += "</div>";
-  html += "<div style='text-align:center'>";
-  html += "<button type='button' onclick='cerrarCambioPantalla()' style='background:transparent;color:#64748b;border:none;font-size:12px;text-decoration:underline;cursor:pointer'>Cancelar</button>";
-  html += "</div>";
+  html += "<button type='button' onclick='confirmarCambio(" + total + ")' style='width:100%;background:#059669;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>✅ Confirmar cambio</button>";
+  html += "<button type='button' onclick='pasarAModoManual(" + total + ")' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>✍️ Ajustar a mano</button>";
+  html += "<button type='button' onclick='cerrarCambioPantalla()' style='width:100%;background:#1e293b;color:#94a3b8;border:1px solid #475569;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button>";
 
   cont.innerHTML = html;
 }

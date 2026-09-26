@@ -95,6 +95,7 @@
   <div id="panelInventario" style="display:block">
     <div class="tip-total-box" id="totalTipDisplay">💶 Propinas: 0,00 €</div>
     <div id="stockList" style="min-height:60px"></div>
+    <div id="recomendacionesBox"></div>
   </div>
 
   <div id="panelReserva" style="display:none">
@@ -119,6 +120,7 @@
     <button type="button" class="btn-reset-stock" onclick="resetCuenta()" style="margin-bottom:8px;background:#b91c1c;border-color:#7f1d1d">💰 RESETEAR CUENTA (caja)</button>
     <button type="button" class="btn-reset-stock" onclick="resetPropinas()" style="margin-bottom:8px;background:#b91c1c;border-color:#7f1d1d">💶 RESETEAR PROPINAS</button>
     <button type="button" class="btn-reset-stock" onclick="resetHistorial()" style="margin-bottom:8px;background:#b91c1c;border-color:#7f1d1d">📜 RESETEAR HISTORIAL</button>
+    <button type="button" class="btn-reset-stock" onclick="resetEstadisticas()" style="margin-bottom:8px;background:#b91c1c;border-color:#7f1d1d">🤖 RESETEAR ESTADÍSTICAS</button>
     <button type="button" class="btn-reset-stock" onclick="resetTodo()" style="background:#b91c1c;border-color:#7f1d1d">⚠️ RESETEAR TODO</button>
 
     <div id="historialPanel" style="margin-top:16px"></div>
@@ -150,6 +152,42 @@
       style="display:none; margin-top:0">✅ CONFIRMAR DEPÓSITO</button>
 
     <div id="cierreHistorico" class="card" style="margin-top:14px; display:none"></div>
+
+    <!-- Botón discreto para añadir depósito manual -->
+    <div style="text-align:center;margin-top:16px">
+      <button type="button" onclick="toggleDepositoManual()"
+        style="background:transparent;color:#475569;border:1px dashed #334155;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">
+        ➕ Añadir depósito manual
+      </button>
+    </div>
+
+    <!-- Formulario manual (oculto por defecto) -->
+    <div id="depositoManualBox" style="display:none;margin-top:12px" class="card">
+      <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">📝 REGISTRAR DEPÓSITO MANUAL</div>
+
+      <label style="font-size:13px;color:#94a3b8;font-weight:700">Fecha</label>
+      <input id="depManualFecha" type="date"
+        style="width:100%;font-size:16px;padding:10px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin:6px 0 12px;outline:none">
+
+      <label style="font-size:13px;color:#94a3b8;font-weight:700">Importe (€)</label>
+      <input id="depManualImporte" type="number" inputmode="decimal" step="0.01" placeholder="Ej. 130.00"
+        style="width:100%;font-size:22px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin:6px 0 12px;outline:none">
+
+      <div style="font-size:12px;color:#64748b;margin-bottom:12px;line-height:1.4">
+        ⓘ Se añadirá al historial <b>sin tocar tu inventario</b>.
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button type="button" onclick="añadirDepositoManual()"
+          style="flex:1;background:#059669;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer">
+          ✅ Añadir
+        </button>
+        <button type="button" onclick="toggleDepositoManual()"
+          style="flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer">
+          Cancelar
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 

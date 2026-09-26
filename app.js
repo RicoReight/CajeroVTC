@@ -28,11 +28,11 @@ const RESERVA_MINIMA_DEFAULT = {
 };
 
 const TOPES_DEFAULT = {
-  1: 30, 2: 30, 5: 30,       // 0,01 €, 0,02 €, 0,05 €
-  10: 25, 20: 25, 50: 20,    // 0,10 €, 0,20 €, 0,50 €
-  100: 20, 200: 20,          // 1 €, 2 €
-  500: 8, 1000: 8,           // 5 €, 10 €
-  2000: 5, 5000: 3, 10000: 2 // 20 €, 50 €, 100 €
+  1: 30, 2: 30, 5: 30,
+  10: 25, 20: 25, 50: 20,
+  100: 20, 200: 20,
+  500: 8, 1000: 8,
+  2000: 5, 5000: 3, 10000: 2
 };
 
 let stock = loadStock();
@@ -221,7 +221,6 @@ function setAllTip(){
   }
 }
 
-/* ---------- Precio gigante ---------- */
 function mostrarPrecio(){
   const inp = document.getElementById("price"); if(!inp) return;
   const raw = parseFloat(inp.value.replace(',','.'))||0;
@@ -246,7 +245,6 @@ function cerrarPrecio(){
   const p = document.getElementById("precioPantalla"); if(p) p.style.display="none";
 }
 
-/* ---------- Cambio óptimo ---------- */
 function findSmartChange(target, avail){
   let best = null, bestScore = Infinity;
   function bt(i, rest, used, score){
@@ -644,6 +642,61 @@ function cerrarCierrePantalla(){
   const p = document.getElementById("cierrePantalla");
   if(p) p.style.display = "none";
 }
+
+/* ---------- findBilletes con DP (no se pilla con valores altos) ---------- */
+function findBilletes(target, billetesStock){
+  const denoms = [
+    {c:10000, idx:0}, {c:5000, idx:1}, {c:2000, idx:2},
+    {c:1000,  idx:3}, {c:500,  idx:4}
+  ];
+
+  // Cap: no buscar por encima de lo que realmente puedes formar
+  const totalDisponible = denoms.reduce((s,d) => s + billetesStock[d.idx] * d.c, 0);
+  const maxT = Math.min(Math.floor(target/5)*5, totalDisponible);
+
+  if(maxT <= 0) return { total: 0, usados: [0,0,0,0,0] };
+
+  // DP: bounded knapsack. alcanzable[t] = 1 si podemos formar t.
+  const alcanzable = new Uint8Array(maxT + 1);
+  const dpOrigen  = new Int8Array(maxT + 1).fill(-1);
+  alcanzable[0] = 1;
+
+  denoms.forEach((d, di) => {
+    const n = billetesStock[d.idx] | 0;
+    if(n <= 0) return;
+    for(let k = 0; k < n; k++){
+      let anyChange = false;
+      for(let t = maxT; t >= d.c; t--){
+        if(!alcanzable[t] && alcanzable[t - d.c]){
+          alcanzable[t] = 1;
+          dpOrigen[t] = di;
+          anyChange = true;
+        }
+      }
+      if(!anyChange) break;
+    }
+  });
+
+  // Buscar el mayor alcanzable <= maxT
+  let mejor = 0;
+  for(let t = maxT; t >= 0; t--){
+    if(alcanzable[t]){ mejor = t; break; }
+  }
+  if(mejor === 0) return { total: 0, usados: [0,0,0,0,0] };
+
+  // Reconstruir
+  const usados = [0,0,0,0,0];
+  let t = mejor;
+  while(t > 0){
+    const di = dpOrigen[t];
+    if(di < 0) break;
+    usados[di]++;
+    t -= denoms[di].c;
+  }
+
+  return { total: mejor, usados };
+}
+
 function calcularCierre(){
   const cont = document.getElementById("cierreResultado");
   const btn  = document.getElementById("btnConfirmarCierre");
@@ -683,7 +736,7 @@ function calcularCierre(){
     stockDespues[i] = Math.max(0, stockDespues[i] - res.usados[i]);
   }
 
-  // Calcular estados de "después del depósito"
+  // Badges estilo menú principal
   const checks = [
     ["≤ 20 €", 2000],
     ["≤ 30 €", 3000],
@@ -692,34 +745,37 @@ function calcularCierre(){
     ["≤ 100 €", 10000]
   ];
 
-  let htmlEstados = "";
+  let htmlTarjetas = "";
   let hayProblema = false;
   checks.forEach(([label, t]) => {
     const estado = estadoParaStock(t, stockDespues);
-    let icono, color, texto;
-    if(estado === "yes"){ icono = "🟢"; color = "#4ade80"; texto = "SÍ"; }
-    else if(estado === "warn"){ icono = "🟡"; color = "#eab308"; texto = "MÍN"; hayProblema = true; }
-    else { icono = "🔴"; color = "#ef4444"; texto = "NO"; hayProblema = true; }
-    htmlEstados += "<div style='display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#fff;border-bottom:1px solid #1e293b'>" +
-                     "<span>" + label + "</span>" +
-                     "<span style='color:" + color + ";font-weight:800'>" + icono + " " + texto + "</span>" +
-                   "</div>";
+    let texto, bg, color, borde;
+    if(estado === "yes"){ texto = "SÍ"; bg = "rgba(22,163,74,0.15)"; color = "#4ade80"; borde = "#16a34a"; }
+    else if(estado === "warn"){ texto = "MÍN"; bg = "rgba(234,179,8,0.15)"; color = "#facc15"; borde = "#eab308"; hayProblema = true; }
+    else { texto = "NO"; bg = "rgba(220,38,38,0.15)"; color = "#f87171"; borde = "#dc2626"; hayProblema = true; }
+
+    htmlTarjetas +=
+      "<div style='flex:1;min-width:0;background:#283548;border:1px solid #475569;border-radius:10px;padding:8px 2px;display:flex;flex-direction:column;align-items:center;gap:6px'>" +
+        "<div style='font-size:11px;font-weight:800;color:#f1f5f9;white-space:nowrap'>" + label + "</div>" +
+        "<div style='width:100%;padding:6px 0;border-radius:8px;background:" + bg + ";border:1px solid " + borde + ";color:" + color + ";font-size:14px;font-weight:900;text-align:center;letter-spacing:0.5px'>" + texto + "</div>" +
+      "</div>";
   });
 
-  // Aviso del estado después del depósito
   html += "<div style='margin-top:16px;padding-top:14px;border-top:1px solid #334155'>";
   if(hayProblema){
-    html += "<div style='font-size:12px;color:#fbbf24;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>⚠️ DESPUÉS DEL DEPÓSITO</div>";
-    html += htmlEstados;
-    html += "<div style='margin-top:10px;padding:10px;background:#78350f;border:1px solid #b45309;border-radius:8px;font-size:12px;color:#fbbf24;line-height:1.5'>" +
-              "⚠️ Ojo: después de este depósito te quedarás justo para dar cambio. Puedes depositar menos o revisar tu inventario."
-            + "</div>";
+    html += "<div style='font-size:12px;color:#fbbf24;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>⚠️ DESPUÉS DEL DEPÓSITO</div>";
   } else {
-    html += "<div style='font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>✅ DESPUÉS DEL DEPÓSITO</div>";
-    html += htmlEstados;
-    html += "<div style='margin-top:10px;padding:10px;background:#064e3b;border:1px solid #059669;border-radius:8px;font-size:12px;color:#4ade80;line-height:1.5'>" +
-              "✅ Después de este depósito seguirás teniendo cambio suficiente."
-            + "</div>";
+    html += "<div style='font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>✅ DESPUÉS DEL DEPÓSITO</div>";
+  }
+  html += "<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px'>" + htmlTarjetas + "</div>";
+  if(hayProblema){
+    html += "<div style='padding:12px;background:#78350f;border:1px solid #b45309;border-radius:10px;font-size:13px;color:#fbbf24;line-height:1.5;text-align:center'>" +
+              "⚠️ <b>Ojo</b>: después de este depósito te quedarás justo para dar cambio.<br>Puedes depositar menos o revisar tu inventario." +
+            "</div>";
+  } else {
+    html += "<div style='padding:12px;background:#064e3b;border:1px solid #059669;border-radius:10px;font-size:13px;color:#4ade80;line-height:1.5;text-align:center'>" +
+              "✅ Después de este depósito seguirás teniendo <b>cambio suficiente</b>." +
+            "</div>";
   }
   html += "</div>";
 
@@ -744,27 +800,6 @@ function calcularCierre(){
   cont.style.display = "block"; btn.style.display = "block";
   btn.dataset.total  = String(res.total);
   btn.dataset.usados = JSON.stringify(res.usados);
-}
-function findBilletes(target, billetesStock){
-  const denoms = [{c:10000,idx:0},{c:5000,idx:1},{c:2000,idx:2},{c:1000,idx:3},{c:500,idx:4}];
-  const maxT = Math.floor(target/5)*5;
-  for(let t=maxT;t>=0;t-=5){
-    const r = buscarCombinacion(t, billetesStock, denoms);
-    if(r) return { total: t, usados: r };
-  }
-  return { total: 0, usados: [0,0,0,0,0] };
-}
-function buscarCombinacion(target, stock, denoms){
-  const u = [0,0,0,0,0];
-  function bt(i, rest){
-    if(rest===0) return true;
-    if(i>=denoms.length) return false;
-    const d = denoms[i];
-    const max = Math.min(stock[d.idx], Math.floor(rest/d.c));
-    for(let n=max;n>=0;n--){ u[i]=n; if(bt(i+1, rest-n*d.c)) return true; }
-    u[i]=0; return false;
-  }
-  return bt(0,target) ? u : null;
 }
 function confirmarCierre(){
   const btn = document.getElementById("btnConfirmarCierre"); if(!btn) return;
@@ -1241,7 +1276,6 @@ function confirmarCambio(total){
   cerrarCambioPantalla();
 }
 
-/* ---------- Cálculo automático del cambio (repartido + stock) ---------- */
 function calcularCambioAutomatico(total, billeteMasPequeno){
   const candidatas = denominations.filter(d => d.c < billeteMasPequeno);
 

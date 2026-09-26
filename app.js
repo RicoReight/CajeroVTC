@@ -643,58 +643,91 @@ function cerrarCierrePantalla(){
   if(p) p.style.display = "none";
 }
 
-/* ---------- findBilletes con DP (no se pilla con valores altos) ---------- */
-function findBilletes(target, billetesStock){
+/* ---------- findBilletes: billetes grandes primero, DP, respeta reserva ---------- */
+function findBilletes(target, billetesStock, billetesReserva){
+  const maxUnits = Math.floor(target / 500);
+  if(maxUnits <= 0) return { total: 0, usados: [0,0,0,0,0], tocoReserva: false };
+
   const denoms = [
-    {c:10000, idx:0}, {c:5000, idx:1}, {c:2000, idx:2},
-    {c:1000,  idx:3}, {c:500,  idx:4}
+    {u:20, idx:0}, // 100 €
+    {u:10, idx:1}, //  50 €
+    {u:4,  idx:2}, //  20 €
+    {u:2,  idx:3}, //  10 €
+    {u:1,  idx:4}  //   5 €
   ];
 
-  // Cap: no buscar por encima de lo que realmente puedes formar
-  const totalDisponible = denoms.reduce((s,d) => s + billetesStock[d.idx] * d.c, 0);
-  const maxT = Math.min(Math.floor(target/5)*5, totalDisponible);
+  const disp = billetesStock.map((n, i) => Math.max(0, n - (billetesReserva[i] || 0)));
 
-  if(maxT <= 0) return { total: 0, usados: [0,0,0,0,0] };
+  // 1) Exacto SIN tocar reserva
+  const r1 = mejorEnRango(maxUnits, disp, denoms);
+  if(r1 && r1.totalUnits === maxUnits){
+    return { total: maxUnits * 500, usados: r1.usados, tocoReserva: false };
+  }
 
-  // DP: bounded knapsack. alcanzable[t] = 1 si podemos formar t.
-  const alcanzable = new Uint8Array(maxT + 1);
-  const dpOrigen  = new Int8Array(maxT + 1).fill(-1);
-  alcanzable[0] = 1;
+  // 2) Exacto CON reserva
+  const r2 = mejorEnRango(maxUnits, billetesStock, denoms);
+  if(r2 && r2.totalUnits === maxUnits){
+    return { total: maxUnits * 500, usados: r2.usados, tocoReserva: true };
+  }
 
-  denoms.forEach((d, di) => {
-    const n = billetesStock[d.idx] | 0;
-    if(n <= 0) return;
-    for(let k = 0; k < n; k++){
-      let anyChange = false;
-      for(let t = maxT; t >= d.c; t--){
-        if(!alcanzable[t] && alcanzable[t - d.c]){
-          alcanzable[t] = 1;
-          dpOrigen[t] = di;
-          anyChange = true;
-        }
+  // 3) Máximo SIN tocar reserva
+  if(r1) return { total: r1.totalUnits * 500, usados: r1.usados, tocoReserva: false };
+
+  // 4) Máximo CON reserva
+  if(r2) return { total: r2.totalUnits * 500, usados: r2.usados, tocoReserva: true };
+
+  return { total: 0, usados: [0,0,0,0,0], tocoReserva: false };
+}
+
+function mejorEnRango(maxUnits, cantidades, denoms){
+  const n = denoms.length;
+  const INF = 999999;
+
+  const totalDisponible = denoms.reduce((s,d) => s + (cantidades[d.idx]|0) * d.u, 0);
+  const cap = Math.min(maxUnits, totalDisponible);
+  if(cap <= 0) return null;
+
+  const dpTabla = [];
+  for(let i = 0; i <= n; i++) dpTabla.push(new Array(cap + 1).fill(INF));
+  dpTabla[n][0] = 0;
+
+  for(let i = n - 1; i >= 0; i--){
+    const d = denoms[i];
+    const maxN = cantidades[d.idx] | 0;
+    for(let v = 0; v <= cap; v++){
+      let best = INF;
+      const tope = Math.min(maxN, Math.floor(v / d.u));
+      for(let c = 0; c <= tope; c++){
+        const sub = dpTabla[i+1][v - c * d.u];
+        if(sub + c < best) best = sub + c;
       }
-      if(!anyChange) break;
+      dpTabla[i][v] = best;
     }
-  });
-
-  // Buscar el mayor alcanzable <= maxT
-  let mejor = 0;
-  for(let t = maxT; t >= 0; t--){
-    if(alcanzable[t]){ mejor = t; break; }
   }
-  if(mejor === 0) return { total: 0, usados: [0,0,0,0,0] };
 
-  // Reconstruir
+  let bestV = -1;
+  for(let v = cap; v >= 0; v--){
+    if(dpTabla[0][v] < INF){ bestV = v; break; }
+  }
+  if(bestV < 0) return null;
+
   const usados = [0,0,0,0,0];
-  let t = mejor;
-  while(t > 0){
-    const di = dpOrigen[t];
-    if(di < 0) break;
-    usados[di]++;
-    t -= denoms[di].c;
+  let v = bestV;
+  for(let i = 0; i < n; i++){
+    const d = denoms[i];
+    const maxN = cantidades[d.idx] | 0;
+    for(let c = maxN; c >= 0; c--){
+      const val = c * d.u;
+      if(val > v) continue;
+      if(dpTabla[i+1][v - val] + c === dpTabla[i][v]){
+        usados[d.idx] = c;
+        v -= val;
+        break;
+      }
+    }
   }
 
-  return { total: mejor, usados };
+  return { totalUnits: bestV, usados: usados };
 }
 
 function calcularCierre(){
@@ -707,7 +740,8 @@ function calcularCierre(){
   if(target<=0){ cont.style.display="none"; cont.innerHTML=""; btn.style.display="none"; return; }
 
   const billetesStock = stock.slice(0,5);
-  const res = findBilletes(target, billetesStock);
+  const billetesReserva = denominations.slice(0,5).map(d => reservaMinima[d.c] || 0);
+  const res = findBilletes(target, billetesStock, billetesReserva);
 
   if(!res || res.total===0){
     const maxB = stock.slice(0,5).reduce((s,n,i)=>s+n*denominations[i].c,0);
@@ -730,19 +764,20 @@ function calcularCierre(){
   });
   html += "</div>";
 
-  // Simular stock después del depósito
+  if(res.tocoReserva){
+    html += "<div style='margin-top:14px;padding:12px;background:#78350f;border:1px solid #b45309;border-radius:10px;font-size:12px;color:#fbbf24;line-height:1.5;text-align:center'>" +
+              "⚠️ He tenido que <b>usar tu reserva mínima</b> para formar este importe.<br>Si quieres evitarlo, deposita menos." +
+            "</div>";
+  }
+
   const stockDespues = stock.slice();
   for(let i = 0; i < res.usados.length; i++){
     stockDespues[i] = Math.max(0, stockDespues[i] - res.usados[i]);
   }
 
-  // Badges estilo menú principal
   const checks = [
-    ["≤ 20 €", 2000],
-    ["≤ 30 €", 3000],
-    ["≤ 50 €", 5000],
-    ["≤ 80 €", 8000],
-    ["≤ 100 €", 10000]
+    ["≤ 20 €", 2000],["≤ 30 €", 3000],["≤ 50 €", 5000],
+    ["≤ 80 €", 8000],["≤ 100 €", 10000]
   ];
 
   let htmlTarjetas = "";
@@ -779,7 +814,6 @@ function calcularCierre(){
   }
   html += "</div>";
 
-  // Sobrante y queda en caja
   const sobrante = target - res.total;
   const totalEnCaja = stock.reduce((s,n,i)=>s+n*denominations[i].c,0);
   const quedaEnCaja = totalEnCaja - res.total;
@@ -801,6 +835,7 @@ function calcularCierre(){
   btn.dataset.total  = String(res.total);
   btn.dataset.usados = JSON.stringify(res.usados);
 }
+
 function confirmarCierre(){
   const btn = document.getElementById("btnConfirmarCierre"); if(!btn) return;
   const total  = parseInt(btn.dataset.total)||0;

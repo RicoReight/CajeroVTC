@@ -27,9 +27,18 @@ const RESERVA_MINIMA_DEFAULT = {
   200:2, 100:2, 50:3, 20:5, 10:5, 5:3, 2:3, 1:5
 };
 
+const TOPES_DEFAULT = {
+  1: 5, 2: 5, 5: 5,
+  10: 8, 20: 8, 50: 8,
+  100: 6, 200: 6,
+  500: 4, 1000: 4,
+  2000: 3, 5000: 1, 10000: 1
+};
+
 let stock = loadStock();
 let totalTips = loadTips();
 let reservaMinima = loadReserva();
+let topesRecibir = loadTopes();
 let diaReset = loadDiaReset();
 let ultimoResetPropinas = loadUltimoResetPropinas();
 let statsOps = loadStats();
@@ -54,6 +63,16 @@ function loadTips(){ return parseInt(safeStorage.get("uberCambioTips")) || 0; }
 function loadReserva(){
   const base = Object.assign({}, RESERVA_MINIMA_DEFAULT);
   const s = safeStorage.get("uberCambioReserva");
+  if(s){ try{ const o = JSON.parse(s);
+    if(o && typeof o === "object") denominations.forEach(d => {
+      if(typeof o[d.c] === "number") base[d.c] = Math.max(0, parseInt(o[d.c])||0);
+    });
+  }catch(e){} }
+  return base;
+}
+function loadTopes(){
+  const base = Object.assign({}, TOPES_DEFAULT);
+  const s = safeStorage.get("uberCambioTopes");
   if(s){ try{ const o = JSON.parse(s);
     if(o && typeof o === "object") denominations.forEach(d => {
       if(typeof o[d.c] === "number") base[d.c] = Math.max(0, parseInt(o[d.c])||0);
@@ -88,6 +107,7 @@ function resetStats(){
 function saveStock(){ safeStorage.set("uberCambioStock", JSON.stringify(stock)); scheduleCashSummary(); }
 function saveTips(){ safeStorage.set("uberCambioTips", String(totalTips)); }
 function saveReserva(){ safeStorage.set("uberCambioReserva", JSON.stringify(reservaMinima)); scheduleCashSummary(); if(received.length) calculate(); }
+function saveTopes(){ safeStorage.set("uberCambioTopes", JSON.stringify(topesRecibir)); }
 
 function moneyText(c){ return (c/100).toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})+" €"; }
 
@@ -145,12 +165,10 @@ function toggleMenu(){
 function switchDrawerTab(tab){
   const panels = {
     inventario: document.getElementById("panelInventario"),
-    reserva:    document.getElementById("panelReserva"),
     reset:      document.getElementById("panelReset")
   };
   const tabs = {
     inventario: document.getElementById("tabInventario"),
-    reserva:    document.getElementById("tabReserva"),
     reset:      document.getElementById("tabReset")
   };
   const A = "flex:1;padding:8px;border-radius:10px;border:1px solid #475569;background:#334155;color:#fff;font-weight:700;cursor:pointer;font-size:12px";
@@ -160,7 +178,6 @@ function switchDrawerTab(tab){
     if(tabs[k])   tabs[k].style.cssText = (k===tab)?A:I;
   });
   if(tab==="inventario") renderStockList();
-  if(tab==="reserva")    renderReservaList();
   if(tab==="reset")      renderResetPanel();
 }
 
@@ -415,11 +432,7 @@ function updateStockVal(index, val){
 
 function renderReservaList(){
   let box = document.getElementById("reservaList");
-  if(!box){
-    const p = document.getElementById("panelReserva")||document.getElementById("drawer");
-    if(!p) return;
-    box = document.createElement("div"); box.id="reservaList"; p.appendChild(box);
-  }
+  if(!box) return;
   box.innerHTML = ""; reservaInputs = [];
   denominations.forEach((d,i)=>{
     const row = document.createElement("div"); row.className="stock-item";
@@ -447,6 +460,37 @@ function resetReserva(){
   if(!confirm("¿Restaurar la reserva mínima a los valores por defecto?")) return;
   reservaMinima = Object.assign({}, RESERVA_MINIMA_DEFAULT);
   saveReserva(); renderReservaList();
+}
+
+function renderTopesList(){
+  let box = document.getElementById("topesList");
+  if(!box) return;
+  box.innerHTML = "";
+  denominations.forEach((d)=>{
+    const row = document.createElement("div"); row.className="stock-item";
+    const t = document.createElement("span"); t.textContent=d.n; t.style.fontWeight="700";
+    const ctrl = document.createElement("div"); ctrl.className="stock-ctrl";
+    const bm = document.createElement("button"); bm.type="button"; bm.textContent="-";
+    bm.onclick = ()=>updateTopeVal(d.c, (topesRecibir[d.c]||0)-1);
+    const inp = document.createElement("input"); inp.type="number"; inp.min="0"; inp.value=topesRecibir[d.c]||0;
+    inp.onchange = (e)=>updateTopeVal(d.c, parseInt(e.target.value)||0);
+    const bp = document.createElement("button"); bp.type="button"; bp.textContent="+";
+    bp.onclick = ()=>updateTopeVal(d.c, (topesRecibir[d.c]||0)+1);
+    ctrl.appendChild(bm); ctrl.appendChild(inp); ctrl.appendChild(bp);
+    row.appendChild(t); row.appendChild(ctrl);
+    box.appendChild(row);
+  });
+}
+function updateTopeVal(cents, val){
+  topesRecibir[cents] = Math.max(0, val);
+  saveTopes();
+  renderTopesList();
+}
+function resetTopes(){
+  if(!confirm("¿Restaurar los topes máximos a los valores por defecto?")) return;
+  topesRecibir = Object.assign({}, TOPES_DEFAULT);
+  saveTopes();
+  renderTopesList();
 }
 
 function renderResetPanel(){
@@ -829,6 +873,22 @@ function renderDiagnostico(){
   cont.innerHTML = html;
 }
 
+/* ---------- Pantalla Límite y Máximos ---------- */
+function abrirLimitePantalla(){
+  const d = document.getElementById("drawer");
+  const o = document.getElementById("overlay");
+  if(d) d.classList.remove("active");
+  if(o) o.classList.remove("active");
+  const p = document.getElementById("limitePantalla");
+  if(p) p.style.display = "block";
+  renderReservaList();
+  renderTopesList();
+}
+function cerrarLimitePantalla(){
+  const p = document.getElementById("limitePantalla");
+  if(p) p.style.display = "none";
+}
+
 /* ---------- Cambiar billete ---------- */
 function abrirCambioPantalla(){
   const d = document.getElementById("drawer");
@@ -1122,33 +1182,53 @@ function confirmarCambio(total){
   cerrarCambioPantalla();
 }
 
-/* ---------- Cálculo automático del cambio (repartido) ---------- */
+/* ---------- Cálculo automático del cambio (repartido + stock) ---------- */
 function calcularCambioAutomatico(total, billeteMasPequeno){
   const candidatas = denominations.filter(d => d.c < billeteMasPequeno);
-  candidatas.sort((a,b) => a.c - b.c); // de pequeña a grande
 
-  const topes = {
-    1: 5, 2: 5, 5: 8, 10: 8, 20: 8, 50: 8,
-    100: 8, 200: 8, 500: 3, 1000: 3, 2000: 2, 5000: 1, 10000: 1
-  };
+  const topeEfectivo = {};
+  denominations.forEach((d, i) => {
+    const stockActual = stock[i] || 0;
+    let tope = topesRecibir[d.c] != null ? topesRecibir[d.c] : 5;
+
+    if (stockActual >= 30)       tope = 0;
+    else if (stockActual >= 20)  tope = Math.min(tope, 1);
+    else if (stockActual >= 10)  tope = Math.min(tope, 2);
+    else if (stockActual <= 3)   tope = Math.min(tope + 3, 12);
+    else if (stockActual <= 6)   tope = Math.min(tope + 1, 10);
+
+    topeEfectivo[d.c] = tope;
+  });
 
   let restante = total;
   const propuesta = {};
 
-  candidatas.forEach(d => {
-    if(restante <= 0) return;
-    const tope = topes[d.c] || 8;
-    const cuantas = Math.min(Math.floor(restante / d.c), tope);
-    if(cuantas > 0){
-      propuesta[d.c] = cuantas;
-      restante -= cuantas * d.c;
-    }
+  const grupos = [
+    candidatas.filter(d => d.c >= 1000).sort((a,b) => b.c - a.c),
+    candidatas.filter(d => d.c >= 100 && d.c < 1000).sort((a,b) => b.c - a.c),
+    candidatas.filter(d => d.c >= 10 && d.c < 100).sort((a,b) => b.c - a.c),
+    candidatas.filter(d => d.c < 10).sort((a,b) => b.c - a.c)
+  ];
+
+  grupos.forEach(grupo => {
+    grupo.forEach(d => {
+      if(restante <= 0) return;
+      const tope = topeEfectivo[d.c] || 0;
+      if(tope <= 0) return;
+      const cuantas = Math.min(Math.floor(restante / d.c), tope);
+      if(cuantas > 0){
+        propuesta[d.c] = (propuesta[d.c] || 0) + cuantas;
+        restante -= cuantas * d.c;
+      }
+    });
   });
 
   if(restante > 0){
     const desc = candidatas.slice().sort((a,b) => b.c - a.c);
     for(const d of desc){
       if(restante <= 0) break;
+      const idx = denominations.findIndex(x => x.c === d.c);
+      if(stock[idx] > 40) continue;
       const cuantas = Math.floor(restante / d.c);
       if(cuantas > 0){
         propuesta[d.c] = (propuesta[d.c] || 0) + cuantas;
@@ -1160,7 +1240,6 @@ function calcularCambioAutomatico(total, billeteMasPequeno){
   return propuesta;
 }
 
-/* ---------- Render de resultado con gráficos ---------- */
 function renderCambioResultado(total){
   const cont = document.getElementById("cambioContenido");
   if(!cont) return;
@@ -1169,7 +1248,6 @@ function renderCambioResultado(total){
   html += "<div class='card' style='margin:0 0 12px 0'>";
   html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:12px'>🤖 PROPUESTA BASADA EN TUS HÁBITOS</div>";
 
-  // ENTREGAS AL BANCO (con gráficos)
   html += "<div style='font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>ENTREGAS AL BANCO</div>";
   html += "<div class='change-grid'>";
   Object.keys(cambioState.aEntregar).forEach(k=>{
@@ -1187,7 +1265,6 @@ function renderCambioResultado(total){
   });
   html += "</div>";
 
-  // PIDE QUE TE DEVUELVAN (con gráficos)
   html += "<div style='font-size:12px;color:#38bdf8;font-weight:800;letter-spacing:0.5px;margin:16px 0 8px;padding-top:14px;border-top:1px solid #334155'>PIDE QUE TE DEVUELVAN</div>";
   html += "<div class='change-grid'>";
   const orden = Object.keys(cambioState.aRecibir)
@@ -1207,7 +1284,6 @@ function renderCambioResultado(total){
   });
   html += "</div>";
 
-  // Total
   html += "<div style='display:flex;justify-content:space-between;padding:14px 0 0;margin-top:14px;border-top:1px solid #334155;font-size:16px;color:#fff'>" +
             "<span style='font-weight:800'>Total:</span>" +
             "<span style='font-weight:900;color:#4ade80'>" + moneyText(total) + "</span></div>";
@@ -1295,9 +1371,10 @@ function setupBackupUI(){
 }
 async function exportInventory(){
   const data = {
-    app:"uberCambioVTC", version:6,
+    app:"uberCambioVTC", version:7,
     exportedAt:new Date().toISOString(),
     stock:stock, totalTips:totalTips, reservaMinima:reservaMinima,
+    topesRecibir: topesRecibir,
     diaReset:diaReset, ultimoResetPropinas:ultimoResetPropinas,
     stats: statsOps,
     cierres: loadCierres(),
@@ -1383,7 +1460,7 @@ function importInventory(file){
       if(!data || !Array.isArray(data.stock) || data.stock.length !== denominations.length){
         alert("El archivo no es una copia válida."); return;
       }
-      if(!confirm("¿Reemplazar el inventario, propinas, reserva, estadísticas e historial actuales?")) return;
+      if(!confirm("¿Reemplazar el inventario, propinas, reserva, topes, estadísticas e historial actuales?")) return;
       stock = data.stock.map(x => Math.max(0, parseInt(x) || 0));
       if(typeof data.totalTips === "number") totalTips = Math.max(0, data.totalTips);
       if(data.reservaMinima && typeof data.reservaMinima === "object"){
@@ -1393,6 +1470,14 @@ function importInventory(file){
             reservaMinima[d.c] = Math.max(0, parseInt(data.reservaMinima[d.c]) || 0);
         });
         safeStorage.set("uberCambioReserva", JSON.stringify(reservaMinima));
+      }
+      if(data.topesRecibir && typeof data.topesRecibir === "object"){
+        topesRecibir = Object.assign({}, TOPES_DEFAULT);
+        denominations.forEach(d => {
+          if(typeof data.topesRecibir[d.c] === "number")
+            topesRecibir[d.c] = Math.max(0, parseInt(data.topesRecibir[d.c]) || 0);
+        });
+        saveTopes();
       }
       if(typeof data.diaReset === "number"){
         diaReset = Math.max(1, Math.min(31, parseInt(data.diaReset)||20));
@@ -1413,7 +1498,7 @@ function importInventory(file){
       if(Array.isArray(data.cierres)) saveCierres(data.cierres);
       if(Array.isArray(data.historicoResets)) saveHistoricoResets(data.historicoResets);
       if(Array.isArray(data.cambios)) saveCambios(data.cambios);
-      saveStock(); saveTips(); renderStockList(); renderReservaList(); updateCashSummary();
+      saveStock(); saveTips(); renderStockList(); renderReservaList(); renderTopesList(); updateCashSummary();
       renderCierreHistorico(); renderResetPanel();
       alert("✅ Copia restaurada.");
     }catch(e){ alert("No se pudo leer el archivo."); }
@@ -1424,7 +1509,6 @@ function importInventory(file){
 function init(){
   try { renderButtons(); }         catch(e){ console.error("renderButtons", e); }
   try { renderStockList(); }       catch(e){ console.error("renderStockList", e); }
-  try { renderReservaList(); }     catch(e){ console.error("renderReservaList", e); }
   try { updateCashSummary(); }     catch(e){ console.error("updateCashSummary", e); }
   try { setupBackupUI(); }         catch(e){ console.error("setupBackupUI", e); }
   try { renderCierreHistorico(); } catch(e){ console.error("renderCierreHistorico", e); }

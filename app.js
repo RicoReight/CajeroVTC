@@ -643,37 +643,31 @@ function cerrarCierrePantalla(){
   if(p) p.style.display = "none";
 }
 
-/* ---------- findBilletes: billetes grandes primero, DP, respeta reserva ---------- */
 function findBilletes(target, billetesStock, billetesReserva){
   const maxUnits = Math.floor(target / 500);
   if(maxUnits <= 0) return { total: 0, usados: [0,0,0,0,0], tocoReserva: false };
 
   const denoms = [
-    {u:20, idx:0}, // 100 €
-    {u:10, idx:1}, //  50 €
-    {u:4,  idx:2}, //  20 €
-    {u:2,  idx:3}, //  10 €
-    {u:1,  idx:4}  //   5 €
+    {u:20, idx:0},
+    {u:10, idx:1},
+    {u:4,  idx:2},
+    {u:2,  idx:3},
+    {u:1,  idx:4}
   ];
 
   const disp = billetesStock.map((n, i) => Math.max(0, n - (billetesReserva[i] || 0)));
 
-  // 1) Exacto SIN tocar reserva
   const r1 = mejorEnRango(maxUnits, disp, denoms);
   if(r1 && r1.totalUnits === maxUnits){
     return { total: maxUnits * 500, usados: r1.usados, tocoReserva: false };
   }
 
-  // 2) Exacto CON reserva
   const r2 = mejorEnRango(maxUnits, billetesStock, denoms);
   if(r2 && r2.totalUnits === maxUnits){
     return { total: maxUnits * 500, usados: r2.usados, tocoReserva: true };
   }
 
-  // 3) Máximo SIN tocar reserva
   if(r1) return { total: r1.totalUnits * 500, usados: r1.usados, tocoReserva: false };
-
-  // 4) Máximo CON reserva
   if(r2) return { total: r2.totalUnits * 500, usados: r2.usados, tocoReserva: true };
 
   return { total: 0, usados: [0,0,0,0,0], tocoReserva: false };
@@ -1041,7 +1035,7 @@ function renderCambioInicio(){
   let html = "";
   html += "<div class='card' style='margin:0 0 12px 0'>";
   html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>¿QUÉ VAS A CAMBIAR?</div>";
-  html += "<div style='font-size:12px;color:#64748b;margin-bottom:10px'>Pulsa los billetes que entregarás al banco. Puedes pulsar varias veces para sumar varios.</div>";
+  html += "<div style='font-size:12px;color:#64748b;margin-bottom:10px'>Pulsa los billetes que entregarás al banco. Debajo de cada uno verás cuántos tienes.</div>";
   html += "<div id='cambioBotones' style='display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px'></div>";
   html += "<div style='display:flex;justify-content:space-between;align-items:center;padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px'>";
   html += "<span style='font-size:13px;color:#94a3b8;font-weight:700'>Total a cambiar:</span>";
@@ -1061,12 +1055,15 @@ function renderCambioInicio(){
 
   const botones = document.getElementById("cambioBotones");
   [10000, 5000, 2000, 1000, 500].forEach(c=>{
+    const idx = denominations.findIndex(x => x.c === c);
+    const stockActual = stock[idx] || 0;
     const wrap = document.createElement("div");
     wrap.style.cssText = "position:relative";
     const b = document.createElement("button");
     b.type = "button";
-    b.textContent = (c/100) + " €";
-    b.style.cssText = "width:100%;background:#283548;border:1px solid #475569;color:#fff;font-weight:800;padding:12px 4px;font-size:14px;border-radius:10px;cursor:pointer";
+    b.innerHTML = "<div style='font-size:14px;font-weight:800'>" + (c/100) + " €</div>" +
+                  "<div style='font-size:10px;color:#94a3b8;font-weight:600;margin-top:2px'>tienes " + stockActual + "</div>";
+    b.style.cssText = "width:100%;background:#283548;border:1px solid #475569;color:#fff;padding:10px 4px;border-radius:10px;cursor:pointer";
     b.onclick = ()=>{
       cambioState.aEntregar[c] = (cambioState.aEntregar[c] || 0) + 1;
       cambioState.orden.push(c);
@@ -1173,7 +1170,7 @@ function renderCambioManual(total){
   let html = "";
   html += "<div class='card' style='margin:0 0 12px 0'>";
   html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>✍️ ELIGE A MANO</div>";
-  html += "<div style='font-size:12px;color:#64748b;margin-bottom:10px'>Marca las piezas que quieres recibir. La suma debe coincidir con " + moneyText(total) + ".</div>";
+  html += "<div style='font-size:12px;color:#64748b;margin-bottom:10px'>Marca las piezas que quieres recibir. Debajo de cada una verás cuántas tienes ahora. La suma debe coincidir con " + moneyText(total) + ".</div>";
   html += "<div id='cambioManBotones' style='display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px'></div>";
   html += "</div>";
 
@@ -1200,12 +1197,15 @@ function renderCambioManual(total){
 
   const botones = document.getElementById("cambioManBotones");
   opciones.forEach(d=>{
+    const idx = denominations.findIndex(x => x.c === d.c);
+    const stockActual = stock[idx] || 0;
     const wrap = document.createElement("div");
     wrap.style.cssText = "position:relative";
     const b = document.createElement("button");
     b.type = "button";
-    b.textContent = d.n;
-    b.style.cssText = "width:100%;background:#283548;border:1px solid #475569;color:#fff;font-weight:800;padding:10px 4px;font-size:13px;border-radius:10px;cursor:pointer";
+    b.innerHTML = "<div style='font-size:13px;font-weight:800'>" + d.n + "</div>" +
+                  "<div style='font-size:10px;color:#94a3b8;font-weight:600;margin-top:2px'>tienes " + stockActual + "</div>";
+    b.style.cssText = "width:100%;background:#283548;border:1px solid #475569;color:#fff;padding:8px 4px;border-radius:10px;cursor:pointer";
     b.onclick = ()=>{
       cambioState.aRecibir[d.c] = (cambioState.aRecibir[d.c] || 0) + 1;
       if(!cambioState.ordenRecibir) cambioState.ordenRecibir = [];

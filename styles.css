@@ -95,12 +95,11 @@ button{font-size:16px;padding:12px;border-radius:10px;border:0;font-weight:700;c
 }
 #splash.oculto{opacity:0;pointer-events:none}
 #splash .splash-icon{
-  width:150px;
-  height:150px;
-  border-radius:36px;
-  box-shadow:0 12px 40px rgba(56,189,248,0.35), 0 0 0 3px rgba(56,189,248,0.15);
+  width:180px;
+  height:180px;
+  object-fit:contain;
   animation:splashPulse 1.6s ease-in-out infinite;
-  object-fit:cover;
+  filter:drop-shadow(0 8px 24px rgba(56,189,248,0.35));
 }
 @keyframes splashPulse{
   0%,100%{transform:scale(1)}

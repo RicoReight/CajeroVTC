@@ -1,4 +1,12 @@
 *{box-sizing:border-box}
+
+/* Quitar barra de scroll en toda la app */
+html,body{scrollbar-width:none;-ms-overflow-style:none}
+html::-webkit-scrollbar,body::-webkit-scrollbar,
+.drawer::-webkit-scrollbar,.card::-webkit-scrollbar,
+.stock-list::-webkit-scrollbar,#stockList::-webkit-scrollbar,
+#reservaList::-webkit-scrollbar,#topesList::-webkit-scrollbar{display:none;width:0;height:0}
+
 html,body{overscroll-behavior-y:contain;-webkit-text-size-adjust:100%;touch-action:manipulation}
 body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#0f172a;color:#f8fafc;padding:12px;min-height:100vh}
 .app{max-width:550px;margin:auto}
@@ -72,7 +80,7 @@ button{font-size:16px;padding:12px;border-radius:10px;border:0;font-weight:700;c
 .tip-total-box{background:#064e3b;border:1px solid #059669;padding:12px;border-radius:10px;margin-bottom:14px;font-weight:700;color:#4ade80;font-size:15px}
 .btn-reset-stock{width:100%;background:#b91c1c;color:#fff;padding:12px;border-radius:10px;margin-bottom:14px;font-size:15px;font-weight:700;border:none;cursor:pointer}
 
-/* ---------- Splash / Pantalla de carga ---------- */
+/* ---------- Splash ---------- */
 #splash{
   position:fixed;
   inset:0;
@@ -82,26 +90,27 @@ button{font-size:16px;padding:12px;border-radius:10px;border:0;font-weight:700;c
   flex-direction:column;
   align-items:center;
   justify-content:center;
-  gap:24px;
-  transition:opacity 0.4s ease;
+  gap:28px;
+  transition:opacity 0.5s ease;
 }
-#splash.oculto{
-  opacity:0;
-  pointer-events:none;
+#splash.oculto{opacity:0;pointer-events:none}
+#splash .splash-icon{
+  width:150px;
+  height:150px;
+  border-radius:36px;
+  box-shadow:0 12px 40px rgba(56,189,248,0.35), 0 0 0 3px rgba(56,189,248,0.15);
+  animation:splashPulse 1.6s ease-in-out infinite;
+  object-fit:cover;
 }
-#splash .splash-logo{
-  font-size:56px;
-  font-weight:900;
-  color:#38bdf8;
-  letter-spacing:-1px;
-  text-align:center;
-  line-height:1.1;
+@keyframes splashPulse{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.06)}
 }
 #splash .splash-sub{
   font-size:14px;
   color:#94a3b8;
   font-weight:700;
-  letter-spacing:2px;
+  letter-spacing:3px;
   text-transform:uppercase;
 }
 #splash .splash-spinner{
@@ -112,6 +121,7 @@ button{font-size:16px;padding:12px;border-radius:10px;border:0;font-weight:700;c
   border-radius:50%;
   animation:splashSpin 0.8s linear infinite;
 }
-@keyframes splashSpin{
-  to{ transform:rotate(360deg); }
-}
+@keyframes splashSpin{to{transform:rotate(360deg)}}
+
+/* Ocultar scroll mientras está el splash */
+body.splash-active{overflow:hidden}

@@ -35,6 +35,11 @@ const TOPES_DEFAULT = {
   2000: 5, 5000: 3, 10000: 2
 };
 
+const OBJETIVO_SIN_DATOS = {
+  10000:0, 5000:0, 2000:2, 1000:3, 500:4,
+  200:5, 100:8, 50:8, 20:15, 10:15, 5:10, 2:10, 1:15
+};
+
 let stock = loadStock();
 let totalTips = loadTips();
 let reservaMinima = loadReserva();
@@ -49,8 +54,8 @@ let reservaInputs = [];
 let summaryTimer = null;
 let precioInterval = null;
 let precioActual = 0;
-let cambioState = { aEntregar: {}, aRecibir: {}, modo: null, orden: [], ordenRecibir: [] };
-let reponerState = { viajes: 20, colchon: 3, marcados: {} };
+let cambioState = { aEntregar: {}, aRecibir: {}, modo: null, orden: [], ordenRecibir: [], sinDatos: false };
+let reponerState = { viajes: 20, colchon: 3, marcados: {}, modo: "auto", manualAdd: {} };
 
 function loadStock(){
   const s = safeStorage.get("uberCambioStock");
@@ -1005,7 +1010,7 @@ function abrirCambioPantalla(){
   if(o) o.classList.remove("active");
   const p = document.getElementById("cambioPantalla");
   if(p) p.style.display = "block";
-  cambioState = { aEntregar: {}, aRecibir: {}, modo: null, orden: [], ordenRecibir: [] };
+  cambioState = { aEntregar: {}, aRecibir: {}, modo: null, orden: [], ordenRecibir: [], sinDatos: false };
   renderCambioInicio();
 }
 function cerrarCambioPantalla(){
@@ -1101,48 +1106,46 @@ function calcularCambio(){
     if(idx >= 0 && stock[idx] < cambioState.aEntregar[c]) errorStock = true;
   });
   if(errorStock){ alert("No tienes tantos billetes de ese tipo en el inventario."); return; }
+
+  const minEntregado = Math.min(...Object.keys(cambioState.aEntregar).map(x=>parseInt(x)));
+
   if(statsOps.operations < 10){
-    cambioState.modo = "pregunta";
-    renderCambioSinDatos(total);
+    cambioState.modo = "manual";
+    cambioState.sinDatos = true;
+    cambioState.aRecibir = {};
+    cambioState.ordenRecibir = [];
+    renderCambioManual(total, minEntregado);
     return;
   }
+
   cambioState.modo = "auto";
-  const minEntregado = Math.min(...Object.keys(cambioState.aEntregar).map(x=>parseInt(x)));
+  cambioState.sinDatos = false;
   cambioState.aRecibir = calcularCambioAutomatico(total, minEntregado);
   renderCambioResultado(total);
 }
 
-function renderCambioSinDatos(total){
+function renderCambioManual(total, minEntregadoOverride){
   const cont = document.getElementById("cambioContenido"); if(!cont) return;
-  let html = "";
-  html += "<div class='card' style='margin:0 0 12px 0;text-align:center'>";
-  html += "<div style='font-size:14px;color:#fbbf24;font-weight:800;margin-bottom:10px'>🧠 Aún no tengo datos suficientes</div>";
-  html += "<div style='font-size:13px;color:#94a3b8;line-height:1.6;margin-bottom:16px'>";
-  html += "Para darte una sugerencia basada en tus hábitos necesito al menos 10 operaciones registradas.<br><br>";
-  html += "Puedes elegir manualmente las piezas que quieres recibir a cambio.";
-  html += "</div>";
-  html += "<button type='button' onclick='pasarAModoManual(" + total + ")' style='width:100%;background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>✍️ Elegir a mano</button>";
-  html += "<button type='button' onclick='cerrarCambioPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button>";
-  html += "</div>";
-  cont.innerHTML = html;
-}
-function pasarAModoManual(total){
-  cambioState.modo = "manual";
-  cambioState.aRecibir = {};
-  cambioState.ordenRecibir = [];
-  renderCambioManual(total);
-}
-
-function renderCambioManual(total){
-  const cont = document.getElementById("cambioContenido"); if(!cont) return;
-  const minEntregado = Math.min(...Object.keys(cambioState.aEntregar).map(x=>parseInt(x)));
+  const minEntregado = minEntregadoOverride != null
+    ? minEntregadoOverride
+    : Math.min(...Object.keys(cambioState.aEntregar).map(x=>parseInt(x)));
   const opciones = denominations.filter(d => d.c < minEntregado);
+
   let html = "";
+
+  if(cambioState.sinDatos){
+    html += "<div class='card' style='margin:0 0 12px 0;background:#1e3a8a;border:1px solid #3b82f6'>";
+    html += "<div style='font-size:13px;color:#bfdbfe;font-weight:800;margin-bottom:6px'>🧠 Aún no tengo datos suficientes</div>";
+    html += "<div style='font-size:12px;color:#93c5fd;line-height:1.5'>Necesito al menos <b>10 operaciones</b> para sugerirte automáticamente. De momento te dejo elegir a mano las piezas que quieres recibir.<br><br>Llevas <b>" + statsOps.operations + "</b> operaciones.</div>";
+    html += "</div>";
+  }
+
   html += "<div class='card' style='margin:0 0 12px 0'>";
   html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>✍️ ELIGE A MANO</div>";
   html += "<div style='font-size:12px;color:#64748b;margin-bottom:10px'>Marca las piezas que quieres recibir. Debajo de cada una verás cuántas tienes ahora. La suma debe coincidir con " + moneyText(total) + ".</div>";
   html += "<div id='cambioManBotones' style='display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px'></div>";
   html += "</div>";
+
   html += "<div class='card' style='margin:0 0 12px 0'>";
   html += "<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:6px'>";
   html += "<span style='font-size:13px;color:#94a3b8'>Suma actual:</span>";
@@ -1154,6 +1157,7 @@ function renderCambioManual(total){
   html += "</div>";
   html += "<div id='cambioManEstado' style='text-align:center;font-size:13px;font-weight:700;margin-top:10px'></div>";
   html += "</div>";
+
   html += "<button type='button' onclick='confirmarCambio(" + total + ")' id='cambioManBtn' style='width:100%;background:#059669;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>✅ Confirmar cambio</button>";
   html += "<div style='display:flex;gap:8px;margin-bottom:8px'>";
   html += "<button type='button' onclick='deshacerCambioRecibir(" + total + ")' style='flex:1;background:#78350f;color:#fbbf24;border:1px solid #b45309;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>↩ Deshacer</button>";
@@ -1360,6 +1364,14 @@ function renderCambioResultado(total){
   cont.innerHTML = html;
 }
 
+function pasarAModoManual(total){
+  cambioState.modo = "manual";
+  cambioState.sinDatos = false;
+  cambioState.aRecibir = {};
+  cambioState.ordenRecibir = [];
+  renderCambioManual(total);
+}
+
 function renderCambioHistorial(){
   const box = document.getElementById("cambioHistorial"); if(!box) return;
   const cambios = loadCambios();
@@ -1407,7 +1419,7 @@ function calcularFaltantes(viajesACubrir, colchon){
       const gastoMedio = statsOps.spent[i] / ops;
       objetivo = Math.ceil(gastoMedio * viajesACubrir) + colchon;
     } else {
-      objetivo = Math.ceil(tope * 0.5);
+      objetivo = OBJETIVO_SIN_DATOS[d.c] || 0;
     }
 
     objetivo = Math.min(objetivo, tope);
@@ -1444,46 +1456,100 @@ function renderReponerInicio(){
   const cont = document.getElementById("reponerContenido");
   if(!cont) return;
 
+  let html = "";
+  const modoAuto = reponerState.modo !== "manual";
+
+  // Tabs
+  html += "<div style='display:flex;gap:6px;margin-bottom:12px'>";
+  html += "<button type='button' onclick='cambiarModoReponer(\"auto\")' style='flex:1;padding:10px;border-radius:10px;border:1px solid " + (modoAuto ? "#3b82f6" : "#475569") + ";background:" + (modoAuto ? "#1e40af" : "#1e293b") + ";color:" + (modoAuto ? "#fff" : "#94a3b8") + ";font-weight:700;cursor:pointer;font-size:13px'>🤖 Automático</button>";
+  html += "<button type='button' onclick='cambiarModoReponer(\"manual\")' style='flex:1;padding:10px;border-radius:10px;border:1px solid " + (!modoAuto ? "#3b82f6" : "#475569") + ";background:" + (!modoAuto ? "#1e40af" : "#1e293b") + ";color:" + (!modoAuto ? "#fff" : "#94a3b8") + ";font-weight:700;cursor:pointer;font-size:13px'>✍️ Manual</button>";
+  html += "</div>";
+
+  if(modoAuto){
+    html += "<div class='card' style='margin:0 0 12px 0'>";
+    html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>⚙️ CONFIGURACIÓN</div>";
+    if(statsOps.operations < 5){
+      html += "<div style='background:#1e3a8a;border:1px solid #3b82f6;border-radius:8px;padding:10px;margin-bottom:12px;font-size:12px;color:#bfdbfe;line-height:1.5'>🧠 Aún sin datos. Te propongo una <b>caja de arranque</b> conservadora. A partir de 5 operaciones, la app aprende tu ritmo real.</div>";
+    }
+    html += "<div style='display:flex;gap:12px'>";
+    html += "<div style='flex:1'>";
+    html += "<label style='font-size:12px;color:#94a3b8;font-weight:700;display:block;text-align:center'>Cubrir viajes</label>";
+    html += "<input type='number' id='reponerViajes' min='1' max='100' value='" + reponerState.viajes + "' oninput='recalcularReponer()' style='width:100%;font-size:20px;font-weight:800;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#38bdf8;text-align:center;margin-top:4px;outline:none'>";
+    html += "</div>";
+    html += "<div style='flex:1'>";
+    html += "<label style='font-size:12px;color:#94a3b8;font-weight:700;display:block;text-align:center'>Colchón extra</label>";
+    html += "<input type='number' id='reponerColchon' min='0' max='10' value='" + reponerState.colchon + "' oninput='recalcularReponer()' style='width:100%;font-size:20px;font-weight:800;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#38bdf8;text-align:center;margin-top:4px;outline:none'>";
+    html += "</div>";
+    html += "</div>";
+    html += "<div style='font-size:11px;color:#64748b;margin-top:8px;line-height:1.4;text-align:center'>El colchón son piezas extra de seguridad que no vas a gastar del todo.</div>";
+    html += "</div>";
+    html += "<div id='reponerDinamico'></div>";
+    html += "<button type='button' onclick='confirmarReponer()' id='reponerBtnConfirmar' style='width:100%;background:#059669;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:700;font-size:16px;cursor:pointer;margin-bottom:8px;margin-top:8px'>✅ AÑADIR A LA CAJA</button>";
+    html += "<button type='button' onclick='cerrarReponerPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button>";
+    cont.innerHTML = html;
+    actualizarReponerPropuesta();
+  } else {
+    html += "<div class='card' style='margin:0 0 12px 0'>";
+    html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>✍️ ¿QUÉ AÑADIR A LA CAJA?</div>";
+    html += "<div style='font-size:12px;color:#64748b;margin-bottom:10px'>Pulsa + para añadir piezas. Verás cuántas tienes y cuántas quedarían.</div>";
+    html += "<div id='reponerManualLista'></div>";
+    html += "</div>";
+    html += "<div class='card' style='margin:0 0 12px 0;text-align:center;background:#1e3a8a;border:1px solid #3b82f6'>";
+    html += "<div style='font-size:12px;color:#bfdbfe;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>🏦 SACA DEL BANCO</div>";
+    html += "<div id='reponerManualTotal' style='font-size:32px;font-weight:900;color:#fff'>0,00 €</div>";
+    html += "</div>";
+    html += "<button type='button' onclick='confirmarReponer()' id='reponerBtnConfirmar' style='width:100%;background:#059669;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:700;font-size:16px;cursor:pointer;margin-bottom:8px'>✅ AÑADIR A LA CAJA</button>";
+    html += "<button type='button' onclick='resetManualReponer()' style='width:100%;background:#78350f;color:#fbbf24;border:1px solid #b45309;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:8px'>🗑️ Limpiar todo</button>";
+    html += "<button type='button' onclick='cerrarReponerPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button>";
+    cont.innerHTML = html;
+    actualizarReponerManual();
+  }
+}
+
+function cambiarModoReponer(modo){
+  reponerState.modo = modo;
+  if(modo === "manual" && Object.keys(reponerState.manualAdd).length === 0){
+    denominations.forEach(d => { reponerState.manualAdd[d.c] = 0; });
+  }
+  renderReponerInicio();
+}
+
+function recalcularReponer(){
+  const v = parseInt(document.getElementById("reponerViajes").value) || 20;
+  const c = parseInt(document.getElementById("reponerColchon").value) || 0;
+  reponerState.viajes = Math.max(1, Math.min(100, v));
+  reponerState.colchon = Math.max(0, Math.min(10, c));
+  reponerState.marcados = {};
+  actualizarReponerPropuesta();
+}
+
+function actualizarReponerPropuesta(){
+  const zona = document.getElementById("reponerDinamico");
+  const btn  = document.getElementById("reponerBtnConfirmar");
+  if(!zona) return;
+
   const { faltantes, total } = calcularFaltantes(reponerState.viajes, reponerState.colchon);
 
-  let html = "";
-
-  // --- Configuración (ajustable) ---
-  html += "<div class='card' style='margin:0 0 12px 0'>";
-  html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>⚙️ CONFIGURACIÓN</div>";
-  html += "<div style='display:flex;gap:12px'>";
-  html += "<div style='flex:1'>";
-  html += "<label style='font-size:12px;color:#94a3b8;font-weight:700;display:block;text-align:center'>Cubrir viajes</label>";
-  html += "<input type='number' id='reponerViajes' min='5' max='100' value='" + reponerState.viajes + "' onchange='recalcularReponer()' style='width:100%;font-size:20px;font-weight:800;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#38bdf8;text-align:center;margin-top:4px;outline:none'>";
-  html += "</div>";
-  html += "<div style='flex:1'>";
-  html += "<label style='font-size:12px;color:#94a3b8;font-weight:700;display:block;text-align:center'>Colchón extra</label>";
-  html += "<input type='number' id='reponerColchon' min='0' max='10' value='" + reponerState.colchon + "' onchange='recalcularReponer()' style='width:100%;font-size:20px;font-weight:800;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#38bdf8;text-align:center;margin-top:4px;outline:none'>";
-  html += "</div>";
-  html += "</div>";
-  html += "<div style='font-size:11px;color:#64748b;margin-top:8px;line-height:1.4;text-align:center'>El colchón son piezas extra de seguridad que no vas a gastar del todo, así nunca vas al límite.</div>";
-  html += "</div>";
-
-  // --- Sin faltantes ---
   if(faltantes.length === 0){
+    let html = "";
     html += "<div class='card' style='margin:0 0 12px 0;text-align:center'>";
     html += "<div style='font-size:48px;margin-bottom:12px'>✅</div>";
     html += "<div style='font-size:16px;color:#4ade80;font-weight:800;margin-bottom:8px'>Caja suficiente</div>";
-    html += "<div style='font-size:13px;color:#94a3b8;line-height:1.6'>Con tu gasto actual, tienes cambio para los próximos <b>" + reponerState.viajes + "</b> viajes.<br>No necesitas ir al banco.</div>";
+    html += "<div style='font-size:13px;color:#94a3b8;line-height:1.6'>Con tu gasto actual, tienes cambio suficiente. No necesitas ir al banco.</div>";
     html += "</div>";
-    html += "<button type='button' onclick='cerrarReponerPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>✖ Cerrar</button>";
-    cont.innerHTML = html;
+    zona.innerHTML = html;
+    if(btn) btn.style.display = "none";
     return;
   }
 
-  // --- Cabecera con el total ---
+  if(btn) btn.style.display = "block";
+
+  let html = "";
   html += "<div class='card' style='margin:0 0 12px 0;text-align:center;background:#1e3a8a;border:1px solid #3b82f6'>";
   html += "<div style='font-size:12px;color:#bfdbfe;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>🏦 SACA DEL BANCO</div>";
   html += "<div id='reponerTotal' style='font-size:38px;font-weight:900;color:#fff'>" + moneyText(total) + "</div>";
   html += "<div style='font-size:12px;color:#bfdbfe;margin-top:6px'>Pulsa cada pieza para marcarla/desmarcarla</div>";
   html += "</div>";
-
-  // --- Lista de piezas con checkbox ---
   html += "<div class='card' style='margin:0 0 12px 0'>";
   html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>📋 DESGLOSE A PEDIR</div>";
 
@@ -1491,21 +1557,18 @@ function renderReponerInicio(){
   const monedas  = faltantes.filter(x => x.d.type === "coin").sort((a,b) => b.d.c - a.d.c);
 
   const renderFila = (x) => {
-    const d = x.d;
-    const c = d.c;
+    const d = x.d, c = d.c;
     const marcado = reponerState.marcados[c] !== false;
     const importe = x.falta * c;
     const grafClase = (d.type === "bill" ? "bill-graphic " : "coin-graphic ") + d.class;
-
     let row = "";
     row += "<label style='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155;cursor:pointer'>";
     row += "<input type='checkbox' data-c='" + c + "' " + (marcado ? "checked" : "") + " onchange='toggleMarcadoReponer(this)' style='width:22px;height:22px;cursor:pointer;flex-shrink:0'>";
     row += "<div class='" + grafClase + "' style='flex-shrink:0'>" + d.short + "</div>";
     row += "<div style='flex:1;min-width:0'>";
-    row += "<div style='font-size:15px;font-weight:800;color:" + (marcado ? "#fff" : "#475569") + "'>" + x.falta + " × " + d.n + "</div>";
+    row += "<div class='reponerFila' style='font-size:15px;font-weight:800;color:" + (marcado ? "#fff" : "#475569") + "'>" + x.falta + " × " + d.n + "</div>";
     row += "<div style='font-size:12px;color:#94a3b8'>" + moneyText(importe) + "</div>";
-    row += "</div>";
-    row += "</label>";
+    row += "</div></label>";
     return row;
   };
 
@@ -1517,69 +1580,96 @@ function renderReponerInicio(){
     html += "<div style='font-size:11px;color:#facc15;font-weight:800;letter-spacing:0.5px;margin:12px 0 4px'>🪙 MONEDAS</div>";
     monedas.forEach(x => { html += renderFila(x); });
   }
-
   html += "</div>";
-
-  // --- Botones ---
-  html += "<button type='button' onclick='confirmarReponer()' style='width:100%;background:#059669;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:700;font-size:16px;cursor:pointer;margin-bottom:8px'>✅ AÑADIR A LA CAJA</button>";
-  html += "<button type='button' onclick='cerrarReponerPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button>";
-
-  cont.innerHTML = html;
-}
-
-function recalcularReponer(){
-  const v = parseInt(document.getElementById("reponerViajes").value) || 20;
-  const c = parseInt(document.getElementById("reponerColchon").value) || 0;
-  reponerState.viajes = Math.max(1, Math.min(100, v));
-  reponerState.colchon = Math.max(0, Math.min(10, c));
-  reponerState.marcados = {};
-  renderReponerInicio();
+  zona.innerHTML = html;
 }
 
 function toggleMarcadoReponer(checkbox){
   const c = parseInt(checkbox.dataset.c);
   reponerState.marcados[c] = checkbox.checked;
-
   const { faltantes } = calcularFaltantes(reponerState.viajes, reponerState.colchon);
   let nuevoTotal = 0;
   faltantes.forEach(x => {
-    if(reponerState.marcados[x.d.c] !== false){
-      nuevoTotal += x.falta * x.d.c;
-    }
+    if(reponerState.marcados[x.d.c] !== false) nuevoTotal += x.falta * x.d.c;
   });
   const el = document.getElementById("reponerTotal");
   if(el) el.textContent = moneyText(nuevoTotal);
-
   const label = checkbox.parentElement;
-  const divTexto = label.querySelector("div[style*='font-size:15px']");
-  if(divTexto){
-    divTexto.style.color = checkbox.checked ? "#fff" : "#475569";
-  }
+  const divTexto = label.querySelector(".reponerFila");
+  if(divTexto) divTexto.style.color = checkbox.checked ? "#fff" : "#475569";
+}
+
+function actualizarReponerManual(){
+  const cont = document.getElementById("reponerManualLista");
+  if(!cont) return;
+
+  let html = "";
+  denominations.forEach((d, i) => {
+    const actual = stock[i] || 0;
+    const add = reponerState.manualAdd[d.c] || 0;
+    const queda = actual + add;
+    const grafClase = (d.type === "bill" ? "bill-graphic " : "coin-graphic ") + d.class;
+
+    html += "<div style='display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #334155'>";
+    html += "<div class='" + grafClase + "' style='flex-shrink:0'>" + d.short + "</div>";
+    html += "<div style='flex:1;min-width:0'>";
+    html += "<div style='font-size:14px;font-weight:700;color:#fff'>" + d.n + "</div>";
+    html += "<div style='font-size:11px;color:#94a3b8'>Tienes " + actual + " → quedarían <b style='color:#38bdf8'>" + queda + "</b></div>";
+    html += "</div>";
+    html += "<div style='display:flex;align-items:center;gap:6px;flex-shrink:0'>";
+    html += "<button type='button' onclick='ajustarManualReponer(" + d.c + ",-1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer'>−</button>";
+    html += "<div style='width:40px;text-align:center;font-size:18px;font-weight:900;color:" + (add > 0 ? "#4ade80" : "#475569") + "'>" + add + "</div>";
+    html += "<button type='button' onclick='ajustarManualReponer(" + d.c + ",1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer'>+</button>";
+    html += "</div>";
+    html += "</div>";
+  });
+  cont.innerHTML = html;
+
+  let total = 0;
+  denominations.forEach(d => { total += (reponerState.manualAdd[d.c] || 0) * d.c; });
+  const elTotal = document.getElementById("reponerManualTotal");
+  if(elTotal) elTotal.textContent = moneyText(total);
+}
+
+function ajustarManualReponer(cents, delta){
+  reponerState.manualAdd[cents] = Math.max(0, (reponerState.manualAdd[cents] || 0) + delta);
+  actualizarReponerManual();
+}
+
+function resetManualReponer(){
+  denominations.forEach(d => { reponerState.manualAdd[d.c] = 0; });
+  actualizarReponerManual();
 }
 
 function confirmarReponer(){
-  const { faltantes } = calcularFaltantes(reponerState.viajes, reponerState.colchon);
+  let aAnadir = [];
+  let total = 0;
 
-  const marcados = faltantes.filter(x => reponerState.marcados[x.d.c] !== false);
-  if(marcados.length === 0){
-    alert("No has marcado ninguna pieza.");
-    return;
+  if(reponerState.modo === "manual"){
+    denominations.forEach((d, i) => {
+      const n = reponerState.manualAdd[d.c] || 0;
+      if(n > 0){ aAnadir.push({ index: i, cantidad: n }); total += n * d.c; }
+    });
+    if(aAnadir.length === 0){ alert("No has añadido ninguna pieza."); return; }
+  } else {
+    const { faltantes } = calcularFaltantes(reponerState.viajes, reponerState.colchon);
+    faltantes.forEach(x => {
+      if(reponerState.marcados[x.d.c] !== false){
+        aAnadir.push({ index: x.index, cantidad: x.falta });
+        total += x.falta * x.d.c;
+      }
+    });
+    if(aAnadir.length === 0){ alert("No has marcado ninguna pieza."); return; }
   }
 
-  let totalMarcado = 0;
-  marcados.forEach(x => { totalMarcado += x.falta * x.d.c; });
+  if(!confirm("¿Confirmar que has sacado " + moneyText(total) + " del banco y los has metido en la caja?")) return;
 
-  if(!confirm("¿Confirmar que has sacado " + moneyText(totalMarcado) + " del banco y los has metido en la caja?")) return;
-
-  marcados.forEach(x => {
-    stock[x.index] += x.falta;
-  });
-
+  aAnadir.forEach(x => { stock[x.index] += x.cantidad; });
   saveStock();
   renderStockList();
   updateCashSummary();
 
-  alert("✅ Añadido a la caja: " + moneyText(totalMarcado));
+  alert("✅ Añadido a la caja: " + moneyText(total));
   cerrarReponerPantalla();
 }
 

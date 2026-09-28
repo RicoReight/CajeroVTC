@@ -50,6 +50,7 @@ let summaryTimer = null;
 let precioInterval = null;
 let precioActual = 0;
 let cambioState = { aEntregar: {}, aRecibir: {}, modo: null, orden: [], ordenRecibir: [] };
+let reponerState = { viajes: 20, colchon: 3, marcados: {} };
 
 function loadStock(){
   const s = safeStorage.get("uberCambioStock");
@@ -796,8 +797,11 @@ function calcularCierre(){
   html += "<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px'>" + htmlTarjetas + "</div>";
   if(hayProblema){
     html += "<div style='padding:12px;background:#78350f;border:1px solid #b45309;border-radius:10px;font-size:13px;color:#fbbf24;line-height:1.5;text-align:center'>" +
-              "⚠️ <b>Ojo</b>: después de este depósito te quedarás justo para dar cambio.<br>Puedes depositar menos o revisar tu inventario." +
+              "⚠️ <b>Ojo</b>: después de este depósito te quedarás justo para dar cambio.<br>Puedes depositar menos o reponer caja." +
             "</div>";
+    html += "<button type='button' onclick='abrirReponerDesdeDeposito()' style='width:100%;margin-top:10px;background:#16a34a;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>" +
+              "🏦 REPONER CAJA ANTES DE DEPOSITAR" +
+            "</button>";
   } else {
     html += "<div style='padding:12px;background:#064e3b;border:1px solid #059669;border-radius:10px;font-size:13px;color:#4ade80;line-height:1.5;text-align:center'>" +
               "✅ Después de este depósito seguirás teniendo <b>cambio suficiente</b>." +
@@ -1388,6 +1392,197 @@ function renderCambioHistorial(){
   box.innerHTML = html;
 }
 
+/* ---------- Reponer caja ---------- */
+function calcularFaltantes(viajesACubrir, colchon){
+  const ops = statsOps.operations;
+  const faltantes = [];
+  let total = 0;
+
+  denominations.forEach((d, i) => {
+    const stockActual = stock[i] || 0;
+    const tope = topesRecibir[d.c] != null ? topesRecibir[d.c] : 0;
+    let objetivo;
+
+    if(ops >= 5){
+      const gastoMedio = statsOps.spent[i] / ops;
+      objetivo = Math.ceil(gastoMedio * viajesACubrir) + colchon;
+    } else {
+      objetivo = Math.ceil(tope * 0.5);
+    }
+
+    objetivo = Math.min(objetivo, tope);
+
+    const falta = Math.max(0, objetivo - stockActual);
+    if(falta > 0){
+      faltantes.push({ d, index: i, falta });
+      total += falta * d.c;
+    }
+  });
+
+  return { faltantes, total };
+}
+
+function abrirReponerPantalla(){
+  const d = document.getElementById("drawer");
+  const o = document.getElementById("overlay");
+  if(d) d.classList.remove("active");
+  if(o) o.classList.remove("active");
+  const p = document.getElementById("reponerPantalla");
+  if(p) p.style.display = "block";
+  renderReponerInicio();
+}
+function cerrarReponerPantalla(){
+  const p = document.getElementById("reponerPantalla");
+  if(p) p.style.display = "none";
+}
+function abrirReponerDesdeDeposito(){
+  cerrarCierrePantalla();
+  abrirReponerPantalla();
+}
+
+function renderReponerInicio(){
+  const cont = document.getElementById("reponerContenido");
+  if(!cont) return;
+
+  const { faltantes, total } = calcularFaltantes(reponerState.viajes, reponerState.colchon);
+
+  let html = "";
+
+  // --- Configuración (ajustable) ---
+  html += "<div class='card' style='margin:0 0 12px 0'>";
+  html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>⚙️ CONFIGURACIÓN</div>";
+  html += "<div style='display:flex;gap:12px'>";
+  html += "<div style='flex:1'>";
+  html += "<label style='font-size:12px;color:#94a3b8;font-weight:700;display:block;text-align:center'>Cubrir viajes</label>";
+  html += "<input type='number' id='reponerViajes' min='5' max='100' value='" + reponerState.viajes + "' onchange='recalcularReponer()' style='width:100%;font-size:20px;font-weight:800;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#38bdf8;text-align:center;margin-top:4px;outline:none'>";
+  html += "</div>";
+  html += "<div style='flex:1'>";
+  html += "<label style='font-size:12px;color:#94a3b8;font-weight:700;display:block;text-align:center'>Colchón extra</label>";
+  html += "<input type='number' id='reponerColchon' min='0' max='10' value='" + reponerState.colchon + "' onchange='recalcularReponer()' style='width:100%;font-size:20px;font-weight:800;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#38bdf8;text-align:center;margin-top:4px;outline:none'>";
+  html += "</div>";
+  html += "</div>";
+  html += "<div style='font-size:11px;color:#64748b;margin-top:8px;line-height:1.4;text-align:center'>El colchón son piezas extra de seguridad que no vas a gastar del todo, así nunca vas al límite.</div>";
+  html += "</div>";
+
+  // --- Sin faltantes ---
+  if(faltantes.length === 0){
+    html += "<div class='card' style='margin:0 0 12px 0;text-align:center'>";
+    html += "<div style='font-size:48px;margin-bottom:12px'>✅</div>";
+    html += "<div style='font-size:16px;color:#4ade80;font-weight:800;margin-bottom:8px'>Caja suficiente</div>";
+    html += "<div style='font-size:13px;color:#94a3b8;line-height:1.6'>Con tu gasto actual, tienes cambio para los próximos <b>" + reponerState.viajes + "</b> viajes.<br>No necesitas ir al banco.</div>";
+    html += "</div>";
+    html += "<button type='button' onclick='cerrarReponerPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>✖ Cerrar</button>";
+    cont.innerHTML = html;
+    return;
+  }
+
+  // --- Cabecera con el total ---
+  html += "<div class='card' style='margin:0 0 12px 0;text-align:center;background:#1e3a8a;border:1px solid #3b82f6'>";
+  html += "<div style='font-size:12px;color:#bfdbfe;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>🏦 SACA DEL BANCO</div>";
+  html += "<div id='reponerTotal' style='font-size:38px;font-weight:900;color:#fff'>" + moneyText(total) + "</div>";
+  html += "<div style='font-size:12px;color:#bfdbfe;margin-top:6px'>Pulsa cada pieza para marcarla/desmarcarla</div>";
+  html += "</div>";
+
+  // --- Lista de piezas con checkbox ---
+  html += "<div class='card' style='margin:0 0 12px 0'>";
+  html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>📋 DESGLOSE A PEDIR</div>";
+
+  const billetes = faltantes.filter(x => x.d.type === "bill").sort((a,b) => b.d.c - a.d.c);
+  const monedas  = faltantes.filter(x => x.d.type === "coin").sort((a,b) => b.d.c - a.d.c);
+
+  const renderFila = (x) => {
+    const d = x.d;
+    const c = d.c;
+    const marcado = reponerState.marcados[c] !== false;
+    const importe = x.falta * c;
+    const grafClase = (d.type === "bill" ? "bill-graphic " : "coin-graphic ") + d.class;
+
+    let row = "";
+    row += "<label style='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155;cursor:pointer'>";
+    row += "<input type='checkbox' data-c='" + c + "' " + (marcado ? "checked" : "") + " onchange='toggleMarcadoReponer(this)' style='width:22px;height:22px;cursor:pointer;flex-shrink:0'>";
+    row += "<div class='" + grafClase + "' style='flex-shrink:0'>" + d.short + "</div>";
+    row += "<div style='flex:1;min-width:0'>";
+    row += "<div style='font-size:15px;font-weight:800;color:" + (marcado ? "#fff" : "#475569") + "'>" + x.falta + " × " + d.n + "</div>";
+    row += "<div style='font-size:12px;color:#94a3b8'>" + moneyText(importe) + "</div>";
+    row += "</div>";
+    row += "</label>";
+    return row;
+  };
+
+  if(billetes.length > 0){
+    html += "<div style='font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin:6px 0 4px'>💵 BILLETES</div>";
+    billetes.forEach(x => { html += renderFila(x); });
+  }
+  if(monedas.length > 0){
+    html += "<div style='font-size:11px;color:#facc15;font-weight:800;letter-spacing:0.5px;margin:12px 0 4px'>🪙 MONEDAS</div>";
+    monedas.forEach(x => { html += renderFila(x); });
+  }
+
+  html += "</div>";
+
+  // --- Botones ---
+  html += "<button type='button' onclick='confirmarReponer()' style='width:100%;background:#059669;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:700;font-size:16px;cursor:pointer;margin-bottom:8px'>✅ AÑADIR A LA CAJA</button>";
+  html += "<button type='button' onclick='cerrarReponerPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button>";
+
+  cont.innerHTML = html;
+}
+
+function recalcularReponer(){
+  const v = parseInt(document.getElementById("reponerViajes").value) || 20;
+  const c = parseInt(document.getElementById("reponerColchon").value) || 0;
+  reponerState.viajes = Math.max(1, Math.min(100, v));
+  reponerState.colchon = Math.max(0, Math.min(10, c));
+  reponerState.marcados = {};
+  renderReponerInicio();
+}
+
+function toggleMarcadoReponer(checkbox){
+  const c = parseInt(checkbox.dataset.c);
+  reponerState.marcados[c] = checkbox.checked;
+
+  const { faltantes } = calcularFaltantes(reponerState.viajes, reponerState.colchon);
+  let nuevoTotal = 0;
+  faltantes.forEach(x => {
+    if(reponerState.marcados[x.d.c] !== false){
+      nuevoTotal += x.falta * x.d.c;
+    }
+  });
+  const el = document.getElementById("reponerTotal");
+  if(el) el.textContent = moneyText(nuevoTotal);
+
+  const label = checkbox.parentElement;
+  const divTexto = label.querySelector("div[style*='font-size:15px']");
+  if(divTexto){
+    divTexto.style.color = checkbox.checked ? "#fff" : "#475569";
+  }
+}
+
+function confirmarReponer(){
+  const { faltantes } = calcularFaltantes(reponerState.viajes, reponerState.colchon);
+
+  const marcados = faltantes.filter(x => reponerState.marcados[x.d.c] !== false);
+  if(marcados.length === 0){
+    alert("No has marcado ninguna pieza.");
+    return;
+  }
+
+  let totalMarcado = 0;
+  marcados.forEach(x => { totalMarcado += x.falta * x.d.c; });
+
+  if(!confirm("¿Confirmar que has sacado " + moneyText(totalMarcado) + " del banco y los has metido en la caja?")) return;
+
+  marcados.forEach(x => {
+    stock[x.index] += x.falta;
+  });
+
+  saveStock();
+  renderStockList();
+  updateCashSummary();
+
+  alert("✅ Añadido a la caja: " + moneyText(totalMarcado));
+  cerrarReponerPantalla();
+}
+
 /* ---------- Copia de seguridad ---------- */
 function setupBackupUI(){
   const panelInv = document.getElementById("panelInventario");
@@ -1416,7 +1611,7 @@ function setupBackupUI(){
 }
 async function exportInventory(){
   const data = {
-    app:"uberCambioVTC", version:7,
+    app:"uberCambioVTC", version:8,
     exportedAt:new Date().toISOString(),
     stock:stock, totalTips:totalTips, reservaMinima:reservaMinima,
     topesRecibir: topesRecibir,
@@ -1559,7 +1754,6 @@ function init(){
   try { renderCierreHistorico(); } catch(e){ console.error("renderCierreHistorico", e); }
   try { checkAutoResetPropinas(); }catch(e){ console.error("checkAutoResetPropinas", e); }
 
-  // Ocultar splash a los 2.5 segundos
   const splash = document.getElementById("splash");
   if(splash){
     setTimeout(() => {

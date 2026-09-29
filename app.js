@@ -157,44 +157,76 @@ function actualizarReponerPropuesta(){const zona=document.getElementById("repone
 
 function toggleMarcadoReponer(cb){const c=parseInt(cb.dataset.c);reponerState.marcados[c]=cb.checked;const rec=configuracionRecomendada();const {faltantes}=calcularFaltantes(rec.viajes,rec.colchon);let nt=0;faltantes.forEach(x=>{if(reponerState.marcados[x.d.c]!==false)nt+=x.falta*x.d.c});const el=document.getElementById("reponerTotal");if(el)el.textContent=moneyText(nt);const div=cb.parentElement.querySelector(".reponerFila");if(div)div.style.color=cb.checked?"#fff":"#475569"}
 
-function actualizarReponerManual(){const cont=document.getElementById("reponerManualLista");if(!cont)return;let html="";denominations.forEach((d,i)=>{const act=stock[i]||0;const add=reponerState.manualAdd[d.c]||0;const qu=act+add;const gc=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;html+="<div style='display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #334155'><div class='"+gc+"' style='flex-shrink:0'>"+d.short+"</div><div style='flex:1;min-width:0'><div style='font-size:14px;font-weight:700;color:#fff'>"+d.n+"</div><div style='font-size:11px;color:#94a3b8'>Tienes "+act+" → quedarían <b style='color:#38bdf8'>"+qu+"</b></div></div><div style='display:flex;align-items:center;gap:6px;flex-shrink:0'><button type='button' onclick='ajustarManualReponer("+d.c+",-1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer'>−</button><div style='width:40px;text-align:center;font-size:18px;font-weight:900;color:"+(add>0?"#4ade80":"#475569")+"'>"+add+"</div><button type='button' onclick='ajustarManualReponer("+d.c+",1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer'>+</button></div></div>"});cont.innerHTML=html;let tot=0;denominations.forEach(d=>{tot+=(reponerState.manualAdd[d.c]||0)*d.c});const elT=document.getElementById("reponerManualTotal");if(elT)elT.textContent=moneyText(tot);const elE=document.getElementById("reponerManualEstado");if(elE&&reponerState.importeManual>0){const dif=tot-reponerState.importeManual;if(dif===0)elE.innerHTML="<span style='color:#4ade80'>✅ Coincide con lo que quieres sacar</span>";else if(dif<0)elE.innerHTML="<span style='color:#fbbf24'>⚠️ Te faltan "+moneyText(-dif)+"</span>";else elE.innerHTML="<span style='color:#f87171'>⚠️ Te pasas por "+moneyText(dif)+"</span>"}else if(elE)elE.innerHTML=""}
+function actualizarReponerManual(){
+  const cont=document.getElementById("reponerManualLista");
+  if(!cont)return;
+  let html="";
+  denominations.forEach((d,i)=>{
+    const act=stock[i]||0;
+    const add=reponerState.manualAdd[d.c]||0;
+    const qu=act+add;
+    const tope=(topesRecibir[d.c]!=null)?topesRecibir[d.c]:0;
+    const objetivo=Math.floor(tope*FACTOR_LLENADO);
+    // Color dinámico según lo cerca que esté del objetivo del 70% o del tope
+    let colorQu="#38bdf8";
+    let aviso="";
+    if(add>0){
+      if(tope>0&&qu>tope){colorQu="#ef4444";aviso=" ⚠ supera tope ("+tope+")";}
+      else if(objetivo>0&&qu>objetivo){colorQu="#fbbf24";aviso=" · por encima del 70% ("+objetivo+")";}
+    }
+    const gc=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
+    html+="<div style='display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #334155'><div class='"+gc+"' style='flex-shrink:0'>"+d.short+"</div><div style='flex:1;min-width:0'><div style='font-size:14px;font-weight:700;color:#fff'>"+d.n+"</div><div style='font-size:11px;color:#94a3b8'>Tienes "+act+" → quedarían <b style='color:"+colorQu+"'>"+qu+"</b>"+aviso+"</div></div><div style='display:flex;align-items:center;gap:6px;flex-shrink:0'><button type='button' onclick='ajustarManualReponer("+d.c+",-1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer'>−</button><div style='width:40px;text-align:center;font-size:18px;font-weight:900;color:"+(add>0?"#4ade80":"#475569")+"'>"+add+"</div><button type='button' onclick='ajustarManualReponer("+d.c+",1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer'>+</button></div></div>"
+  });
+  cont.innerHTML=html;
+  let tot=0;
+  denominations.forEach(d=>{tot+=(reponerState.manualAdd[d.c]||0)*d.c});
+  const elT=document.getElementById("reponerManualTotal");
+  if(elT)elT.textContent=moneyText(tot);
+  const elE=document.getElementById("reponerManualEstado");
+  if(elE&&reponerState.importeManual>0){
+    const dif=tot-reponerState.importeManual;
+    if(dif===0)elE.innerHTML="<span style='color:#4ade80'>✅ Coincide con lo que quieres sacar</span>";
+    else if(dif<0)elE.innerHTML="<span style='color:#fbbf24'>⚠️ Te faltan "+moneyText(-dif)+"</span>";
+    else elE.innerHTML="<span style='color:#f87171'>⚠️ Te pasas por "+moneyText(dif)+"</span>"
+  } else if(elE)elE.innerHTML=""
+}
 
 function onCambioImporteManual(){const inp=document.getElementById("reponerImporteManual");if(!inp)return;const raw=parseFloat(inp.value.replace(',','.'))||0;const cents=Math.max(0,Math.round(raw*100));reponerState.importeManual=cents;if(cents>0){const rep=simularRepartoManual(cents);denominations.forEach((d,i)=>{reponerState.manualAdd[d.c]=rep[i]})}else denominations.forEach(d=>{reponerState.manualAdd[d.c]=0});actualizarReponerManual()}
 
-/* ---------- Reparto manual VARIADO (fix 10€ → monedas) ---------- */
+/* ---------- Reparto manual VARIADO (respeta hueco del 70% y tope) ---------- */
 function simularRepartoManual(target){
-  const objetivo = denominations.map((d,i) => Math.floor((topesRecibir[d.c]||0) * FACTOR_LLENADO));
-  const escasez  = denominations.map((d,i) => Math.max(0, objetivo[i] - (stock[i]||0)));
-  const añadidos = denominations.map(() => 0);
-  let restante = target;
+  const objetivo  = denominations.map((d,i) => Math.floor((topesRecibir[d.c]||0) * FACTOR_LLENADO));
+  const hueco     = denominations.map((d,i) => Math.max(0, objetivo[i] - (stock[i]||0)));
+  const añadidos  = denominations.map(() => 0);
+  let restante    = target;
 
-  // Ninguna pieza puede superar 1/3 del importe a repartir
+  // Ninguna pieza puede superar 1/3 del importe a repartir (salvo la más pequeña)
   const maxPieza = Math.max(denominations[denominations.length-1].c, Math.floor(target / 3));
 
-  // Ronda 1: reparto proporcional a la escasez, sin superar maxPieza
-  const escFilt = denominations.map((d,i) => d.c <= maxPieza ? escasez[i] : 0);
-  const costeFil = denominations.reduce((s,d,i) => s + escFilt[i] * d.c, 0);
+  // Ronda 1: reparto proporcional al hueco real disponible
+  const huecoFil = denominations.map((d,i) => d.c <= maxPieza ? hueco[i] : 0);
+  const costeFil = denominations.reduce((s,d,i) => s + huecoFil[i] * d.c, 0);
 
   if(costeFil > 0){
     const f = Math.min(1, target / costeFil);
     denominations.forEach((d,i) => {
-      const n = Math.floor(escFilt[i] * f);
+      const n = Math.floor(huecoFil[i] * f);
       añadidos[i] = n;
       restante -= n * d.c;
     });
   }
 
-  // Ronda 2: reparte el resto subiendo un poco las que ya tienen (de pequeña a grande)
+  // Ronda 2: reparte el resto sin pasarse del hueco de cada pieza
   if(restante > 0){
     let seguir = true;
-    while(restante > 0 && seguir){
+    let seguridad = 5000; // evita bucles infinitos
+    while(restante > 0 && seguir && seguridad-- > 0){
       seguir = false;
       for(let i = denominations.length - 1; i >= 0; i--){
         if(restante <= 0) break;
         const d = denominations[i];
         if(d.c > maxPieza) continue;
-        const limiteExtra = Math.max(objetivo[i], añadidos[i] + 2);
-        if(añadidos[i] >= limiteExtra) continue;
+        if(añadidos[i] >= hueco[i]) continue;   // ← respeta el 70%
         if(d.c <= restante){
           añadidos[i]++;
           restante -= d.c;
@@ -204,14 +236,31 @@ function simularRepartoManual(target){
     }
   }
 
-  // Ronda 3: último recurso, cualquier pieza para cuadrar
+  // Ronda 3: último recurso, solo piezas con hueco libre
+  if(restante > 0){
+    for(let i = 0; i < denominations.length; i++){
+      if(restante <= 0) break;
+      const d = denominations[i];
+      const libre = Math.max(0, hueco[i] - añadidos[i]);
+      if(libre <= 0) continue;
+      const n = Math.min(libre, Math.floor(restante / d.c));
+      if(n > 0){
+        añadidos[i] += n;
+        restante -= n * d.c;
+      }
+    }
+  }
+
+  // Ronda 4: emergencia real (solo si no hubiera hueco por debajo del 70%)
   if(restante > 0){
     for(let i = 0; i < denominations.length; i++){
       if(restante <= 0) break;
       const d = denominations[i];
       const n = Math.floor(restante / d.c);
-      añadidos[i] += n;
-      restante -= n * d.c;
+      if(n > 0){
+        añadidos[i] += n;
+        restante -= n * d.c;
+      }
     }
   }
 

@@ -11,6 +11,11 @@ const denominations=[
 const RESERVA_DEFAULT={10000:0,5000:0,2000:1,1000:1,500:1,200:2,100:2,50:3,20:5,10:5,5:3,2:3,1:5};
 const TOPES_DEFAULT={1:30,2:30,5:30,10:25,20:25,50:20,100:20,200:20,500:8,1000:8,2000:5,5000:3,10000:2};
 const ARRANQUE={10000:0,5000:0,2000:2,1000:3,500:4,200:5,100:8,50:8,20:15,10:15,5:10,2:10,1:15};
+// Margen de llenado: la reposición (auto y manual) nunca llena una denominación
+// por encima del 70% de su tope, para dejar ~30% de hueco a las piezas que
+// entran durante la jornada y evitar atascos.
+// Ajustable: 0.6 = más conservador (más hueco, más viajes al banco),
+//            0.8 = más agresivo (caja más llena, menos viajes).
 const FACTOR_LLENADO=0.7;
 let stock=loadStock(),totalTips=loadTips(),reservaMinima=loadReserva(),topesRecibir=loadTopes();
 let diaReset=loadDiaReset(),ultimoResetPropinas=loadUltimoResetPropinas(),statsOps=loadStats();
@@ -280,6 +285,168 @@ function showCopyFallback(js,after){const prev=document.getElementById("copyBack
 
 function importInventory(file){const rd=new FileReader();rd.onload=()=>{try{const data=JSON.parse(rd.result);if(!data||!Array.isArray(data.stock)||data.stock.length!==denominations.length){alert("El archivo no es una copia válida.");return}if(!confirm("¿Reemplazar el inventario, propinas, reserva, topes, estadísticas e historial actuales?"))return;stock=data.stock.map(x=>Math.max(0,parseInt(x)||0));if(typeof data.totalTips==="number")totalTips=Math.max(0,data.totalTips);if(data.reservaMinima&&typeof data.reservaMinima==="object"){reservaMinima=Object.assign({},RESERVA_DEFAULT);denominations.forEach(d=>{if(typeof data.reservaMinima[d.c]==="number")reservaMinima[d.c]=Math.max(0,parseInt(data.reservaMinima[d.c])||0)});safeStorage.set("uberCambioReserva",JSON.stringify(reservaMinima))}if(data.topesRecibir&&typeof data.topesRecibir==="object"){topesRecibir=Object.assign({},TOPES_DEFAULT);denominations.forEach(d=>{if(typeof data.topesRecibir[d.c]==="number")topesRecibir[d.c]=Math.max(0,parseInt(data.topesRecibir[d.c])||0)});saveTopes()}if(typeof data.diaReset==="number"){diaReset=Math.max(1,Math.min(31,parseInt(data.diaReset)||20));saveDiaReset()}if(typeof data.ultimoResetPropinas==="string"){ultimoResetPropinas=data.ultimoResetPropinas;saveUltimoResetPropinas()}if(data.stats&&typeof data.stats==="object"){statsOps={operations:parseInt(data.stats.operations)||0,received:Array.isArray(data.stats.received)?data.stats.received.map(x=>parseInt(x)||0):new Array(denominations.length).fill(0),spent:Array.isArray(data.stats.spent)?data.stats.spent.map(x=>parseInt(x)||0):new Array(denominations.length).fill(0)};saveStats()}if(Array.isArray(data.cierres))saveCierres(data.cierres);if(Array.isArray(data.historicoResets))saveHistoricoResets(data.historicoResets);if(Array.isArray(data.cambios))saveCambios(data.cambios);saveStock();saveTips();renderStockList();renderReservaList();renderTopesList();updateCashSummary();renderCierreHistorico();renderResetPanel();alert("✅ Copia restaurada.")}catch(e){alert("No se pudo leer el archivo.")}};rd.readAsText(file)}
 
-function init(){try{renderButtons()}catch(e){console.error("renderButtons",e)}try{renderStockList()}catch(e){console.error("renderStockList",e)}try{updateCashSummary()}catch(e){console.error("updateCashSummary",e)}try{setupBackupUI()}catch(e){console.error("setupBackupUI",e)}try{renderCierreHistorico()}catch(e){console.error("renderCierreHistorico",e)}try{checkAutoResetPropinas()}catch(e){console.error("checkAutoResetPropinas",e)}const s=document.getElementById("splash");if(s){setTimeout(()=>{s.classList.add("oculto");document.body.classList.remove("splash-active");setTimeout(()=>{if(s.parentNode)s.parentNode.removeChild(s)},500)},2500)}}
+/* ==================== LECTURA DE PRECIO POR OCR ==================== */
+let tesseractLoaded = false;
+let tesseractLoading = null;
+
+async function cargarTesseract(){
+  if(tesseractLoaded) return window.Tesseract;
+  if(tesseractLoading) return tesseractLoading;
+  tesseractLoading = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+    s.onload = () => { tesseractLoaded = true; resolve(window.Tesseract); };
+    s.onerror = () => reject(new Error("No se pudo cargar el OCR"));
+    document.head.appendChild(s);
+  });
+  return tesseractLoading;
+}
+
+async function precalentarOCR(){
+  try {
+    const Tesseract = await cargarTesseract();
+    // Creamos el worker con los dos idiomas para que descargue
+    // el WASM + los traineddata en segundo plano. Lo cerramos al instante
+    // porque solo lo queremos para forzar el cacheo.
+    const worker = await Tesseract.createWorker("spa+eng");
+    await worker.terminate();
+    console.log("✅ OCR precargado en segundo plano");
+  } catch(e){
+    // Si falla no rompemos nada: la primera vez que pulses 📷 lo cargará.
+    console.warn("⚠️ Precalentado OCR falló:", e && e.message);
+  }
+}
+
+async function leerPrecioDeImagen(){
+  // 1) Intentar leer del portapapeles
+  try {
+    if(navigator.clipboard && navigator.clipboard.read){
+      const items = await navigator.clipboard.read();
+      for(const item of items){
+        const tipos = item.types.filter(t => t.startsWith("image/"));
+        if(tipos.length){
+          const blob = await item.getType(tipos[0]);
+          return procesarImagenPrecio(blob);
+        }
+      }
+    }
+  } catch(e){
+    // Sin permiso o sin imagen → caemos a galería
+    console.warn("Portapapeles no disponible:", e && e.name);
+  }
+  // 2) Fallback: abrir la galería
+  const inp = document.getElementById("precioImagenInput");
+  if(inp) inp.click();
+}
+
+function onImagenPrecioSeleccionada(e){
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if(!file) return;
+  procesarImagenPrecio(file);
+}
+
+async function procesarImagenPrecio(blob){
+  mostrarOCRModal("🔎 Leyendo la imagen…<br><span style='font-size:12px;color:#94a3b8'>La primera vez puede tardar unos segundos</span>", false);
+  try {
+    const Tesseract = await cargarTesseract();
+    const resultado = await Tesseract.recognize(blob, "spa+eng", {
+      logger: m => {
+        if(m.status === "recognizing text"){
+          mostrarOCRModal("🔎 Leyendo… " + Math.round(m.progress * 100) + "%", false);
+        }
+      }
+    });
+    const texto = (resultado && resultado.data && resultado.data.text) || "";
+    const importe = extraerImporte(texto);
+    if(importe == null){
+      mostrarOCRModal("❌ No he podido leer el precio.<br><span style='font-size:12px;color:#94a3b8'>Prueba con otra captura o escríbelo a mano.</span>", true);
+      return;
+    }
+    const inp = document.getElementById("price");
+    if(inp){
+      inp.value = importe.toFixed(2);
+      calculate();
+    }
+    cerrarOCRModal();
+    mostrarToast("✅ Precio leído: " + importe.toFixed(2) + " €");
+  } catch(e){
+    console.error(e);
+    mostrarOCRModal("❌ Error al procesar la imagen.", true);
+  }
+}
+
+function extraerImporte(texto){
+  if(!texto) return null;
+  // Busca números con 2 decimales: 28,50 / 28.50 / 1.234,56 / 1,234.56
+  const matches = texto.match(/\d{1,3}(?:[.,]\d{3})*[.,]\d{2}/g) || [];
+  if(!matches.length) return null;
+  const nums = matches.map(s => {
+    // Detectar separador decimal: el último . o ,
+    const m = s.match(/^(.*)[.,](\d{2})$/);
+    if(!m) return NaN;
+    const entero = m[1].replace(/[.,]/g, "");
+    return parseFloat(entero + "." + m[2]);
+  }).filter(n => !isNaN(n) && n >= 1 && n <= 999);
+  if(!nums.length) return null;
+  // El precio suele ser el más alto de la pantalla
+  return Math.max.apply(null, nums);
+}
+
+function mostrarOCRModal(msg, esError){
+  let m = document.getElementById("ocrModal");
+  if(!m){
+    m = document.createElement("div");
+    m.id = "ocrModal";
+    m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px";
+    m.innerHTML = "<div style='background:#1e293b;color:#f8fafc;border-radius:14px;padding:20px;max-width:340px;width:100%;text-align:center'><div id='ocrModalMsg' style='font-size:14px;line-height:1.5;margin-bottom:14px'></div><button type='button' id='ocrModalBtn' onclick='cerrarOCRModal()' style='background:#334155;color:#fff;border:none;padding:10px 18px;border-radius:10px;font-weight:700;cursor:pointer'>Cerrar</button></div>";
+    document.body.appendChild(m);
+  }
+  document.getElementById("ocrModalMsg").innerHTML = msg;
+  const btn = document.getElementById("ocrModalBtn");
+  btn.style.display = esError ? "block" : "none";
+  m.style.display = "flex";
+}
+
+function cerrarOCRModal(){
+  const m = document.getElementById("ocrModal");
+  if(m) m.style.display = "none";
+}
+
+function mostrarToast(msg){
+  let t = document.getElementById("toastPrecio");
+  if(!t){
+    t = document.createElement("div");
+    t.id = "toastPrecio";
+    t.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#059669;color:#fff;padding:12px 20px;border-radius:10px;font-weight:700;font-size:14px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:opacity 0.3s;opacity:0;pointer-events:none";
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = "1";
+  setTimeout(() => { t.style.opacity = "0"; }, 2200);
+}
+/* ==================== FIN OCR ==================== */
+
+function init(){
+  try{renderButtons()}catch(e){console.error("renderButtons",e)}
+  try{renderStockList()}catch(e){console.error("renderStockList",e)}
+  try{updateCashSummary()}catch(e){console.error("updateCashSummary",e)}
+  try{setupBackupUI()}catch(e){console.error("setupBackupUI",e)}
+  try{renderCierreHistorico()}catch(e){console.error("renderCierreHistorico",e)}
+  try{checkAutoResetPropinas()}catch(e){console.error("checkAutoResetPropinas",e)}
+
+  // Precarga el OCR mientras se muestra el splash.
+  // No lo esperamos: corre en segundo plano y no bloquea la UI.
+  setTimeout(() => { precalentarOCR(); }, 300);
+
+  const s=document.getElementById("splash");
+  if(s){
+    setTimeout(()=>{
+      s.classList.add("oculto");
+      document.body.classList.remove("splash-active");
+      setTimeout(()=>{if(s.parentNode)s.parentNode.removeChild(s)},500)
+    },2500)
+  }
+}
 
 init();

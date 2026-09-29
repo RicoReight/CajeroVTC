@@ -39,13 +39,18 @@
 
   <div class="card">
     <label for="price">Precio del viaje (€)</label>
-    <div style="display:flex;gap:8px;align-items:center">
-      <input id="price" type="number" inputmode="decimal" step="0.01" placeholder="Ej. 14.50" oninput="calculate()" style="flex:1">
+    <div style="display:flex;gap:6px;align-items:center">
+      <input id="price" type="number" inputmode="decimal" step="0.01" placeholder="Ej. 14.50" oninput="calculate()" style="flex:1;min-width:0">
+      <button type="button" onclick="leerPrecioDeImagen()" title="Leer precio de un screenshot"
+        style="background:#334155;color:#fff;border:1px solid #475569;border-radius:10px;padding:14px 12px;font-size:20px;cursor:pointer;flex-shrink:0">
+        📷
+      </button>
       <button type="button" onclick="mostrarPrecio()" title="Enseñar precio al cliente"
-        style="background:#334155;color:#fff;border:1px solid #475569;border-radius:10px;padding:14px 16px;font-size:20px;cursor:pointer;flex-shrink:0">
+        style="background:#334155;color:#fff;border:1px solid #475569;border-radius:10px;padding:14px 12px;font-size:20px;cursor:pointer;flex-shrink:0">
         🔍
       </button>
     </div>
+    <input type="file" id="precioImagenInput" accept="image/*" style="display:none" onchange="onImagenPrecioSeleccionada(event)">
 
     <label>Dinero recibido</label>
     <div class="grid" id="moneyButtons"></div>
@@ -95,22 +100,23 @@
 
   <div id="panelInventario" style="display:block">
     <div class="tip-total-box" id="totalTipDisplay">💶 Propinas: 0,00 €</div>
-    <div id="stockList" style="min-height:60px"></div>
-    <div id="recomendacionesBox"></div>
 
     <button type="button" onclick="abrirCambioPantalla()"
-      style="width:100%;margin-top:14px;background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:10px;padding:12px;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px">
+      style="width:100%;margin-top:10px;background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:10px;padding:12px;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px">
       🔀 CAMBIAR BILLETE
     </button>
 
-    <button type="button" onclick="abrirLimitePantalla()"
-      style="width:100%;background:#334155;color:#fff;border:1px solid #475569;border-radius:10px;padding:12px;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px">
-      🔒 LÍMITE Y MÁXIMOS
+    <button type="button" onclick="abrirReponerPantalla()"
+      style="width:100%;background:#16a34a;color:#fff;border:1px solid #059669;border-radius:10px;padding:12px;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:14px">
+      🏦 REPONER CAJA
     </button>
 
-    <button type="button" onclick="abrirReponerPantalla()"
-      style="width:100%;background:#16a34a;color:#fff;border:1px solid #059669;border-radius:10px;padding:12px;font-weight:700;font-size:15px;cursor:pointer">
-      🏦 REPONER CAJA
+    <div id="stockList" style="min-height:60px"></div>
+    <div id="recomendacionesBox"></div>
+
+    <button type="button" onclick="abrirLimitePantalla()"
+      style="width:100%;margin-top:14px;background:#334155;color:#fff;border:1px solid #475569;border-radius:10px;padding:12px;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px">
+      🔒 LÍMITE Y MÁXIMOS
     </button>
   </div>
 

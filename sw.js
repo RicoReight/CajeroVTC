@@ -2,7 +2,9 @@ const HOSTNAME_WHITELIST = [
   self.location.hostname,
   'fonts.gstatic.com',
   'fonts.googleapis.com',
-  'cdn.jsdelivr.net'
+  'cdn.jsdelivr.net',
+  'unpkg.com',
+  'tessdata.projectnaptha.com'
 ];
 
 self.addEventListener('activate', event => {

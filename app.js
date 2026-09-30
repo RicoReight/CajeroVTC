@@ -305,20 +305,15 @@ async function cargarTesseract(){
 async function precalentarOCR(){
   try {
     const Tesseract = await cargarTesseract();
-    // Creamos el worker con los dos idiomas para que descargue
-    // el WASM + los traineddata en segundo plano. Lo cerramos al instante
-    // porque solo lo queremos para forzar el cacheo.
     const worker = await Tesseract.createWorker("spa+eng");
     await worker.terminate();
     console.log("✅ OCR precargado en segundo plano");
   } catch(e){
-    // Si falla no rompemos nada: la primera vez que pulses 📷 lo cargará.
     console.warn("⚠️ Precalentado OCR falló:", e && e.message);
   }
 }
 
 async function leerPrecioDeImagen(){
-  // 1) Intentar leer del portapapeles
   try {
     if(navigator.clipboard && navigator.clipboard.read){
       const items = await navigator.clipboard.read();
@@ -331,10 +326,8 @@ async function leerPrecioDeImagen(){
       }
     }
   } catch(e){
-    // Sin permiso o sin imagen → caemos a galería
     console.warn("Portapapeles no disponible:", e && e.name);
   }
-  // 2) Fallback: abrir la galería
   const inp = document.getElementById("precioImagenInput");
   if(inp) inp.click();
 }
@@ -386,43 +379,71 @@ async function procesarImagenPrecio(blob){
 
 function extraerImporte(texto){
   if(!texto) return null;
-  // Guardamos el texto para debug
   window.__ultimoOCR = texto;
   console.log("📄 Texto OCR completo:", texto);
 
-  // Normalizar confusiones típicas del OCR: O→0, l/I→1, S→5, B→8
+  // Normalizar confusiones típicas del OCR
   let t = texto
     .replace(/[Oo]/g, "0")
     .replace(/[lI]/g, "1")
     .replace(/S/g, "5")
     .replace(/B/g, "8");
 
-  // Patrón 1: número con 1 o 2 decimales (7,10 / 7.10 / 17,5 / 1.234,56)
-  const re1 = /\d{1,3}(?:[.,]\s?\d{3})*[.,]\s?\d{1,2}/g;
-  const matches = t.match(re1) || [];
-  const nums = matches.map(s => {
-    const clean = s.replace(/\s/g, "");
-    const m = clean.match(/^(.*)[.,](\d{1,2})$/);
-    if(!m) return NaN;
-    const entero = m[1].replace(/[.,]/g, "");
-    let dec = m[2];
-    if(dec.length === 1) dec = dec + "0";
-    return parseFloat(entero + "." + dec);
-  }).filter(n => !isNaN(n) && n >= 0.5 && n <= 999);
+  const candidatos = [];
 
-  if(nums.length) return Math.max.apply(null, nums);
+  // --- 1) Números con decimal explícito: 7,10 / 7.10 / 17,5 ---
+  const reDec = /(\d{1,3}(?:[.,]\s?\d{3})*[.,]\s?\d{1,2})/g;
+  let m;
+  while((m = reDec.exec(t)) !== null){
+    const clean = m[1].replace(/\s/g, "");
+    const partes = clean.match(/^(.*)[.,](\d{1,2})$/);
+    if(partes){
+      const entero = partes[1].replace(/[.,]/g, "");
+      let dec = partes[2];
+      if(dec.length === 1) dec += "0";
+      const n = parseFloat(entero + "." + dec);
+      if(!isNaN(n) && n >= 0.5 && n <= 500) candidatos.push(n);
+    }
+  }
 
-  // Patrón 2 (fallback): número más grande de 2-3 dígitos enteros
-  // Excluimos las horas del tipo "13:35"
-  const sinHoras = t.replace(/\d{1,2}:\d{2}/g, " ");
-  const matches2 = sinHoras.match(/\b\d{2,3}\b/g) || [];
-  const nums2 = matches2
-    .map(s => parseInt(s, 10))
-    .filter(n => !isNaN(n) && n >= 5 && n <= 300);
+  // --- 2) Números pegados a € SIN decimal: "7210€" ---
+  // Tesseract a veces lee "7,10" como "7210" (la coma se convierte en un dígito).
+  const reEur = /(\d{3,5})\s*€/g;
+  while((m = reEur.exec(t)) !== null){
+    const digits = m[1];
 
-  if(nums2.length) return Math.max.apply(null, nums2);
+    // 4 dígitos → "7210" originalmente era "7,10" (coma mal leída como dígito)
+    if(digits.length === 4){
+      const n = parseFloat(digits[0] + "." + digits.slice(2));
+      if(!isNaN(n) && n >= 0.5 && n <= 300) candidatos.push(n);
+      const n2 = parseFloat(digits.slice(0, 2) + "." + digits.slice(-2));
+      if(!isNaN(n2) && n2 >= 0.5 && n2 <= 300) candidatos.push(n2);
+    }
+    // 5 dígitos → "17250" originalmente era "17,50"
+    if(digits.length === 5){
+      const n = parseFloat(digits.slice(0, 2) + "." + digits.slice(3));
+      if(!isNaN(n) && n >= 0.5 && n <= 300) candidatos.push(n);
+      const n2 = parseFloat(digits.slice(0, 3) + "." + digits.slice(-2));
+      if(!isNaN(n2) && n2 >= 0.5 && n2 <= 300) candidatos.push(n2);
+    }
+  }
 
-  return null;
+  // --- 3) Fallback: cualquier número 2-3 dígitos (excluye horas) ---
+  if(candidatos.length === 0){
+    const sinHoras = t.replace(/\d{1,2}:\d{2}/g, " ");
+    (sinHoras.match(/\b\d{2,3}\b/g) || [])
+      .map(s => parseInt(s, 10))
+      .filter(n => !isNaN(n) && n >= 2 && n <= 300)
+      .forEach(n => candidatos.push(n));
+  }
+
+  if(!candidatos.length) return null;
+
+  // En el rango típico de precios de VTC (3-100€) preferimos el MÁS PEQUEÑO
+  const enRango = candidatos.filter(n => n >= 3 && n <= 100);
+  if(enRango.length) return Math.min.apply(null, enRango);
+
+  return Math.max.apply(null, candidatos);
 }
 
 function mostrarOCRModal(msg, esError){
@@ -467,8 +488,6 @@ function init(){
   try{renderCierreHistorico()}catch(e){console.error("renderCierreHistorico",e)}
   try{checkAutoResetPropinas()}catch(e){console.error("checkAutoResetPropinas",e)}
 
-  // Precarga el OCR mientras se muestra el splash.
-  // No lo esperamos: corre en segundo plano y no bloquea la UI.
   setTimeout(() => { precalentarOCR(); }, 300);
 
   const s=document.getElementById("splash");

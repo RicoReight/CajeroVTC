@@ -11,6 +11,11 @@ const denominations=[
 const RESERVA_DEFAULT={10000:0,5000:0,2000:1,1000:1,500:1,200:2,100:2,50:3,20:5,10:5,5:3,2:3,1:5};
 const TOPES_DEFAULT={1:30,2:30,5:30,10:25,20:25,50:20,100:20,200:20,500:8,1000:8,2000:5,5000:3,10000:2};
 const ARRANQUE={10000:0,5000:0,2000:2,1000:3,500:4,200:5,100:8,50:8,20:15,10:15,5:10,2:10,1:15};
+// Margen de llenado: la reposición (auto y manual) nunca llena una denominación
+// por encima del 70% de su tope, para dejar ~30% de hueco a las piezas que
+// entran durante la jornada y evitar atascos.
+// Ajustable: 0.6 = más conservador (más hueco, más viajes al banco),
+//            0.8 = más agresivo (caja más llena, menos viajes).
 const FACTOR_LLENADO=0.7;
 let stock=loadStock(),totalTips=loadTips(),reservaMinima=loadReserva(),topesRecibir=loadTopes();
 let diaReset=loadDiaReset(),ultimoResetPropinas=loadUltimoResetPropinas(),statsOps=loadStats();
@@ -110,10 +115,7 @@ function añadirDepositoManual(){const fs=document.getElementById("depManualFech
 
 function abrirDiagnostico(){const d=document.getElementById("drawer"),o=document.getElementById("overlay");if(d)d.classList.remove("active");if(o)o.classList.remove("active");const p=document.getElementById("diagnosticoPantalla");if(p)p.style.display="block";renderDiagnostico()}
 function cerrarDiagnostico(){const p=document.getElementById("diagnosticoPantalla");if(p)p.style.display="none"}
-function renderDiagnostico(){const cont=document.getElementById("diagnosticoContenido");if(!cont)return;const ops=statsOps.operations;let html="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>ESTADO DEL APRENDIZAJE</div>";if(ops<10){const fal=10-ops;html+="<div style='background:#1e3a8a;border:1px solid #3b82f6;border-radius:10px;padding:14px;text-align:center'><div style='font-size:14px;color:#93c5fd;font-weight:700;line-height:1.5'>🧠 Aún aprendiendo<br><br><span style='font-size:13px;color:#bfdbfe'>Llevo registradas <b>"+ops+"</b> operaciones.<br>Necesito al menos 10 para sugerencias fiables.<br><br>Faltan <b>"+fal+"</b> operaciones más.</span></div></div>"}else{html+="<div style='background:#064e3b;border:1px solid #059669;border-radius:10px;padding:12px;text-align:center'><div style='font-size:13px;color:#4ade80;font-weight:700;line-height:1.5'>✅ Aprendizaje activo<br><span style='font-size:12px;color:#a7f3d0'>Basado en <b>"+ops+"</b> operaciones registradas</span></div></div>"}html+="</div>";if(ops>0){html+="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>📊 DATOS POR DENOMINACIÓN</div><div style='display:grid;grid-template-columns:1.4fr 0.7fr 0.7fr 0.7fr 1fr;gap:6px;font-size:10px;color:#64748b;font-weight:700;padding-bottom:6px;border-bottom:1px solid #334155;text-align:right'><span style='text-align:left'>DENOM.</span><span>STOCK</span><span>RECV</span><span>GAST</span><span>ESTIM.</span></div>";denominations.forEach((d,i)=>{const sn=stock[i],rn=statsOps.received[i],gn=statsOps.spent[i];const rit=gn/ops;let est="—",co="#64748b";if(rit>0){const res=Math.floor(sn/rit);est="~"+res+" ops";if(res<5)co="#ef4444";else if(res<15)co="#fbbf24";else co="#4ade80"}html+="<div style='display:grid;grid-template-columns:1.4fr 0.7fr 0.7fr 0.7fr 1fr;gap:6px;font-size:13px;color:#fff;padding:6px 0;border-bottom:1px solid #1e293b;text-align:right'><span style='text-align:left;font-weight:700'>"+d.n+"</span><span>"+sn+"</span><span style='color:#4ade80'>"+rn+"</span><span style='color:#fbbf24'>"+gn+"</span><span style='color:"+co+";font-weight:800'>"+est+"</span></div>"});html+="</div>"}html+="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>💡 CÓMO LEO ESTOS DATOS</div><div style='font-size:12px;color:#94a3b8;line-height:1.7'><b style='color:#4ade80'>RECV</b> → piezas recibidas.<br><b style='color:#fbbf24'>GAST</b> → piezas devueltas como cambio.<br><b style='color:#38bdf8'>ESTIM.</b> → operaciones que aguantas.<br><br><span style='color:#64748b'>Las sugerencias se calculan con estos datos.</span></div></div>";
-html+="<button type='button' onclick='verShareLog()' style='width:100%;margin-top:14px;background:#7f1d1d;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;cursor:pointer;font-size:14px'>📋 VER LOG DE SHARE</button>";
-html+="<button type='button' onclick='borrarShareLog()' style='width:100%;margin-top:8px;background:#334155;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700;cursor:pointer;font-size:13px'>🗑️ Borrar log de share</button>";
-cont.innerHTML=html}
+function renderDiagnostico(){const cont=document.getElementById("diagnosticoContenido");if(!cont)return;const ops=statsOps.operations;let html="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>ESTADO DEL APRENDIZAJE</div>";if(ops<10){const fal=10-ops;html+="<div style='background:#1e3a8a;border:1px solid #3b82f6;border-radius:10px;padding:14px;text-align:center'><div style='font-size:14px;color:#93c5fd;font-weight:700;line-height:1.5'>🧠 Aún aprendiendo<br><br><span style='font-size:13px;color:#bfdbfe'>Llevo registradas <b>"+ops+"</b> operaciones.<br>Necesito al menos 10 para sugerencias fiables.<br><br>Faltan <b>"+fal+"</b> operaciones más.</span></div></div>"}else{html+="<div style='background:#064e3b;border:1px solid #059669;border-radius:10px;padding:12px;text-align:center'><div style='font-size:13px;color:#4ade80;font-weight:700;line-height:1.5'>✅ Aprendizaje activo<br><span style='font-size:12px;color:#a7f3d0'>Basado en <b>"+ops+"</b> operaciones registradas</span></div></div>"}html+="</div>";if(ops>0){html+="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>📊 DATOS POR DENOMINACIÓN</div><div style='display:grid;grid-template-columns:1.4fr 0.7fr 0.7fr 0.7fr 1fr;gap:6px;font-size:10px;color:#64748b;font-weight:700;padding-bottom:6px;border-bottom:1px solid #334155;text-align:right'><span style='text-align:left'>DENOM.</span><span>STOCK</span><span>RECV</span><span>GAST</span><span>ESTIM.</span></div>";denominations.forEach((d,i)=>{const sn=stock[i],rn=statsOps.received[i],gn=statsOps.spent[i];const rit=gn/ops;let est="—",co="#64748b";if(rit>0){const res=Math.floor(sn/rit);est="~"+res+" ops";if(res<5)co="#ef4444";else if(res<15)co="#fbbf24";else co="#4ade80"}html+="<div style='display:grid;grid-template-columns:1.4fr 0.7fr 0.7fr 0.7fr 1fr;gap:6px;font-size:13px;color:#fff;padding:6px 0;border-bottom:1px solid #1e293b;text-align:right'><span style='text-align:left;font-weight:700'>"+d.n+"</span><span>"+sn+"</span><span style='color:#4ade80'>"+rn+"</span><span style='color:#fbbf24'>"+gn+"</span><span style='color:"+co+";font-weight:800'>"+est+"</span></div>"});html+="</div>"}html+="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>💡 CÓMO LEO ESTOS DATOS</div><div style='font-size:12px;color:#94a3b8;line-height:1.7'><b style='color:#4ade80'>RECV</b> → piezas recibidas.<br><b style='color:#fbbf24'>GAST</b> → piezas devueltas como cambio.<br><b style='color:#38bdf8'>ESTIM.</b> → operaciones que aguantas.<br><br><span style='color:#64748b'>Las sugerencias se calculan con estos datos.</span></div></div>";cont.innerHTML=html}
 
 function abrirLimitePantalla(){const d=document.getElementById("drawer"),o=document.getElementById("overlay");if(d)d.classList.remove("active");if(o)o.classList.remove("active");const p=document.getElementById("limitePantalla");if(p)p.style.display="block";renderReservaList();renderTopesList()}
 function cerrarLimitePantalla(){const p=document.getElementById("limitePantalla");if(p)p.style.display="none"}
@@ -318,65 +320,6 @@ async function precalentarOCR(){
   }
 }
 
-/* ---------- Share target: log de diagnóstico ---------- */
-function logShare(msg){
-  try {
-    let arr = JSON.parse(safeStorage.get("uberCambioShareLog") || "[]");
-    arr.push({ t: new Date().toISOString(), m: msg });
-    if(arr.length > 30) arr = arr.slice(-30);
-    safeStorage.set("uberCambioShareLog", JSON.stringify(arr));
-  } catch(e){}
-}
-
-function verShareLog(){
-  try {
-    const arr = JSON.parse(safeStorage.get("uberCambioShareLog") || "[]");
-    if(!arr.length){ alert("LOG DE SHARE:\n\n(vacío)"); return; }
-    const txt = arr.map(x => x.t.slice(11,19) + " · " + x.m).join("\n");
-    alert("LOG DE SHARE:\n\n" + txt);
-  } catch(e){
-    alert("Error leyendo log: " + e.message);
-  }
-}
-
-function borrarShareLog(){
-  if(!confirm("¿Borrar el log de share?")) return;
-  safeStorage.remove("uberCambioShareLog");
-  alert("✅ Log borrado.");
-}
-
-async function comprobarImagenCompartida(){
-  logShare("Init. URL=" + location.search);
-
-  if(!location.search.includes('shared=1')){
-    logShare("Sin ?shared=1 → salgo");
-    return;
-  }
-
-  logShare("Detectado ?shared=1, buscando en cache…");
-  history.replaceState({}, '', location.pathname);
-
-  try {
-    const cache = await caches.open('share-target');
-    const keys = await cache.keys();
-    const keysStr = keys.map(k => k.url).join(", ");
-    logShare("Cache keys: " + (keysStr || "(vacío)"));
-
-    const resp = await cache.match('/shared-image');
-    if(!resp){
-      logShare("No hay /shared-image en cache");
-      return;
-    }
-    const blob = await resp.blob();
-    logShare("Imagen recuperada: " + blob.size + " bytes");
-    await cache.delete('/shared-image');
-    procesarImagenPrecio(blob);
-  } catch(e){
-    logShare("Error: " + (e && e.message));
-    console.warn('No se pudo procesar la imagen compartida:', e);
-  }
-}
-
 async function leerPrecioDeImagen(){
   try {
     if(navigator.clipboard && navigator.clipboard.read){
@@ -543,16 +486,7 @@ function init(){
   try{renderCierreHistorico()}catch(e){console.error("renderCierreHistorico",e)}
   try{checkAutoResetPropinas()}catch(e){console.error("checkAutoResetPropinas",e)}
 
-  // Log de arranque
-  setTimeout(() => {
-    logShare("App arranca. SW activo: " + (navigator.serviceWorker && navigator.serviceWorker.controller ? "SÍ" : "NO"));
-  }, 500);
-
-  // Comprobar si venimos de un "Compartir" desde Uber
-  setTimeout(() => { comprobarImagenCompartida(); }, 600);
-
-  // Precarga el OCR mientras se muestra el splash
-  setTimeout(() => { precalentarOCR(); }, 1200);
+  setTimeout(() => { precalentarOCR(); }, 800);
 
   const s=document.getElementById("splash");
   if(s){

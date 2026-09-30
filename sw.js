@@ -31,31 +31,6 @@ const getFixedUrl = (req) => {
 
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-
-  // ---- Share Target: recibir la imagen compartida desde Uber ----
-  if(event.request.method === 'POST' && url.pathname.endsWith('/share-target')){
-    console.log('[SW] POST /share-target recibido');
-    event.respondWith((async () => {
-      try {
-        const formData = await event.request.formData();
-        const file = formData.get('imagen');
-        if(file){
-          console.log('[SW] Imagen recibida:', file.size, 'bytes');
-          const cache = await caches.open('share-target');
-          await cache.put('/shared-image', new Response(file));
-          console.log('[SW] Imagen guardada en cache');
-        } else {
-          console.warn('[SW] No se ha encontrado el campo "imagen" en el formData');
-        }
-      } catch(e){
-        console.warn('[SW] Error recibiendo imagen:', e);
-      }
-      return Response.redirect('./?shared=1', 303);
-    })());
-    return;
-  }
-  // ----------------------------------------------------------------
-
   if (HOSTNAME_WHITELIST.indexOf(url.hostname) === -1) return;
 
   const isAppFile = /\.(?:html|js|css|json|webmanifest)$/.test(url.pathname)

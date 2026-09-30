@@ -11,11 +11,6 @@ const denominations=[
 const RESERVA_DEFAULT={10000:0,5000:0,2000:1,1000:1,500:1,200:2,100:2,50:3,20:5,10:5,5:3,2:3,1:5};
 const TOPES_DEFAULT={1:30,2:30,5:30,10:25,20:25,50:20,100:20,200:20,500:8,1000:8,2000:5,5000:3,10000:2};
 const ARRANQUE={10000:0,5000:0,2000:2,1000:3,500:4,200:5,100:8,50:8,20:15,10:15,5:10,2:10,1:15};
-// Margen de llenado: la reposición (auto y manual) nunca llena una denominación
-// por encima del 70% de su tope, para dejar ~30% de hueco a las piezas que
-// entran durante la jornada y evitar atascos.
-// Ajustable: 0.6 = más conservador (más hueco, más viajes al banco),
-//            0.8 = más agresivo (caja más llena, menos viajes).
 const FACTOR_LLENADO=0.7;
 let stock=loadStock(),totalTips=loadTips(),reservaMinima=loadReserva(),topesRecibir=loadTopes();
 let diaReset=loadDiaReset(),ultimoResetPropinas=loadUltimoResetPropinas(),statsOps=loadStats();
@@ -115,7 +110,10 @@ function añadirDepositoManual(){const fs=document.getElementById("depManualFech
 
 function abrirDiagnostico(){const d=document.getElementById("drawer"),o=document.getElementById("overlay");if(d)d.classList.remove("active");if(o)o.classList.remove("active");const p=document.getElementById("diagnosticoPantalla");if(p)p.style.display="block";renderDiagnostico()}
 function cerrarDiagnostico(){const p=document.getElementById("diagnosticoPantalla");if(p)p.style.display="none"}
-function renderDiagnostico(){const cont=document.getElementById("diagnosticoContenido");if(!cont)return;const ops=statsOps.operations;let html="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>ESTADO DEL APRENDIZAJE</div>";if(ops<10){const fal=10-ops;html+="<div style='background:#1e3a8a;border:1px solid #3b82f6;border-radius:10px;padding:14px;text-align:center'><div style='font-size:14px;color:#93c5fd;font-weight:700;line-height:1.5'>🧠 Aún aprendiendo<br><br><span style='font-size:13px;color:#bfdbfe'>Llevo registradas <b>"+ops+"</b> operaciones.<br>Necesito al menos 10 para sugerencias fiables.<br><br>Faltan <b>"+fal+"</b> operaciones más.</span></div></div>"}else{html+="<div style='background:#064e3b;border:1px solid #059669;border-radius:10px;padding:12px;text-align:center'><div style='font-size:13px;color:#4ade80;font-weight:700;line-height:1.5'>✅ Aprendizaje activo<br><span style='font-size:12px;color:#a7f3d0'>Basado en <b>"+ops+"</b> operaciones registradas</span></div></div>"}html+="</div>";if(ops>0){html+="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>📊 DATOS POR DENOMINACIÓN</div><div style='display:grid;grid-template-columns:1.4fr 0.7fr 0.7fr 0.7fr 1fr;gap:6px;font-size:10px;color:#64748b;font-weight:700;padding-bottom:6px;border-bottom:1px solid #334155;text-align:right'><span style='text-align:left'>DENOM.</span><span>STOCK</span><span>RECV</span><span>GAST</span><span>ESTIM.</span></div>";denominations.forEach((d,i)=>{const sn=stock[i],rn=statsOps.received[i],gn=statsOps.spent[i];const rit=gn/ops;let est="—",co="#64748b";if(rit>0){const res=Math.floor(sn/rit);est="~"+res+" ops";if(res<5)co="#ef4444";else if(res<15)co="#fbbf24";else co="#4ade80"}html+="<div style='display:grid;grid-template-columns:1.4fr 0.7fr 0.7fr 0.7fr 1fr;gap:6px;font-size:13px;color:#fff;padding:6px 0;border-bottom:1px solid #1e293b;text-align:right'><span style='text-align:left;font-weight:700'>"+d.n+"</span><span>"+sn+"</span><span style='color:#4ade80'>"+rn+"</span><span style='color:#fbbf24'>"+gn+"</span><span style='color:"+co+";font-weight:800'>"+est+"</span></div>"});html+="</div>"}html+="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>💡 CÓMO LEO ESTOS DATOS</div><div style='font-size:12px;color:#94a3b8;line-height:1.7'><b style='color:#4ade80'>RECV</b> → piezas recibidas.<br><b style='color:#fbbf24'>GAST</b> → piezas devueltas como cambio.<br><b style='color:#38bdf8'>ESTIM.</b> → operaciones que aguantas.<br><br><span style='color:#64748b'>Las sugerencias se calculan con estos datos.</span></div></div>";cont.innerHTML=html}
+function renderDiagnostico(){const cont=document.getElementById("diagnosticoContenido");if(!cont)return;const ops=statsOps.operations;let html="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>ESTADO DEL APRENDIZAJE</div>";if(ops<10){const fal=10-ops;html+="<div style='background:#1e3a8a;border:1px solid #3b82f6;border-radius:10px;padding:14px;text-align:center'><div style='font-size:14px;color:#93c5fd;font-weight:700;line-height:1.5'>🧠 Aún aprendiendo<br><br><span style='font-size:13px;color:#bfdbfe'>Llevo registradas <b>"+ops+"</b> operaciones.<br>Necesito al menos 10 para sugerencias fiables.<br><br>Faltan <b>"+fal+"</b> operaciones más.</span></div></div>"}else{html+="<div style='background:#064e3b;border:1px solid #059669;border-radius:10px;padding:12px;text-align:center'><div style='font-size:13px;color:#4ade80;font-weight:700;line-height:1.5'>✅ Aprendizaje activo<br><span style='font-size:12px;color:#a7f3d0'>Basado en <b>"+ops+"</b> operaciones registradas</span></div></div>"}html+="</div>";if(ops>0){html+="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>📊 DATOS POR DENOMINACIÓN</div><div style='display:grid;grid-template-columns:1.4fr 0.7fr 0.7fr 0.7fr 1fr;gap:6px;font-size:10px;color:#64748b;font-weight:700;padding-bottom:6px;border-bottom:1px solid #334155;text-align:right'><span style='text-align:left'>DENOM.</span><span>STOCK</span><span>RECV</span><span>GAST</span><span>ESTIM.</span></div>";denominations.forEach((d,i)=>{const sn=stock[i],rn=statsOps.received[i],gn=statsOps.spent[i];const rit=gn/ops;let est="—",co="#64748b";if(rit>0){const res=Math.floor(sn/rit);est="~"+res+" ops";if(res<5)co="#ef4444";else if(res<15)co="#fbbf24";else co="#4ade80"}html+="<div style='display:grid;grid-template-columns:1.4fr 0.7fr 0.7fr 0.7fr 1fr;gap:6px;font-size:13px;color:#fff;padding:6px 0;border-bottom:1px solid #1e293b;text-align:right'><span style='text-align:left;font-weight:700'>"+d.n+"</span><span>"+sn+"</span><span style='color:#4ade80'>"+rn+"</span><span style='color:#fbbf24'>"+gn+"</span><span style='color:"+co+";font-weight:800'>"+est+"</span></div>"});html+="</div>"}html+="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>💡 CÓMO LEO ESTOS DATOS</div><div style='font-size:12px;color:#94a3b8;line-height:1.7'><b style='color:#4ade80'>RECV</b> → piezas recibidas.<br><b style='color:#fbbf24'>GAST</b> → piezas devueltas como cambio.<br><b style='color:#38bdf8'>ESTIM.</b> → operaciones que aguantas.<br><br><span style='color:#64748b'>Las sugerencias se calculan con estos datos.</span></div></div>";
+html+="<button type='button' onclick='verShareLog()' style='width:100%;margin-top:14px;background:#7f1d1d;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;cursor:pointer;font-size:14px'>📋 VER LOG DE SHARE</button>";
+html+="<button type='button' onclick='borrarShareLog()' style='width:100%;margin-top:8px;background:#334155;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700;cursor:pointer;font-size:13px'>🗑️ Borrar log de share</button>";
+cont.innerHTML=html}
 
 function abrirLimitePantalla(){const d=document.getElementById("drawer"),o=document.getElementById("overlay");if(d)d.classList.remove("active");if(o)o.classList.remove("active");const p=document.getElementById("limitePantalla");if(p)p.style.display="block";renderReservaList();renderTopesList()}
 function cerrarLimitePantalla(){const p=document.getElementById("limitePantalla");if(p)p.style.display="none"}
@@ -172,7 +170,6 @@ function actualizarReponerManual(){
     const qu=act+add;
     const tope=(topesRecibir[d.c]!=null)?topesRecibir[d.c]:0;
     const objetivo=Math.floor(tope*FACTOR_LLENADO);
-    // Color dinámico según lo cerca que esté del objetivo del 70% o del tope
     let colorQu="#38bdf8";
     let aviso="";
     if(add>0){
@@ -198,17 +195,12 @@ function actualizarReponerManual(){
 
 function onCambioImporteManual(){const inp=document.getElementById("reponerImporteManual");if(!inp)return;const raw=parseFloat(inp.value.replace(',','.'))||0;const cents=Math.max(0,Math.round(raw*100));reponerState.importeManual=cents;if(cents>0){const rep=simularRepartoManual(cents);denominations.forEach((d,i)=>{reponerState.manualAdd[d.c]=rep[i]})}else denominations.forEach(d=>{reponerState.manualAdd[d.c]=0});actualizarReponerManual()}
 
-/* ---------- Reparto manual VARIADO (respeta hueco del 70% y tope) ---------- */
 function simularRepartoManual(target){
   const objetivo  = denominations.map((d,i) => Math.floor((topesRecibir[d.c]||0) * FACTOR_LLENADO));
   const hueco     = denominations.map((d,i) => Math.max(0, objetivo[i] - (stock[i]||0)));
   const añadidos  = denominations.map(() => 0);
   let restante    = target;
-
-  // Ninguna pieza puede superar 1/3 del importe a repartir (salvo la más pequeña)
   const maxPieza = Math.max(denominations[denominations.length-1].c, Math.floor(target / 3));
-
-  // Ronda 1: reparto proporcional al hueco real disponible
   const huecoFil = denominations.map((d,i) => d.c <= maxPieza ? hueco[i] : 0);
   const costeFil = denominations.reduce((s,d,i) => s + huecoFil[i] * d.c, 0);
 
@@ -221,17 +213,16 @@ function simularRepartoManual(target){
     });
   }
 
-  // Ronda 2: reparte el resto sin pasarse del hueco de cada pieza
   if(restante > 0){
     let seguir = true;
-    let seguridad = 5000; // evita bucles infinitos
+    let seguridad = 5000;
     while(restante > 0 && seguir && seguridad-- > 0){
       seguir = false;
       for(let i = denominations.length - 1; i >= 0; i--){
         if(restante <= 0) break;
         const d = denominations[i];
         if(d.c > maxPieza) continue;
-        if(añadidos[i] >= hueco[i]) continue;   // ← respeta el 70%
+        if(añadidos[i] >= hueco[i]) continue;
         if(d.c <= restante){
           añadidos[i]++;
           restante -= d.c;
@@ -241,7 +232,6 @@ function simularRepartoManual(target){
     }
   }
 
-  // Ronda 3: último recurso, solo piezas con hueco libre
   if(restante > 0){
     for(let i = 0; i < denominations.length; i++){
       if(restante <= 0) break;
@@ -256,7 +246,6 @@ function simularRepartoManual(target){
     }
   }
 
-  // Ronda 4: emergencia real (solo si no hubiera hueco por debajo del 70%)
   if(restante > 0){
     for(let i = 0; i < denominations.length; i++){
       if(restante <= 0) break;
@@ -280,47 +269,21 @@ function confirmarReponer(){let añadir=[];let total=0;if(reponerState.modo==="m
 function setupBackupUI(){const p=document.getElementById("panelInventario");if(!p)return;if(document.getElementById("backupBox"))return;const box=document.createElement("div");box.id="backupBox";box.style.cssText="margin-top:16px;border-top:1px solid #334155;padding-top:14px";const tt=document.createElement("div");tt.textContent="COPIA DE SEGURIDAD";tt.style.cssText="font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:8px";const be=document.createElement("button");be.type="button";be.textContent="💾 Guardar copia";be.style.cssText="width:100%;background:#334155;color:#fff;padding:12px;border-radius:10px;margin-bottom:8px;font-weight:700;font-size:15px;border:none;cursor:pointer";be.onclick=exportInventory;const bi=document.createElement("button");bi.type="button";bi.textContent="📂 Cargar copia";bi.style.cssText=be.style.cssText;bi.onclick=()=>fi.click();const fi=document.createElement("input");fi.type="file";fi.accept="application/json,.json";fi.style.display="none";fi.onchange=e=>{const f=e.target.files[0];if(f)importInventory(f);fi.value=""};box.appendChild(tt);box.appendChild(be);box.appendChild(bi);box.appendChild(fi);p.appendChild(box)}
 
 async function exportInventory(){
-  const data={
-    app:"uberCambioVTC",
-    version:10,
-    exportedAt:new Date().toISOString(),
-    stock,
-    totalTips,
-    reservaMinima,
-    topesRecibir,
-    diaReset,
-    ultimoResetPropinas,
-    stats:statsOps,
-    cierres:loadCierres(),
-    historicoResets:loadHistoricoResets(),
-    cambios:loadCambios()
-  };
+  const data={app:"uberCambioVTC",version:10,exportedAt:new Date().toISOString(),stock,totalTips,reservaMinima,topesRecibir,diaReset,ultimoResetPropinas,stats:statsOps,cierres:loadCierres(),historicoResets:loadHistoricoResets(),cambios:loadCambios()};
   const js=JSON.stringify(data,null,2);
   const st=new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
   const fn="cambio-vtc-"+st+".json";
-
-  // Descarga directa con Blob + enlace
   let dl=false;
   try{
     const b=new Blob([js],{type:"application/json"});
     const u=URL.createObjectURL(b);
     const a=document.createElement("a");
-    a.href=u;
-    a.download=fn;
-    a.rel="noopener";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    a.href=u;a.download=fn;a.rel="noopener";
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
     setTimeout(()=>URL.revokeObjectURL(u),1000);
     dl=true;
-  }catch(e){
-    console.warn("Descarga directa falló:",e);
-  }
-
-  // Fallback: modal con el texto para copiar
-  if(!dl){
-    setTimeout(()=>showCopyFallback(js,false),100);
-  }
+  }catch(e){console.warn("Descarga directa falló:",e);}
+  if(!dl) setTimeout(()=>showCopyFallback(js,false),100);
 }
 
 function showCopyFallback(js,after){const prev=document.getElementById("copyBackupModal");if(prev)prev.remove();const m=document.createElement("div");m.id="copyBackupModal";m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";const b=document.createElement("div");b.style.cssText="background:#1e293b;color:#f8fafc;border-radius:14px;padding:16px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto";const t=document.createElement("h3");t.textContent="Copia de seguridad";t.style.cssText="margin:0 0 8px;font-size:16px";const i=document.createElement("p");i.textContent=after?"Si no se ha descargado, copia este texto y guárdalo como .json.":"Copia este texto y guárdalo como .json.";i.style.cssText="font-size:13px;color:#94a3b8;margin:0 0 10px";const ta=document.createElement("textarea");ta.value=js;ta.readOnly=true;ta.style.cssText="width:100%;height:180px;background:#0f172a;color:#f8fafc;border:1px solid #475569;border-radius:10px;padding:10px;font-family:monospace;font-size:12px";const r=document.createElement("div");r.style.cssText="display:flex;gap:8px;margin-top:12px";const bc=document.createElement("button");bc.type="button";bc.textContent="📋 Copiar";bc.style.cssText="flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:700;cursor:pointer";bc.onclick=async()=>{ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length);try{if(navigator.clipboard&&navigator.clipboard.writeText)await navigator.clipboard.writeText(js);else document.execCommand("copy");bc.textContent="✅ Copiado";setTimeout(()=>{bc.textContent="📋 Copiar"},1500)}catch(e){try{document.execCommand("copy");bc.textContent="✅ Copiado"}catch(_){bc.textContent="Selecciona y copia"}setTimeout(()=>{bc.textContent="📋 Copiar"},1500)}};const bx=document.createElement("button");bx.type="button";bx.textContent="Cerrar";bx.style.cssText="flex:1;background:#0f172a;color:#f8fafc;border:1px solid #475569;padding:12px;border-radius:10px;font-weight:700;cursor:pointer";bx.onclick=()=>m.remove();m.addEventListener("click",e=>{if(e.target===m)m.remove()});r.appendChild(bc);r.appendChild(bx);b.appendChild(t);b.appendChild(i);b.appendChild(ta);b.appendChild(r);m.appendChild(b);document.body.appendChild(m);setTimeout(()=>{ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length)},50)}
@@ -355,21 +318,61 @@ async function precalentarOCR(){
   }
 }
 
-/* ---------- Share target: recibir imagen compartida ---------- */
+/* ---------- Share target: log de diagnóstico ---------- */
+function logShare(msg){
+  try {
+    let arr = JSON.parse(safeStorage.get("uberCambioShareLog") || "[]");
+    arr.push({ t: new Date().toISOString(), m: msg });
+    if(arr.length > 30) arr = arr.slice(-30);
+    safeStorage.set("uberCambioShareLog", JSON.stringify(arr));
+  } catch(e){}
+}
+
+function verShareLog(){
+  try {
+    const arr = JSON.parse(safeStorage.get("uberCambioShareLog") || "[]");
+    if(!arr.length){ alert("LOG DE SHARE:\n\n(vacío)"); return; }
+    const txt = arr.map(x => x.t.slice(11,19) + " · " + x.m).join("\n");
+    alert("LOG DE SHARE:\n\n" + txt);
+  } catch(e){
+    alert("Error leyendo log: " + e.message);
+  }
+}
+
+function borrarShareLog(){
+  if(!confirm("¿Borrar el log de share?")) return;
+  safeStorage.remove("uberCambioShareLog");
+  alert("✅ Log borrado.");
+}
+
 async function comprobarImagenCompartida(){
-  if(!location.search.includes('shared=1')) return;
-  // Limpiamos el ?shared=1 de la URL
+  logShare("Init. URL=" + location.search);
+
+  if(!location.search.includes('shared=1')){
+    logShare("Sin ?shared=1 → salgo");
+    return;
+  }
+
+  logShare("Detectado ?shared=1, buscando en cache…");
   history.replaceState({}, '', location.pathname);
 
   try {
     const cache = await caches.open('share-target');
+    const keys = await cache.keys();
+    const keysStr = keys.map(k => k.url).join(", ");
+    logShare("Cache keys: " + (keysStr || "(vacío)"));
+
     const resp = await cache.match('/shared-image');
-    if(!resp) return;
+    if(!resp){
+      logShare("No hay /shared-image en cache");
+      return;
+    }
     const blob = await resp.blob();
+    logShare("Imagen recuperada: " + blob.size + " bytes");
     await cache.delete('/shared-image');
-    // Le pasamos la imagen al OCR
     procesarImagenPrecio(blob);
   } catch(e){
+    logShare("Error: " + (e && e.message));
     console.warn('No se pudo procesar la imagen compartida:', e);
   }
 }
@@ -443,7 +446,6 @@ function extraerImporte(texto){
   window.__ultimoOCR = texto;
   console.log("📄 Texto OCR completo:", texto);
 
-  // Normalizar confusiones típicas del OCR
   let t = texto
     .replace(/[Oo]/g, "0")
     .replace(/[lI]/g, "1")
@@ -452,7 +454,6 @@ function extraerImporte(texto){
 
   const candidatos = [];
 
-  // --- 1) Números con decimal explícito: 7,10 / 7.10 / 17,5 ---
   const reDec = /(\d{1,3}(?:[.,]\s?\d{3})*[.,]\s?\d{1,2})/g;
   let m;
   while((m = reDec.exec(t)) !== null){
@@ -467,20 +468,15 @@ function extraerImporte(texto){
     }
   }
 
-  // --- 2) Números pegados a € SIN decimal: "7210€" ---
-  // Tesseract a veces lee "7,10" como "7210" (la coma se convierte en un dígito).
   const reEur = /(\d{3,5})\s*€/g;
   while((m = reEur.exec(t)) !== null){
     const digits = m[1];
-
-    // 4 dígitos → "7210" originalmente era "7,10" (coma mal leída como dígito)
     if(digits.length === 4){
       const n = parseFloat(digits[0] + "." + digits.slice(2));
       if(!isNaN(n) && n >= 0.5 && n <= 300) candidatos.push(n);
       const n2 = parseFloat(digits.slice(0, 2) + "." + digits.slice(-2));
       if(!isNaN(n2) && n2 >= 0.5 && n2 <= 300) candidatos.push(n2);
     }
-    // 5 dígitos → "17250" originalmente era "17,50"
     if(digits.length === 5){
       const n = parseFloat(digits.slice(0, 2) + "." + digits.slice(3));
       if(!isNaN(n) && n >= 0.5 && n <= 300) candidatos.push(n);
@@ -489,7 +485,6 @@ function extraerImporte(texto){
     }
   }
 
-  // --- 3) Fallback: cualquier número 2-3 dígitos (excluye horas) ---
   if(candidatos.length === 0){
     const sinHoras = t.replace(/\d{1,2}:\d{2}/g, " ");
     (sinHoras.match(/\b\d{2,3}\b/g) || [])
@@ -500,7 +495,6 @@ function extraerImporte(texto){
 
   if(!candidatos.length) return null;
 
-  // En el rango típico de precios de VTC (3-100€) preferimos el MÁS PEQUEÑO
   const enRango = candidatos.filter(n => n >= 3 && n <= 100);
   if(enRango.length) return Math.min.apply(null, enRango);
 
@@ -549,11 +543,16 @@ function init(){
   try{renderCierreHistorico()}catch(e){console.error("renderCierreHistorico",e)}
   try{checkAutoResetPropinas()}catch(e){console.error("checkAutoResetPropinas",e)}
 
+  // Log de arranque
+  setTimeout(() => {
+    logShare("App arranca. SW activo: " + (navigator.serviceWorker && navigator.serviceWorker.controller ? "SÍ" : "NO"));
+  }, 500);
+
   // Comprobar si venimos de un "Compartir" desde Uber
-  setTimeout(() => { comprobarImagenCompartida(); }, 400);
+  setTimeout(() => { comprobarImagenCompartida(); }, 600);
 
   // Precarga el OCR mientras se muestra el splash
-  setTimeout(() => { precalentarOCR(); }, 800);
+  setTimeout(() => { precalentarOCR(); }, 1200);
 
   const s=document.getElementById("splash");
   if(s){

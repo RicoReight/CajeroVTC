@@ -7,6 +7,10 @@ const HOSTNAME_WHITELIST = [
   'tessdata.projectnaptha.com'
 ];
 
+self.addEventListener('install', event => {
+  self.skipWaiting();
+});
+
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
@@ -30,18 +34,22 @@ self.addEventListener('fetch', event => {
 
   // ---- Share Target: recibir la imagen compartida desde Uber ----
   if(event.request.method === 'POST' && url.pathname.endsWith('/share-target')){
+    console.log('[SW] POST /share-target recibido');
     event.respondWith((async () => {
       try {
         const formData = await event.request.formData();
         const file = formData.get('imagen');
         if(file){
+          console.log('[SW] Imagen recibida:', file.size, 'bytes');
           const cache = await caches.open('share-target');
           await cache.put('/shared-image', new Response(file));
+          console.log('[SW] Imagen guardada en cache');
+        } else {
+          console.warn('[SW] No se ha encontrado el campo "imagen" en el formData');
         }
       } catch(e){
-        console.warn('Error recibiendo imagen compartida:', e);
+        console.warn('[SW] Error recibiendo imagen:', e);
       }
-      // Redirige a la app con ?shared=1 para que sepa que hay imagen
       return Response.redirect('./?shared=1', 303);
     })());
     return;

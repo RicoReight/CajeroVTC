@@ -360,7 +360,15 @@ async function procesarImagenPrecio(blob){
     const texto = (resultado && resultado.data && resultado.data.text) || "";
     const importe = extraerImporte(texto);
     if(importe == null){
-      mostrarOCRModal("❌ No he podido leer el precio.<br><span style='font-size:12px;color:#94a3b8'>Prueba con otra captura o escríbelo a mano.</span>", true);
+      const preview = (texto || "").replace(/\s+/g, " ").trim().slice(0, 200);
+      mostrarOCRModal(
+        "❌ No he podido leer el precio." +
+        "<div style='font-size:11px;color:#94a3b8;margin-top:10px;padding:8px;background:#0f172a;border-radius:6px;text-align:left;word-break:break-word;max-height:120px;overflow:auto'>" +
+        "<b style='color:#38bdf8'>Texto detectado:</b><br>" + (preview || "(vacío)") +
+        "</div>" +
+        "<div style='font-size:12px;color:#94a3b8;margin-top:10px'>Prueba con otra captura o escríbelo a mano.</div>",
+        true
+      );
       return;
     }
     const inp = document.getElementById("price");
@@ -372,25 +380,49 @@ async function procesarImagenPrecio(blob){
     mostrarToast("✅ Precio leído: " + importe.toFixed(2) + " €");
   } catch(e){
     console.error(e);
-    mostrarOCRModal("❌ Error al procesar la imagen.", true);
+    mostrarOCRModal("❌ Error al procesar la imagen:<br><span style='font-size:11px;color:#94a3b8'>" + (e && e.message ? e.message : "desconocido") + "</span>", true);
   }
 }
 
 function extraerImporte(texto){
   if(!texto) return null;
-  // Busca números con 2 decimales: 28,50 / 28.50 / 1.234,56 / 1,234.56
-  const matches = texto.match(/\d{1,3}(?:[.,]\d{3})*[.,]\d{2}/g) || [];
-  if(!matches.length) return null;
+  // Guardamos el texto para debug
+  window.__ultimoOCR = texto;
+  console.log("📄 Texto OCR completo:", texto);
+
+  // Normalizar confusiones típicas del OCR: O→0, l/I→1, S→5, B→8
+  let t = texto
+    .replace(/[Oo]/g, "0")
+    .replace(/[lI]/g, "1")
+    .replace(/S/g, "5")
+    .replace(/B/g, "8");
+
+  // Patrón 1: número con 1 o 2 decimales (7,10 / 7.10 / 17,5 / 1.234,56)
+  const re1 = /\d{1,3}(?:[.,]\s?\d{3})*[.,]\s?\d{1,2}/g;
+  const matches = t.match(re1) || [];
   const nums = matches.map(s => {
-    // Detectar separador decimal: el último . o ,
-    const m = s.match(/^(.*)[.,](\d{2})$/);
+    const clean = s.replace(/\s/g, "");
+    const m = clean.match(/^(.*)[.,](\d{1,2})$/);
     if(!m) return NaN;
     const entero = m[1].replace(/[.,]/g, "");
-    return parseFloat(entero + "." + m[2]);
-  }).filter(n => !isNaN(n) && n >= 1 && n <= 999);
-  if(!nums.length) return null;
-  // El precio suele ser el más alto de la pantalla
-  return Math.max.apply(null, nums);
+    let dec = m[2];
+    if(dec.length === 1) dec = dec + "0";
+    return parseFloat(entero + "." + dec);
+  }).filter(n => !isNaN(n) && n >= 0.5 && n <= 999);
+
+  if(nums.length) return Math.max.apply(null, nums);
+
+  // Patrón 2 (fallback): número más grande de 2-3 dígitos enteros
+  // Excluimos las horas del tipo "13:35"
+  const sinHoras = t.replace(/\d{1,2}:\d{2}/g, " ");
+  const matches2 = sinHoras.match(/\b\d{2,3}\b/g) || [];
+  const nums2 = matches2
+    .map(s => parseInt(s, 10))
+    .filter(n => !isNaN(n) && n >= 5 && n <= 300);
+
+  if(nums2.length) return Math.max.apply(null, nums2);
+
+  return null;
 }
 
 function mostrarOCRModal(msg, esError){

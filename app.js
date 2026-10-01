@@ -112,32 +112,9 @@ function renderResetPanel(){const inp=document.getElementById("resetDia");if(inp
 function guardarDiaReset(){const el=document.getElementById("resetDia");if(!el)return;const n=parseInt(el.value)||20;diaReset=Math.max(1,Math.min(31,n));saveDiaReset();el.value=diaReset}
 function resetCuenta(){if(!confirm("¿Poner el INVENTARIO (caja) a CERO?\nLas propinas NO se tocan."))return;stock=new Array(denominations.length).fill(0);saveStock();renderStockList();if(received.length)calculate()}
 function resetPropinas(){if(!confirm("¿Poner las PROPINAS a CERO?\nEl inventario NO se toca."))return;totalTips=0;saveTips();renderStockList();renderResetPanel()}
-
-function resetHistorialDepositos(){
-  if(!confirm("¿Borrar el HISTORIAL de depósitos?\n\nEl aprendizaje (stats) NO se toca."))return;
-  safeStorage.remove("uberCambioCierres");
-  renderHistorialPanel();
-  renderCierreHistorico();
-  const hc=document.getElementById("cierreHistorico");
-  if(hc){hc.innerHTML="";hc.style.display="none"}
-  alert("✅ Historial de depósitos borrado.");
-}
-
-function resetHistorialResets(){
-  if(!confirm("¿Borrar el HISTORIAL de resets de propinas?\n\nLas propinas actuales NO se tocan."))return;
-  safeStorage.remove("uberCambioHistoricoResets");
-  renderHistorialPanel();
-  renderResetPanel();
-  alert("✅ Historial de resets borrado.");
-}
-
-function resetHistorialCambios(){
-  if(!confirm("¿Borrar el HISTORIAL de cambios de billete?\n\nEl aprendizaje (stats) NO se toca."))return;
-  safeStorage.remove("uberCambioCambios");
-  renderCambioHistorial();
-  alert("✅ Historial de cambios borrado.");
-}
-
+function resetHistorialDepositos(){if(!confirm("¿Borrar el HISTORIAL de depósitos?\n\nEl aprendizaje (stats) NO se toca."))return;safeStorage.remove("uberCambioCierres");renderHistorialPanel();renderCierreHistorico();const hc=document.getElementById("cierreHistorico");if(hc){hc.innerHTML="";hc.style.display="none"}alert("✅ Historial de depósitos borrado.")}
+function resetHistorialResets(){if(!confirm("¿Borrar el HISTORIAL de resets de propinas?\n\nLas propinas actuales NO se tocan."))return;safeStorage.remove("uberCambioHistoricoResets");renderHistorialPanel();renderResetPanel();alert("✅ Historial de resets borrado.")}
+function resetHistorialCambios(){if(!confirm("¿Borrar el HISTORIAL de cambios de billete?\n\nEl aprendizaje (stats) NO se toca."))return;safeStorage.remove("uberCambioCambios");renderCambioHistorial();alert("✅ Historial de cambios borrado.")}
 function resetEstadisticas(){if(!confirm("¿Borrar las estadísticas de aprendizaje?"))return;resetStats();renderStockList();alert("✅ Estadísticas reseteadas.")}
 function resetTodo(){if(!confirm("⚠️ ¿RESETEAR TODO?\n\nSe borrará el inventario, propinas, historial y estadísticas."))return;stock=new Array(denominations.length).fill(0);totalTips=0;safeStorage.remove("uberCambioCierres");safeStorage.remove("uberCambioHistoricoResets");safeStorage.remove("uberCambioCambios");resetStats();saveStock();saveTips();renderStockList();renderResetPanel();if(received.length)calculate()}
 
@@ -148,28 +125,7 @@ function saveCambios(c){safeStorage.set("uberCambioCambios",JSON.stringify(c))}
 function loadCierres(){const s=safeStorage.get("uberCambioCierres");if(s){try{return JSON.parse(s)||[]}catch(e){return[]}}return[]}
 function saveCierres(c){safeStorage.set("uberCambioCierres",JSON.stringify(c))}
 
-function checkAutoResetPropinas(){
-  if(!ultimoResetPropinas){
-    ultimoResetPropinas=new Date().toISOString();
-    saveUltimoResetPropinas();
-    return;
-  }
-  const last=new Date(ultimoResetPropinas);
-  const now=new Date();
-  const cand=new Date(last.getFullYear(),last.getMonth(),diaReset,0,0,0);
-  if(cand<=last)cand.setMonth(cand.getMonth()+1);
-  if(now>=cand){
-    const h=loadHistoricoResets();
-    h.push({fecha:now.toISOString(),propinas:totalTips});
-    saveHistoricoResets(h);
-    totalTips=0;
-    saveTips();
-    ultimoResetPropinas=now.toISOString();
-    saveUltimoResetPropinas();
-    renderStockList();
-    renderResetPanel();
-  }
-}
+function checkAutoResetPropinas(){if(!ultimoResetPropinas){ultimoResetPropinas=new Date().toISOString();saveUltimoResetPropinas();return}const last=new Date(ultimoResetPropinas);const now=new Date();const cand=new Date(last.getFullYear(),last.getMonth(),diaReset,0,0,0);if(cand<=last)cand.setMonth(cand.getMonth()+1);if(now>=cand){const h=loadHistoricoResets();h.push({fecha:now.toISOString(),propinas:totalTips});saveHistoricoResets(h);totalTips=0;saveTips();ultimoResetPropinas=now.toISOString();saveUltimoResetPropinas();renderStockList();renderResetPanel()}}
 
 function renderHistorialPanel(){const box=document.getElementById("historialPanel");if(!box)return;const cierres=loadCierres(),resets=loadHistoricoResets();let html="";if(cierres.length){html+="<div style='font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:6px'>📜 ÚLTIMOS DEPÓSITOS</div>";cierres.slice(-10).reverse().forEach(c=>{const d=new Date(c.fecha);const f=d.toLocaleDateString("es-ES")+" "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});const ic=c.manual?"📝 ":"";html+="<div style='display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #334155;font-size:13px'><span style='color:#94a3b8'>"+ic+f+"</span><span style='font-weight:800;color:#4ade80'>"+moneyText(c.total)+"</span></div>"})}if(resets.length){html+="<div style='font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin:14px 0 6px'>🔄 ÚLTIMOS RESETS DE PROPINAS</div>";resets.slice(-10).reverse().forEach(r=>{const d=new Date(r.fecha);const f=d.toLocaleDateString("es-ES")+" "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});html+="<div style='display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #334155;font-size:13px'><span style='color:#94a3b8'>"+f+"</span><span style='font-weight:800;color:#fbbf24'>"+moneyText(r.propinas)+"</span></div>"})}box.innerHTML=html}
 
@@ -182,31 +138,7 @@ function mejorEnRango(mu,cant,den){const n=den.length;const INF=999999;const tot
 
 function calcularCierre(){const cont=document.getElementById("cierreResultado"),btn=document.getElementById("btnConfirmarCierre");const raw=parseFloat(document.getElementById("cierreInput").value.replace(',','.'))||0;const target=Math.round(raw*100);if(!cont||!btn)return;if(target<=0){cont.style.display="none";cont.innerHTML="";btn.style.display="none";return}const bs=stock.slice(0,5);const br=denominations.slice(0,5).map(d=>reservaMinima[d.c]||0);const res=findBilletes(target,bs,br);if(!res||res.total===0){const mx=stock.slice(0,5).reduce((s,n,i)=>s+n*denominations[i].c,0);let msg;if(mx===0)msg="⚠️ No tienes ningún billete en el inventario.<br>Añade billetes en Ajustes → Inventario.";else msg="⚠️ No puedes formar "+moneyText(target)+".<br>En billetes tienes como máximo "+moneyText(mx)+".";cont.innerHTML="<div style='color:#ef4444;font-weight:700;font-size:14px;text-align:center;line-height:1.6'>"+msg+"</div>";cont.style.display="block";btn.style.display="none";return}let html="";html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;text-align:center'>💵 ENTREGAR EN BILLETES</div><div style='font-size:32px;font-weight:900;color:#4ade80;margin:6px 0 14px;text-align:center'>"+moneyText(res.total)+"</div><div class='change-grid'>";res.usados.forEach((n,i)=>{if(n>0){const d=denominations[i];html+="<div class='cash-item'><div class='badge'>x"+n+"</div><div class='bill-graphic "+d.class+"'>"+d.short+"</div></div>"}});html+="</div>";if(res.tocoReserva){html+="<div style='margin-top:14px;padding:12px;background:#78350f;border:1px solid #b45309;border-radius:10px;font-size:12px;color:#fbbf24;line-height:1.5;text-align:center'>⚠️ He tenido que <b>usar tu reserva mínima</b> para formar este importe.<br>Si quieres evitarlo, deposita menos.</div>"}const sd=stock.slice();for(let i=0;i<res.usados.length;i++)sd[i]=Math.max(0,sd[i]-res.usados[i]);const checks=[["≤ 20 €",2000],["≤ 30 €",3000],["≤ 50 €",5000],["≤ 80 €",8000],["≤ 100 €",10000]];let tarjs="";let hay=false;checks.forEach(([lb,tg])=>{const est=estadoParaStock(tg,sd);let tx,bg,co,bo;if(est==="yes"){tx="SÍ";bg="rgba(22,163,74,0.15)";co="#4ade80";bo="#16a34a"}else if(est==="warn"){tx="MÍN";bg="rgba(234,179,8,0.15)";co="#facc15";bo="#eab308";hay=true}else{tx="NO";bg="rgba(220,38,38,0.15)";co="#f87171";bo="#dc2626";hay=true}tarjs+="<div style='flex:1;min-width:0;background:#283548;border:1px solid #475569;border-radius:10px;padding:8px 2px;display:flex;flex-direction:column;align-items:center;gap:6px'><div style='font-size:11px;font-weight:800;color:#f1f5f9;white-space:nowrap'>"+lb+"</div><div style='width:100%;padding:6px 0;border-radius:8px;background:"+bg+";border:1px solid "+bo+";color:"+co+";font-size:14px;font-weight:900;text-align:center;letter-spacing:0.5px'>"+tx+"</div></div>"});html+="<div style='margin-top:16px;padding-top:14px;border-top:1px solid #334155'>";html+=(hay?"<div style='font-size:12px;color:#fbbf24;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>⚠️ DESPUÉS DEL DEPÓSITO</div>":"<div style='font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>✅ DESPUÉS DEL DEPÓSITO</div>");html+="<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px'>"+tarjs+"</div>";if(hay){html+="<div style='padding:12px;background:#78350f;border:1px solid #b45309;border-radius:10px;font-size:13px;color:#fbbf24;line-height:1.5;text-align:center'>⚠️ <b>Ojo</b>: después de este depósito te quedarás justo para dar cambio.<br>Puedes depositar menos o reponer caja.</div><button type='button' onclick='abrirReponerDesdeDeposito()' style='width:100%;margin-top:10px;background:#16a34a;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>🏦 REPONER CAJA ANTES DE DEPOSITAR</button>"}else{html+="<div style='padding:12px;background:#064e3b;border:1px solid #059669;border-radius:10px;font-size:13px;color:#4ade80;line-height:1.5;text-align:center'>✅ Después de este depósito seguirás teniendo <b>cambio suficiente</b>.</div>"}html+="</div>";const sobr=target-res.total;const tot=stock.reduce((s,n,i)=>s+n*denominations[i].c,0);const queda=tot-res.total;html+="<div style='margin-top:16px;padding-top:16px;border-top:1px solid #334155;text-align:center'>";if(sobr>0){html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px'>SOBRANTE NO ENTREGABLE</div><div style='font-size:20px;font-weight:900;color:#eab308;margin-top:4px'>"+moneyText(sobr)+"</div><div style='font-size:11px;color:#64748b;margin-top:2px'>No se puede dar en billetes</div>"}html+="<div style='margin-top:14px;padding:12px;background:#064e3b;border:1px solid #059669;border-radius:10px'><div style='font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px'>💼 TE QUEDA EN CAJA</div><div style='font-size:24px;font-weight:900;color:#4ade80;margin-top:4px'>"+moneyText(queda)+"</div><div style='font-size:11px;color:#94a3b8;margin-top:4px'>Después del depósito, en monedas y billetes restantes</div></div></div>";cont.innerHTML=html;cont.style.display="block";btn.style.display="block";btn.dataset.total=String(res.total);btn.dataset.usados=JSON.stringify(res.usados)}
 
-function confirmarCierre(){
-  const btn=document.getElementById("btnConfirmarCierre");
-  if(!btn)return;
-  const total=parseInt(btn.dataset.total)||0;
-  const usados=JSON.parse(btn.dataset.usados||"[]");
-  if(total<=0)return;
-  if(!confirm("¿Confirmar depósito? Se entregarán "+moneyText(total)+" en billetes.\n\nLas propinas NO se tocan."))return;
-  for(let i=0;i<usados.length;i++)stock[i]=Math.max(0,stock[i]-usados[i]);
-  for(let i=0;i<usados.length;i++){
-    statsOps.deposited[i] += usados[i]||0;
-  }
-  saveStats();
-  saveStock();
-  renderStockList();
-  updateCashSummary();
-  const cierres=loadCierres();
-  cierres.push({fecha:new Date().toISOString(),total});
-  saveCierres(cierres);
-  renderCierreHistorico();
-  document.getElementById("cierreInput").value="";
-  const cont=document.getElementById("cierreResultado");
-  if(cont){cont.style.display="none";cont.innerHTML=""}
-  btn.style.display="none";
-  alert("✅ Depósito realizado.\nEntregados: "+moneyText(total))
-}
+function confirmarCierre(){const btn=document.getElementById("btnConfirmarCierre");if(!btn)return;const total=parseInt(btn.dataset.total)||0;const usados=JSON.parse(btn.dataset.usados||"[]");if(total<=0)return;if(!confirm("¿Confirmar depósito? Se entregarán "+moneyText(total)+" en billetes.\n\nLas propinas NO se tocan."))return;for(let i=0;i<usados.length;i++)stock[i]=Math.max(0,stock[i]-usados[i]);for(let i=0;i<usados.length;i++){statsOps.deposited[i]+=usados[i]||0}saveStats();saveStock();renderStockList();updateCashSummary();const cierres=loadCierres();cierres.push({fecha:new Date().toISOString(),total});saveCierres(cierres);renderCierreHistorico();document.getElementById("cierreInput").value="";const cont=document.getElementById("cierreResultado");if(cont){cont.style.display="none";cont.innerHTML=""}btn.style.display="none";alert("✅ Depósito realizado.\nEntregados: "+moneyText(total))}
 
 function renderCierreHistorico(){const box=document.getElementById("cierreHistorico");if(!box)return;const cierres=loadCierres();if(!cierres.length){box.style.display="none";box.innerHTML="";return}let html="<div style='font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:8px'>📜 ÚLTIMOS DEPÓSITOS</div>";cierres.slice(-10).reverse().forEach(c=>{const d=new Date(c.fecha);const f=d.toLocaleDateString("es-ES")+" · "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});const ic=c.manual?"📝 ":"";html+="<div style='padding:8px 0;border-bottom:1px solid #334155;font-size:13px'><div style='display:flex;justify-content:space-between'><span style='color:#94a3b8'>"+ic+f+"</span><span style='font-weight:800;color:#4ade80'>"+moneyText(c.total)+"</span></div></div>"});box.innerHTML=html;box.style.display="block"}
 
@@ -216,76 +148,98 @@ function toggleDepositoManual(){
   if(box.style.display==="none"||!box.style.display){
     box.style.display="block";
     const hoy=new Date();
-    const iF=document.getElementById("depManualFecha");
-    if(iF&&!iF.value){
-      const y=hoy.getFullYear(),m=String(hoy.getMonth()+1).padStart(2,'0'),d=String(hoy.getDate()).padStart(2,'0');
-      iF.value=y+"-"+m+"-"+d
-    }
-    const iH=document.getElementById("depManualHora");
-    if(iH&&!iH.value){
-      const hh=String(hoy.getHours()).padStart(2,'0'),mi=String(hoy.getMinutes()).padStart(2,'0');
-      iH.value=hh+":"+mi
-    }
+    const y=hoy.getFullYear(),m=String(hoy.getMonth()+1).padStart(2,'0'),d=String(hoy.getDate()).padStart(2,'0');
+    const hh=String(hoy.getHours()).padStart(2,'0'),mi=String(hoy.getMinutes()).padStart(2,'0');
+    const fD=document.getElementById("depManualFecha");
+    const fT=document.getElementById("depManualFechaTxt");
+    const hD=document.getElementById("depManualHora");
+    const hT=document.getElementById("depManualHoraTxt");
+    if(fD && !fD.value){ fD.value = y+"-"+m+"-"+d; }
+    if(fT && !fT.value){ fT.value = fD && fD.value ? fD.value : (y+"-"+m+"-"+d); }
+    if(hD && !hD.value){ hD.value = hh+":"+mi; }
+    if(hT && !hT.value){ hT.value = hD && hD.value ? hD.value : (hh+":"+mi); }
+    window.__depManualCounts = {};
     renderDepManualPiezas();
   } else {
-    box.style.display="none"
+    box.style.display="none";
   }
 }
 
 function renderDepManualPiezas(){
   const cont=document.getElementById("depManualPiezasLista");
   if(!cont)return;
+  const bills = denominations.filter(d => d.type === "bill");
+  if(!window.__depManualCounts) window.__depManualCounts = {};
   let html="";
-  denominations.forEach(d=>{
-    const gc=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
-    html+="<div style='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #1e293b'><div class='"+gc+"' style='flex-shrink:0;font-size:11px'>"+d.short+"</div><div style='flex:1;font-size:13px;color:#fff'>"+d.n+"</div><input type='number' min='0' value='0' data-c='"+d.c+"' oninput='actualizarSumaDepManual()' inputmode='numeric' style='width:70px;padding:6px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;text-align:center;font-size:14px;outline:none'></div>"
+  bills.forEach(d=>{
+    const n = window.__depManualCounts[d.c] || 0;
+    const gc = "bill-graphic " + d.class;
+    html+="<div style='display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #1e293b'>";
+    html+="<div class='"+gc+"' style='flex-shrink:0;font-size:11px'>"+d.short+"</div>";
+    html+="<div style='flex:1;font-size:13px;color:#fff'>"+d.n+"</div>";
+    html+="<div style='display:flex;align-items:center;gap:6px'>";
+    html+="<button type='button' onclick='ajustarDepManual("+d.c+",-1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer'>−</button>";
+    html+="<div style='width:40px;text-align:center;font-size:16px;font-weight:900;color:"+(n>0?"#4ade80":"#475569")+"'>"+n+"</div>";
+    html+="<button type='button' onclick='ajustarDepManual("+d.c+",1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer'>+</button>";
+    html+="</div></div>";
   });
   cont.innerHTML=html;
   actualizarSumaDepManual();
 }
 
+function ajustarDepManual(c, delta){
+  if(!window.__depManualCounts) window.__depManualCounts = {};
+  window.__depManualCounts[c] = Math.max(0, (window.__depManualCounts[c]||0) + delta);
+  renderDepManualPiezas();
+}
+
 function actualizarSumaDepManual(){
-  const inputs=document.querySelectorAll("#depManualPiezasLista input[data-c]");
-  let suma=0;
-  inputs.forEach(inp=>{
-    const c=parseInt(inp.dataset.c);
-    const n=Math.max(0,parseInt(inp.value)||0);
-    suma+=c*n;
+  const counts = window.__depManualCounts || {};
+  let suma = 0;
+  Object.keys(counts).forEach(k => {
+    suma += parseInt(k) * (counts[k] || 0);
   });
-  const el=document.getElementById("depManualPiezasSuma");
-  if(!el)return;
-  const imp=Math.round((parseFloat(document.getElementById("depManualImporte")?.value.replace(',','.'))||0)*100);
-  if(suma===0){
-    el.innerHTML="<span style='color:#64748b'>Sin piezas · se guardará solo el importe en el historial</span>";
-  } else if(imp>0 && suma===imp){
-    el.innerHTML="<span style='color:#4ade80'>✅ Suma de piezas: "+moneyText(suma)+" (coincide con el importe)</span>";
-  } else if(imp>0){
-    el.innerHTML="<span style='color:#fbbf24'>⚠️ Suma de piezas: "+moneyText(suma)+" · Importe: "+moneyText(imp)+" (no coincide, se ignorará el aprendizaje)</span>";
+  const el = document.getElementById("depManualPiezasSuma");
+  if(!el) return;
+  const imp = Math.round((parseFloat(document.getElementById("depManualImporte")?.value.replace(',','.'))||0)*100);
+  if(suma === 0){
+    el.innerHTML = "<span style='color:#64748b'>Sin piezas · se guardará solo el importe en el historial</span>";
+  } else if(imp > 0 && suma === imp){
+    el.innerHTML = "<span style='color:#4ade80'>✅ Suma de piezas: "+moneyText(suma)+" (coincide con el importe)</span>";
+  } else if(imp > 0){
+    el.innerHTML = "<span style='color:#fbbf24'>⚠️ Suma de piezas: "+moneyText(suma)+" · Importe: "+moneyText(imp)+" (no coincide, se ignorará el aprendizaje)</span>";
   } else {
-    el.innerHTML="<span style='color:#38bdf8'>Suma de piezas: "+moneyText(suma)+"</span>";
+    el.innerHTML = "<span style='color:#38bdf8'>Suma de piezas: "+moneyText(suma)+"</span>";
   }
 }
 
 function añadirDepositoManual(){
-  const fs=document.getElementById("depManualFecha").value;
-  const hs=document.getElementById("depManualHora").value;
+  // Fecha: preferimos el texto si está relleno, si no el date
+  let fs = (document.getElementById("depManualFechaTxt")?.value || "").trim();
+  if(!fs) fs = document.getElementById("depManualFecha")?.value || "";
+  let hs = (document.getElementById("depManualHoraTxt")?.value || "").trim();
+  if(!hs) hs = document.getElementById("depManualHora")?.value || "";
+
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(fs)){ alert("Fecha inválida. Usa formato AAAA-MM-DD (ej: 2026-10-02)."); return; }
+  if(!/^\d{2}:\d{2}$/.test(hs)){ alert("Hora inválida. Usa formato HH:MM (ej: 14:30)."); return; }
+
   const is=document.getElementById("depManualImporte").value;
   const imp=Math.round((parseFloat(is.replace(',','.'))||0)*100);
   if(imp<=0){alert("Escribe un importe válido.");return}
-  if(!fs){alert("Elige una fecha.");return}
-  if(!hs){alert("Elige una hora.");return}
+
   const [y,m,d]=fs.split("-").map(x=>parseInt(x));
   const [hh,mi]=hs.split(":").map(x=>parseInt(x));
   const fc=new Date(y,m-1,d,hh,mi,0);
 
-  const inputs=document.querySelectorAll("#depManualPiezasLista input[data-c]");
-  const piezas=[];
-  let sumaPiezas=0;
-  inputs.forEach(inp=>{
-    const c=parseInt(inp.dataset.c);
-    const n=Math.max(0,parseInt(inp.value)||0);
-    piezas.push({c,n});
-    sumaPiezas+=c*n;
+  // Recoger billetes
+  const counts = window.__depManualCounts || {};
+  const piezas = [];
+  let sumaPiezas = 0;
+  Object.keys(counts).forEach(k => {
+    const c = parseInt(k);
+    const n = counts[k] || 0;
+    piezas.push({c, n});
+    sumaPiezas += c * n;
   });
   const tienePiezas = sumaPiezas>0 && sumaPiezas===imp;
 
@@ -304,7 +258,9 @@ function añadirDepositoManual(){
     saveStats();
   }
 
+  // Limpiar
   document.getElementById("depManualImporte").value="";
+  window.__depManualCounts = {};
   const box=document.getElementById("depositoManualBox");
   if(box)box.style.display="none";
 
@@ -380,48 +336,7 @@ function resetCambioManual(total){cambioState.aRecibir={};cambioState.ordenRecib
 function deshacerCambioRecibir(total){if(!cambioState.ordenRecibir)cambioState.ordenRecibir=[];const last=cambioState.ordenRecibir.pop();if(last==null)return;if(cambioState.aRecibir[last]>0){cambioState.aRecibir[last]--;if(cambioState.aRecibir[last]<=0)delete cambioState.aRecibir[last]}actualizarCambioManual(total)}
 function actualizarCambioManual(total){let s=0;denominations.forEach(d=>{const n=cambioState.aRecibir[d.c]||0;s+=d.c*n;const bd=document.getElementById("cambioManBadge"+d.c);if(bd){if(n>0){bd.textContent="x"+n;bd.style.display="block"}else bd.style.display="none"}});const el=document.getElementById("cambioManSuma");if(el)el.textContent=moneyText(s);const est=document.getElementById("cambioManEstado");const btn=document.getElementById("cambioManBtn");if(est&&btn){if(s===total){est.innerHTML="<span style='color:#4ade80'>✅ Cuadra perfectamente</span>";btn.style.opacity="1";btn.style.pointerEvents="auto"}else if(s<total){est.innerHTML="<span style='color:#fbbf24'>⚠️ Te faltan "+moneyText(total-s)+"</span>";btn.style.opacity="0.5";btn.style.pointerEvents="none"}else{est.innerHTML="<span style='color:#ef4444'>⚠️ Te pasas por "+moneyText(s-total)+"</span>";btn.style.opacity="0.5";btn.style.pointerEvents="none"}}}
 
-function confirmarCambio(total){
-  let s=0;
-  denominations.forEach(d=>{s+=d.c*(cambioState.aRecibir[d.c]||0)});
-  if(s!==total){alert("La suma no cuadra.");return}
-  if(!confirm("¿Confirmar el cambio?"))return;
-
-  Object.keys(cambioState.aEntregar).forEach(k=>{
-    const c=parseInt(k);
-    const n=cambioState.aEntregar[c];
-    const i=denominations.findIndex(d=>d.c===c);
-    if(i>=0&&n>0){
-      stock[i]=Math.max(0,stock[i]-n);
-      statsOps.cambioNeto[i] -= n;
-    }
-  });
-
-  denominations.forEach(d=>{
-    const n=cambioState.aRecibir[d.c]||0;
-    if(n>0){
-      const i=denominations.findIndex(x=>x.c===d.c);
-      if(i>=0){
-        stock[i]=Math.max(0,stock[i]+n);
-        statsOps.cambioNeto[i] += n;
-      }
-    }
-  });
-
-  saveStats();
-  const cm=loadCambios();
-  cm.push({
-    fecha:new Date().toISOString(),
-    aEntregar:Object.assign({},cambioState.aEntregar),
-    aRecibir:Object.assign({},cambioState.aRecibir),
-    total
-  });
-  saveCambios(cm);
-  saveStock();
-  renderStockList();
-  updateCashSummary();
-  alert("✅ Cambio confirmado.");
-  cerrarCambioPantalla()
-}
+function confirmarCambio(total){let s=0;denominations.forEach(d=>{s+=d.c*(cambioState.aRecibir[d.c]||0)});if(s!==total){alert("La suma no cuadra.");return}if(!confirm("¿Confirmar el cambio?"))return;Object.keys(cambioState.aEntregar).forEach(k=>{const c=parseInt(k);const n=cambioState.aEntregar[c];const i=denominations.findIndex(d=>d.c===c);if(i>=0&&n>0){stock[i]=Math.max(0,stock[i]-n);statsOps.cambioNeto[i]-=n}});denominations.forEach(d=>{const n=cambioState.aRecibir[d.c]||0;if(n>0){const i=denominations.findIndex(x=>x.c===d.c);if(i>=0){stock[i]=Math.max(0,stock[i]+n);statsOps.cambioNeto[i]+=n}}});saveStats();const cm=loadCambios();cm.push({fecha:new Date().toISOString(),aEntregar:Object.assign({},cambioState.aEntregar),aRecibir:Object.assign({},cambioState.aRecibir),total});saveCambios(cm);saveStock();renderStockList();updateCashSummary();alert("✅ Cambio confirmado.");cerrarCambioPantalla()}
 
 function calcularCambioAutomatico(total,bmp){const cand=denominations.filter(d=>d.c<bmp);const tope={};denominations.forEach((d,i)=>{const sa=stock[i]||0;let t=(topesRecibir[d.c]!=null)?topesRecibir[d.c]:5;if(sa>=30)t=0;else if(sa>=20)t=Math.min(t,1);else if(sa>=10)t=Math.min(t,2);else if(sa<=3)t=Math.min(t+3,12);else if(sa<=6)t=Math.min(t+1,10);tope[d.c]=t});let r=total;const prop={};const grupos=[cand.filter(d=>d.c>=1000).sort((a,b)=>b.c-a.c),cand.filter(d=>d.c>=100&&d.c<1000).sort((a,b)=>b.c-a.c),cand.filter(d=>d.c>=10&&d.c<100).sort((a,b)=>b.c-a.c),cand.filter(d=>d.c<10).sort((a,b)=>b.c-a.c)];grupos.forEach(g=>{g.forEach(d=>{if(r<=0)return;const t=tope[d.c]||0;if(t<=0)return;const c=Math.min(Math.floor(r/d.c),t);if(c>0){prop[d.c]=(prop[d.c]||0)+c;r-=c*d.c}})});if(r>0){const desc=cand.slice().sort((a,b)=>b.c-a.c);for(const d of desc){if(r<=0)break;const i=denominations.findIndex(x=>x.c===d.c);if(stock[i]>40)continue;const c=Math.floor(r/d.c);if(c>0){prop[d.c]=(prop[d.c]||0)+c;r-=c*d.c}}}return prop}
 
@@ -490,7 +405,6 @@ function simularRepartoManual(target){
   const maxPieza = Math.max(denominations[denominations.length-1].c, Math.floor(target / 3));
   const huecoFil = denominations.map((d,i) => d.c <= maxPieza ? hueco[i] : 0);
   const costeFil = denominations.reduce((s,d,i) => s + huecoFil[i] * d.c, 0);
-
   if(costeFil > 0){
     const f = Math.min(1, target / costeFil);
     denominations.forEach((d,i) => {
@@ -499,7 +413,6 @@ function simularRepartoManual(target){
       restante -= n * d.c;
     });
   }
-
   if(restante > 0){
     let seguir = true;
     let seguridad = 5000;
@@ -518,7 +431,6 @@ function simularRepartoManual(target){
       }
     }
   }
-
   if(restante > 0){
     for(let i = 0; i < denominations.length; i++){
       if(restante <= 0) break;
@@ -526,25 +438,17 @@ function simularRepartoManual(target){
       const libre = Math.max(0, hueco[i] - añadidos[i]);
       if(libre <= 0) continue;
       const n = Math.min(libre, Math.floor(restante / d.c));
-      if(n > 0){
-        añadidos[i] += n;
-        restante -= n * d.c;
-      }
+      if(n > 0){ añadidos[i] += n; restante -= n * d.c; }
     }
   }
-
   if(restante > 0){
     for(let i = 0; i < denominations.length; i++){
       if(restante <= 0) break;
       const d = denominations[i];
       const n = Math.floor(restante / d.c);
-      if(n > 0){
-        añadidos[i] += n;
-        restante -= n * d.c;
-      }
+      if(n > 0){ añadidos[i] += n; restante -= n * d.c; }
     }
   }
-
   return añadidos;
 }
 
@@ -555,31 +459,17 @@ function confirmarReponer(){
   let añadir=[];
   let total=0;
   if(reponerState.modo==="manual"){
-    denominations.forEach((d,i)=>{
-      const n=reponerState.manualAdd[d.c]||0;
-      if(n>0){añadir.push({index:i,cantidad:n});total+=n*d.c}
-    });
+    denominations.forEach((d,i)=>{const n=reponerState.manualAdd[d.c]||0;if(n>0){añadir.push({index:i,cantidad:n});total+=n*d.c}});
     if(!añadir.length){alert("No has añadido ninguna pieza.");return}
   } else {
     const rec=configuracionRecomendada();
     const {faltantes}=calcularFaltantes(rec.viajes,rec.colchon);
-    faltantes.forEach(x=>{
-      if(reponerState.marcados[x.d.c]!==false){
-        añadir.push({index:x.index,cantidad:x.falta});
-        total+=x.falta*x.d.c
-      }
-    });
+    faltantes.forEach(x=>{if(reponerState.marcados[x.d.c]!==false){añadir.push({index:x.index,cantidad:x.falta});total+=x.falta*x.d.c}});
     if(!añadir.length){alert("No has marcado ninguna pieza.");return}
   }
   if(!confirm("¿Confirmar que has sacado "+moneyText(total)+" del banco y los has metido en la caja?"))return;
-  añadir.forEach(x=>{
-    stock[x.index]+=x.cantidad;
-    statsOps.repuesto[x.index] += x.cantidad;
-  });
-  saveStats();
-  saveStock();
-  renderStockList();
-  updateCashSummary();
+  añadir.forEach(x=>{stock[x.index]+=x.cantidad;statsOps.repuesto[x.index]+=x.cantidad});
+  saveStats();saveStock();renderStockList();updateCashSummary();
   alert("✅ Añadido a la caja: "+moneyText(total));
   cerrarReponerPantalla()
 }
@@ -611,23 +501,12 @@ function importInventory(file){
   rd.onload=()=>{
     try{
       const data=JSON.parse(rd.result);
-      if(!data||!Array.isArray(data.stock)||data.stock.length!==denominations.length){
-        alert("El archivo no es una copia válida.");
-        return;
-      }
+      if(!data||!Array.isArray(data.stock)||data.stock.length!==denominations.length){alert("El archivo no es una copia válida.");return;}
       if(!confirm("¿Reemplazar el inventario, propinas, reserva, topes, estadísticas e historial actuales?"))return;
       stock=data.stock.map(x=>Math.max(0,parseInt(x)||0));
       if(typeof data.totalTips==="number")totalTips=Math.max(0,data.totalTips);
-      if(data.reservaMinima&&typeof data.reservaMinima==="object"){
-        reservaMinima=Object.assign({},RESERVA_DEFAULT);
-        denominations.forEach(d=>{if(typeof data.reservaMinima[d.c]==="number")reservaMinima[d.c]=Math.max(0,parseInt(data.reservaMinima[d.c])||0)});
-        safeStorage.set("uberCambioReserva",JSON.stringify(reservaMinima));
-      }
-      if(data.topesRecibir&&typeof data.topesRecibir==="object"){
-        topesRecibir=Object.assign({},TOPES_DEFAULT);
-        denominations.forEach(d=>{if(typeof data.topesRecibir[d.c]==="number")topesRecibir[d.c]=Math.max(0,parseInt(data.topesRecibir[d.c])||0)});
-        saveTopes();
-      }
+      if(data.reservaMinima&&typeof data.reservaMinima==="object"){reservaMinima=Object.assign({},RESERVA_DEFAULT);denominations.forEach(d=>{if(typeof data.reservaMinima[d.c]==="number")reservaMinima[d.c]=Math.max(0,parseInt(data.reservaMinima[d.c])||0)});safeStorage.set("uberCambioReserva",JSON.stringify(reservaMinima))}
+      if(data.topesRecibir&&typeof data.topesRecibir==="object"){topesRecibir=Object.assign({},TOPES_DEFAULT);denominations.forEach(d=>{if(typeof data.topesRecibir[d.c]==="number")topesRecibir[d.c]=Math.max(0,parseInt(data.topesRecibir[d.c])||0)});saveTopes()}
       if(typeof data.diaReset==="number"){diaReset=Math.max(1,Math.min(31,parseInt(data.diaReset)||20));saveDiaReset()}
       if(typeof data.ultimoResetPropinas==="string"){ultimoResetPropinas=data.ultimoResetPropinas;saveUltimoResetPropinas()}
       if(data.stats&&typeof data.stats==="object"){
@@ -644,18 +523,9 @@ function importInventory(file){
       if(Array.isArray(data.cierres))saveCierres(data.cierres);
       if(Array.isArray(data.historicoResets))saveHistoricoResets(data.historicoResets);
       if(Array.isArray(data.cambios))saveCambios(data.cambios);
-      saveStock();
-      saveTips();
-      renderStockList();
-      renderReservaList();
-      renderTopesList();
-      updateCashSummary();
-      renderCierreHistorico();
-      renderResetPanel();
+      saveStock();saveTips();renderStockList();renderReservaList();renderTopesList();updateCashSummary();renderCierreHistorico();renderResetPanel();
       alert("✅ Copia restaurada.");
-    }catch(e){
-      alert("No se pudo leer el archivo.");
-    }
+    }catch(e){alert("No se pudo leer el archivo.")}
   };
   rd.readAsText(file);
 }
@@ -740,10 +610,7 @@ async function procesarImagenPrecio(blob){
       return;
     }
     const inp = document.getElementById("price");
-    if(inp){
-      inp.value = importe.toFixed(2);
-      calculate();
-    }
+    if(inp){ inp.value = importe.toFixed(2); calculate(); }
     cerrarOCRModal();
     mostrarToast("✅ Precio leído: " + importe.toFixed(2) + " €");
   } catch(e){
@@ -757,11 +624,7 @@ function extraerImporte(texto){
   window.__ultimoOCR = texto;
   console.log("📄 Texto OCR completo:", texto);
 
-  let t = texto
-    .replace(/[Oo]/g, "0")
-    .replace(/[lI]/g, "1")
-    .replace(/S/g, "5")
-    .replace(/B/g, "8");
+  let t = texto.replace(/[Oo]/g, "0").replace(/[lI]/g, "1").replace(/S/g, "5").replace(/B/g, "8");
 
   const candidatos = [];
 
@@ -782,19 +645,16 @@ function extraerImporte(texto){
   const reEur = /(\d{3,5})\s*€/g;
   while((m = reEur.exec(t)) !== null){
     const digits = m[1];
-    // 3 dígitos → "799" originalmente era "7,99"
     if(digits.length === 3){
       const n = parseFloat(digits[0] + "." + digits.slice(1));
       if(!isNaN(n) && n >= 0.5 && n <= 300) candidatos.push(n);
     }
-    // 4 dígitos → "7990" → "7.99" o "79.90"
     if(digits.length === 4){
       const n = parseFloat(digits[0] + "." + digits.slice(2));
       if(!isNaN(n) && n >= 0.5 && n <= 300) candidatos.push(n);
       const n2 = parseFloat(digits.slice(0, 2) + "." + digits.slice(-2));
       if(!isNaN(n2) && n2 >= 0.5 && n2 <= 300) candidatos.push(n2);
     }
-    // 5 dígitos → "17990" → "17.99" o "179.90"
     if(digits.length === 5){
       const n = parseFloat(digits.slice(0, 2) + "." + digits.slice(3));
       if(!isNaN(n) && n >= 0.5 && n <= 300) candidatos.push(n);
@@ -812,10 +672,8 @@ function extraerImporte(texto){
   }
 
   if(!candidatos.length) return null;
-
   const enRango = candidatos.filter(n => n >= 3 && n <= 100);
   if(enRango.length) return Math.min.apply(null, enRango);
-
   return Math.max.apply(null, candidatos);
 }
 
@@ -860,6 +718,28 @@ function init(){
   try{setupBackupUI()}catch(e){console.error("setupBackupUI",e)}
   try{renderCierreHistorico()}catch(e){console.error("renderCierreHistorico",e)}
   try{checkAutoResetPropinas()}catch(e){console.error("checkAutoResetPropinas",e)}
+
+  // Sincronizar fecha/hora dual (calendario ↔ texto manual)
+  setTimeout(() => {
+    const fD = document.getElementById("depManualFecha");
+    const fT = document.getElementById("depManualFechaTxt");
+    if(fD && fT){
+      fD.addEventListener("change", () => { fT.value = fD.value || ""; });
+      fT.addEventListener("input", () => {
+        const v = fT.value.trim();
+        if(/^\d{4}-\d{2}-\d{2}$/.test(v)) fD.value = v;
+      });
+    }
+    const hD = document.getElementById("depManualHora");
+    const hT = document.getElementById("depManualHoraTxt");
+    if(hD && hT){
+      hD.addEventListener("change", () => { hT.value = hD.value || ""; });
+      hT.addEventListener("input", () => {
+        const v = hT.value.trim();
+        if(/^\d{2}:\d{2}$/.test(v)) hD.value = v;
+      });
+    }
+  }, 100);
 
   setTimeout(() => { precalentarOCR(); }, 800);
 

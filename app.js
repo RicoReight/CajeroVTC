@@ -11,9 +11,6 @@ const denominations=[
 const RESERVA_DEFAULT={10000:0,5000:0,2000:1,1000:1,500:1,200:2,100:2,50:3,20:5,10:5,5:3,2:3,1:5};
 const TOPES_DEFAULT={1:30,2:30,5:30,10:25,20:25,50:20,100:20,200:20,500:8,1000:8,2000:5,5000:3,10000:2};
 const ARRANQUE={10000:0,5000:0,2000:2,1000:3,500:4,200:5,100:8,50:8,20:15,10:15,5:10,2:10,1:15};
-// Margen de llenado: la reposición (auto y manual) nunca llena una denominación
-// por encima del 70% de su tope, para dejar ~30% de hueco a las piezas que
-// entran durante la jornada y evitar atascos.
 const FACTOR_LLENADO=0.7;
 let stock=loadStock(),totalTips=loadTips(),reservaMinima=loadReserva(),topesRecibir=loadTopes();
 let diaReset=loadDiaReset(),ultimoResetPropinas=loadUltimoResetPropinas(),statsOps=loadStats();
@@ -165,8 +162,6 @@ function checkAutoResetPropinas(){
     const h=loadHistoricoResets();
     h.push({fecha:now.toISOString(),propinas:totalTips});
     saveHistoricoResets(h);
-    // IMPORTANTE: este reset solo toca las propinas.
-    // NO toca el aprendizaje (statsOps), ni el stock, ni las reservas, ni los topes.
     totalTips=0;
     saveTips();
     ultimoResetPropinas=now.toISOString();
@@ -195,7 +190,6 @@ function confirmarCierre(){
   if(total<=0)return;
   if(!confirm("¿Confirmar depósito? Se entregarán "+moneyText(total)+" en billetes.\n\nLas propinas NO se tocan."))return;
   for(let i=0;i<usados.length;i++)stock[i]=Math.max(0,stock[i]-usados[i]);
-  // Aprendizaje: registrar piezas depositadas
   for(let i=0;i<usados.length;i++){
     statsOps.deposited[i] += usados[i]||0;
   }
@@ -284,7 +278,6 @@ function añadirDepositoManual(){
   const [hh,mi]=hs.split(":").map(x=>parseInt(x));
   const fc=new Date(y,m-1,d,hh,mi,0);
 
-  // Recoger piezas si las hay
   const inputs=document.querySelectorAll("#depManualPiezasLista input[data-c]");
   const piezas=[];
   let sumaPiezas=0;
@@ -296,13 +289,11 @@ function añadirDepositoManual(){
   });
   const tienePiezas = sumaPiezas>0 && sumaPiezas===imp;
 
-  // Guardar en historial visible
   const cierres=loadCierres();
   cierres.push({fecha:fc.toISOString(),total:imp,manual:true});
   saveCierres(cierres);
   renderCierreHistorico();
 
-  // Si las piezas coinciden con el importe, alimentar el aprendizaje
   if(tienePiezas){
     piezas.forEach(p=>{
       const idx=denominations.findIndex(d=>d.c===p.c);
@@ -313,7 +304,6 @@ function añadirDepositoManual(){
     saveStats();
   }
 
-  // Limpiar
   document.getElementById("depManualImporte").value="";
   const box=document.getElementById("depositoManualBox");
   if(box)box.style.display="none";
@@ -792,12 +782,19 @@ function extraerImporte(texto){
   const reEur = /(\d{3,5})\s*€/g;
   while((m = reEur.exec(t)) !== null){
     const digits = m[1];
+    // 3 dígitos → "799" originalmente era "7,99"
+    if(digits.length === 3){
+      const n = parseFloat(digits[0] + "." + digits.slice(1));
+      if(!isNaN(n) && n >= 0.5 && n <= 300) candidatos.push(n);
+    }
+    // 4 dígitos → "7990" → "7.99" o "79.90"
     if(digits.length === 4){
       const n = parseFloat(digits[0] + "." + digits.slice(2));
       if(!isNaN(n) && n >= 0.5 && n <= 300) candidatos.push(n);
       const n2 = parseFloat(digits.slice(0, 2) + "." + digits.slice(-2));
       if(!isNaN(n2) && n2 >= 0.5 && n2 <= 300) candidatos.push(n2);
     }
+    // 5 dígitos → "17990" → "17.99" o "179.90"
     if(digits.length === 5){
       const n = parseFloat(digits.slice(0, 2) + "." + digits.slice(3));
       if(!isNaN(n) && n >= 0.5 && n <= 300) candidatos.push(n);

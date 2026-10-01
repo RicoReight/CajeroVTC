@@ -177,9 +177,16 @@
       <label style="font-size:13px;color:#94a3b8;font-weight:700">Hora</label>
       <input id="depManualHora" type="time" style="width:100%;font-size:16px;padding:10px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin:6px 0 12px;outline:none">
       <label style="font-size:13px;color:#94a3b8;font-weight:700">Importe (€)</label>
-      <input id="depManualImporte" type="number" inputmode="decimal" step="0.01" placeholder="Ej. 130.00" style="width:100%;font-size:22px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin:6px 0 12px;outline:none">
-      <div style="font-size:12px;color:#64748b;margin-bottom:12px">ⓘ Se añadirá al historial <b>sin tocar tu inventario</b>.</div>
-      <div style="display:flex;gap:8px">
+      <input id="depManualImporte" type="number" inputmode="decimal" step="0.01" placeholder="Ej. 130.00" oninput="actualizarSumaDepManual()" style="width:100%;font-size:22px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin:6px 0 12px;outline:none">
+
+      <div style="border-top:1px solid #334155;margin-top:14px;padding-top:14px">
+        <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:6px">📦 PIEZAS (OPCIONAL)</div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:10px;line-height:1.4">Si las rellenas, la app las contará para el aprendizaje. Si las dejas a 0, solo se guardará el importe en el historial.</div>
+        <div id="depManualPiezasLista"></div>
+        <div id="depManualPiezasSuma" style="text-align:center;font-size:13px;color:#94a3b8;font-weight:700;padding:10px 0;border-top:1px solid #334155;margin-top:10px"></div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:12px">
         <button type="button" onclick="añadirDepositoManual()" style="flex:1;background:#059669;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer">✅ Añadir</button>
         <button type="button" onclick="toggleDepositoManual()" style="flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer">Cancelar</button>
       </div>

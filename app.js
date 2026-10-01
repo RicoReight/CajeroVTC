@@ -115,7 +115,32 @@ function renderResetPanel(){const inp=document.getElementById("resetDia");if(inp
 function guardarDiaReset(){const el=document.getElementById("resetDia");if(!el)return;const n=parseInt(el.value)||20;diaReset=Math.max(1,Math.min(31,n));saveDiaReset();el.value=diaReset}
 function resetCuenta(){if(!confirm("¿Poner el INVENTARIO (caja) a CERO?\nLas propinas NO se tocan."))return;stock=new Array(denominations.length).fill(0);saveStock();renderStockList();if(received.length)calculate()}
 function resetPropinas(){if(!confirm("¿Poner las PROPINAS a CERO?\nEl inventario NO se toca."))return;totalTips=0;saveTips();renderStockList();renderResetPanel()}
-function resetHistorial(){if(!confirm("¿Borrar el HISTORIAL de depósitos, resets y cambios de billetes?"))return;safeStorage.remove("uberCambioCierres");safeStorage.remove("uberCambioHistoricoResets");safeStorage.remove("uberCambioCambios");renderHistorialPanel();renderCambioHistorial();const hc=document.getElementById("cierreHistorico");if(hc){hc.innerHTML="";hc.style.display="none"}}
+
+function resetHistorialDepositos(){
+  if(!confirm("¿Borrar el HISTORIAL de depósitos?\n\nEl aprendizaje (stats) NO se toca."))return;
+  safeStorage.remove("uberCambioCierres");
+  renderHistorialPanel();
+  renderCierreHistorico();
+  const hc=document.getElementById("cierreHistorico");
+  if(hc){hc.innerHTML="";hc.style.display="none"}
+  alert("✅ Historial de depósitos borrado.");
+}
+
+function resetHistorialResets(){
+  if(!confirm("¿Borrar el HISTORIAL de resets de propinas?\n\nLas propinas actuales NO se tocan."))return;
+  safeStorage.remove("uberCambioHistoricoResets");
+  renderHistorialPanel();
+  renderResetPanel();
+  alert("✅ Historial de resets borrado.");
+}
+
+function resetHistorialCambios(){
+  if(!confirm("¿Borrar el HISTORIAL de cambios de billete?\n\nEl aprendizaje (stats) NO se toca."))return;
+  safeStorage.remove("uberCambioCambios");
+  renderCambioHistorial();
+  alert("✅ Historial de cambios borrado.");
+}
+
 function resetEstadisticas(){if(!confirm("¿Borrar las estadísticas de aprendizaje?"))return;resetStats();renderStockList();alert("✅ Estadísticas reseteadas.")}
 function resetTodo(){if(!confirm("⚠️ ¿RESETEAR TODO?\n\nSe borrará el inventario, propinas, historial y estadísticas."))return;stock=new Array(denominations.length).fill(0);totalTips=0;safeStorage.remove("uberCambioCierres");safeStorage.remove("uberCambioHistoricoResets");safeStorage.remove("uberCambioCambios");resetStats();saveStock();saveTips();renderStockList();renderResetPanel();if(received.length)calculate()}
 
@@ -371,7 +396,6 @@ function confirmarCambio(total){
   if(s!==total){alert("La suma no cuadra.");return}
   if(!confirm("¿Confirmar el cambio?"))return;
 
-  // Entregas al banco
   Object.keys(cambioState.aEntregar).forEach(k=>{
     const c=parseInt(k);
     const n=cambioState.aEntregar[c];
@@ -382,7 +406,6 @@ function confirmarCambio(total){
     }
   });
 
-  // Recibes del banco
   denominations.forEach(d=>{
     const n=cambioState.aRecibir[d.c]||0;
     if(n>0){

@@ -526,28 +526,55 @@ function renderMovimientoPantalla(){
   const st=movimientoState;
   let html="";
 
-  // Selector Entrada / Salida
+  // Tipo Entrada / Salida
   html+="<div class='card' style='margin:0 0 12px 0'>";
   html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>TIPO DE MOVIMIENTO</div>";
-  html+="<div style='display:flex;gap:8px;margin-bottom:6px'>";
+  html+="<div style='display:flex;gap:8px'>";
   html+="<button type='button' onclick='setTipoMovimiento(\"entrada\")' style='flex:1;padding:14px;border-radius:10px;border:2px solid "+(st.tipo==="entrada"?"#22c55e":"#475569")+";background:"+(st.tipo==="entrada"?"linear-gradient(135deg,#14532d,#15803d)":"#1e293b")+";color:"+(st.tipo==="entrada"?"#4ade80":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:15px;letter-spacing:0.5px;box-shadow:"+(st.tipo==="entrada"?"0 0 0 3px rgba(34,197,94,0.25)":"none")+"'>📥 ENTRADA</button>";
   html+="<button type='button' onclick='setTipoMovimiento(\"salida\")' style='flex:1;padding:14px;border-radius:10px;border:2px solid "+(st.tipo==="salida"?"#ef4444":"#475569")+";background:"+(st.tipo==="salida"?"linear-gradient(135deg,#7f1d1d,#991b1b)":"#1e293b")+";color:"+(st.tipo==="salida"?"#fca5a5":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:15px;letter-spacing:0.5px;box-shadow:"+(st.tipo==="salida"?"0 0 0 3px rgba(239,68,68,0.25)":"none")+"'>📤 SALIDA</button>";
-  html+="</div>";
-  html+="<div style='font-size:11px;color:#64748b;text-align:center;line-height:1.3'>Para corregir el inventario sin registrar, usa el <b style='color:#a78bfa'>Modo edición</b> en el inventario.</div>";
+  html+="</div></div>";
+
+  // Motivo (3 en entrada, 2 en salida)
+  html+="<div class='card' style='margin:0 0 12px 0'>";
+  html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>MOTIVO</div>";
+
+  if(st.tipo==="entrada"){
+    html+="<div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px'>";
+
+    // Propina
+    const pAct = st.motivo==="propina";
+    html+="<button type='button' onclick='setMotivoMovimiento(\"propina\")' style='padding:12px 6px;border-radius:10px;border:2px solid "+(pAct?"#22c55e":"#475569")+";background:"+(pAct?"linear-gradient(135deg,#14532d,#15803d)":"#1e293b")+";color:"+(pAct?"#4ade80":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:13px;letter-spacing:0.3px;box-shadow:"+(pAct?"0 0 0 3px rgba(34,197,94,0.25)":"none")+"'>💶 Propina</button>";
+
+    // Encontrado
+    const eAct = st.motivo==="encontrado";
+    html+="<button type='button' onclick='setMotivoMovimiento(\"encontrado\")' style='padding:12px 6px;border-radius:10px;border:2px solid "+(eAct?"#8b5cf6":"#475569")+";background:"+(eAct?"linear-gradient(135deg,#4c1d95,#6d28d9)":"#1e293b")+";color:"+(eAct?"#c4b5fd":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:13px;letter-spacing:0.3px;box-shadow:"+(eAct?"0 0 0 3px rgba(139,92,246,0.25)":"none")+"'>🔍 Encontrado</button>";
+
+    // Otro ingreso
+    const oAct = st.motivo==="otroIngreso";
+    html+="<button type='button' onclick='setMotivoMovimiento(\"otroIngreso\")' style='padding:12px 6px;border-radius:10px;border:2px solid "+(oAct?"#0ea5e9":"#475569")+";background:"+(oAct?"linear-gradient(135deg,#075985,#0369a1)":"#1e293b")+";color:"+(oAct?"#7dd3fc":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:13px;letter-spacing:0.3px;box-shadow:"+(oAct?"0 0 0 3px rgba(14,165,233,0.25)":"none")+"'>📥 Otro</button>";
+    html+="</div>";
+  } else {
+    html+="<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px'>";
+
+    // Gasto
+    const gAct = st.motivo==="gasto";
+    html+="<button type='button' onclick='setMotivoMovimiento(\"gasto\")' style='padding:12px 6px;border-radius:10px;border:2px solid "+(gAct?"#ef4444":"#475569")+";background:"+(gAct?"linear-gradient(135deg,#7f1d1d,#991b1b)":"#1e293b")+";color:"+(gAct?"#fca5a5":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:13px;letter-spacing:0.3px;box-shadow:"+(gAct?"0 0 0 3px rgba(239,68,68,0.25)":"none")+"'>🚗 Gasto</button>";
+
+    // Otro egreso
+    const oeAct = st.motivo==="otroEgreso";
+    html+="<button type='button' onclick='setMotivoMovimiento(\"otroEgreso\")' style='padding:12px 6px;border-radius:10px;border:2px solid "+(oeAct?"#f59e0b":"#475569")+";background:"+(oeAct?"linear-gradient(135deg,#78350f,#b45309)":"#1e293b")+";color:"+(oeAct?"#fbbf24":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:13px;letter-spacing:0.3px;box-shadow:"+(oeAct?"0 0 0 3px rgba(245,158,11,0.25)":"none")+"'>📤 Otro</button>";
+    html+="</div>";
+  }
   html+="</div>";
 
-  // Explicación según tipo
-  let explicacion="", colorExp="#94a3b8", bgExp="#1e293b", icono="ℹ️", titulo="";
-  if(st.tipo==="entrada"){
-    titulo="💶 Propina";
-    explicacion="Se sumará al stock y también a las propinas acumuladas.";
-    colorExp="#a7f3d0"; bgExp="#064e3b"; icono="💶";
-  } else {
-    titulo="🚗 Gasto";
-    explicacion="Se restará del stock como gasto operativo. NO afecta a propinas.";
-    colorExp="#fecaca"; bgExp="#450a0a"; icono="🚗";
-  }
-  html+="<div style='font-size:14px;color:"+colorExp+";padding:12px 14px;background:"+bgExp+";border-radius:8px;margin-bottom:14px;line-height:1.4;font-weight:800;letter-spacing:0.3px'>"+titulo+"<div style='font-size:12px;font-weight:600;color:"+colorExp+";opacity:0.85;margin-top:4px;line-height:1.35'>"+explicacion+"</div></div>";
+  // Explicación según motivo
+  let expl="", colorExp="#94a3b8", bgExp="#1e293b", titulo="";
+  if(st.motivo==="propina"){ titulo="💶 Propina"; expl="Sube stock y suma a propinas."; colorExp="#a7f3d0"; bgExp="#064e3b"; }
+  else if(st.motivo==="encontrado"){ titulo="🔍 Encontrado"; expl="Sube stock. NO suma a propinas."; colorExp="#ddd6fe"; bgExp="#4c1d95"; }
+  else if(st.motivo==="otroIngreso"){ titulo="📥 Otro ingreso"; expl="Sube stock. NO suma a propinas."; colorExp="#bae6fd"; bgExp="#075985"; }
+  else if(st.motivo==="gasto"){ titulo="🚗 Gasto"; expl="Resta stock. NO afecta a propinas."; colorExp="#fecaca"; bgExp="#7f1d1d"; }
+  else if(st.motivo==="otroEgreso"){ titulo="📤 Otro egreso"; expl="Resta stock. NO afecta a propinas."; colorExp="#fde68a"; bgExp="#78350f"; }
+  html+="<div style='font-size:13px;color:"+colorExp+";padding:10px 12px;background:"+bgExp+";border-radius:8px;margin-bottom:14px;line-height:1.4;font-weight:800;letter-spacing:0.3px'>"+titulo+"<div style='font-size:12px;font-weight:600;color:"+colorExp+";opacity:0.85;margin-top:3px;line-height:1.3'>"+expl+"</div></div>";
 
   // Piezas
   html+="<div class='card' style='margin:0 0 12px 0'>";
@@ -568,12 +595,10 @@ function renderMovimientoPantalla(){
         const maxAdd = Math.max(0, tope - stockAct);
         if(maxAdd === 0){
           infoLimite = "Tienes " + stockAct + " · <b style='color:#f87171'>tope " + tope + " ya alcanzado</b>";
-          colorLimite = "#fca5a5";
-          bloquearMas = true;
+          colorLimite = "#fca5a5"; bloquearMas = true;
         } else if(n >= maxAdd){
           infoLimite = "Tienes " + stockAct + " · <b style='color:#f87171'>máx " + maxAdd + " (tope " + tope + ")</b>";
-          colorLimite = "#fca5a5";
-          bloquearMas = true;
+          colorLimite = "#fca5a5"; bloquearMas = true;
         } else {
           infoLimite = "Tienes " + stockAct + " · puedes subir <b style='color:#86efac'>" + maxAdd + "</b> (tope " + tope + ")";
         }
@@ -585,12 +610,10 @@ function renderMovimientoPantalla(){
         const maxRemove = Math.max(0, stockAct - reserva);
         if(maxRemove === 0){
           infoLimite = "Tienes " + stockAct + " · <b style='color:#f87171'>reserva " + reserva + " ya alcanzada</b>";
-          colorLimite = "#fca5a5";
-          bloquearMas = true;
+          colorLimite = "#fca5a5"; bloquearMas = true;
         } else if(n >= maxRemove){
           infoLimite = "Tienes " + stockAct + " · <b style='color:#f87171'>máx " + maxRemove + " (reserva " + reserva + ")</b>";
-          colorLimite = "#fca5a5";
-          bloquearMas = true;
+          colorLimite = "#fca5a5"; bloquearMas = true;
         } else {
           infoLimite = "Tienes " + stockAct + " · puedes quitar <b style='color:#fca5a5'>" + maxRemove + "</b> (reserva " + reserva + ")";
         }
@@ -614,8 +637,7 @@ function renderMovimientoPantalla(){
       : "width:36px;height:36px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:pointer";
     const masOnclick = bloquearMas ? "" : "onclick='ajustarMovimiento("+d.c+",1)'";
     html+="<button type='button' "+masOnclick+" style='"+masStyle+"'>+</button>";
-    html+="</div>";
-    html+="</div>";
+    html+="</div></div>";
   });
   html+="</div>";
 
@@ -634,6 +656,7 @@ function renderMovimientoPantalla(){
 }
 function setTipoMovimiento(t){
   movimientoState.tipo = t;
+  movimientoState.motivo = (t === "entrada") ? "propina" : "gasto";
   renderMovimientoPantalla();
 }
 function setMotivoMovimiento(m){
@@ -680,9 +703,14 @@ function confirmarMovimiento(){
   if(!piezas.length){alert("No has añadido ninguna pieza.");return}
 
   const tipo=st.tipo;
+  const motivo=st.motivo;
+
   let msgConfirm="";
-  if(tipo==="entrada") msgConfirm="¿Registrar ENTRADA de propina por "+moneyText(total)+"?";
-  else msgConfirm="¿Registrar SALIDA por gasto de "+moneyText(total)+"?";
+  if(motivo==="propina") msgConfirm="¿Registrar PROPINA de "+moneyText(total)+"?\n\nSe sumará a las propinas acumuladas.";
+  else if(motivo==="encontrado") msgConfirm="¿Registrar dinero ENCONTRADO por "+moneyText(total)+"?\n\nNO se sumará a propinas.";
+  else if(motivo==="otroIngreso") msgConfirm="¿Registrar OTRO INGRESO por "+moneyText(total)+"?\n\nNO se sumará a propinas.";
+  else if(motivo==="gasto") msgConfirm="¿Registrar GASTO de "+moneyText(total)+"?";
+  else if(motivo==="otroEgreso") msgConfirm="¿Registrar OTRO EGRESO de "+moneyText(total)+"?";
   if(!confirm(msgConfirm)) return;
 
   piezas.forEach(p=>{
@@ -696,7 +724,8 @@ function confirmarMovimiento(){
   });
   saveStats();
 
-  if(tipo==="entrada"){
+  // Solo la propina real sube el acumulador de propinas
+  if(motivo==="propina"){
     totalTips += total;
     saveTips();
   }
@@ -704,7 +733,14 @@ function confirmarMovimiento(){
   saveStock();
   renderStockList();
   updateCashSummary();
-  alert("✅ Movimiento registrado.");
+
+  let msgOk = "✅ Movimiento registrado.";
+  if(motivo==="propina") msgOk = "✅ Propina registrada.";
+  else if(motivo==="encontrado") msgOk = "✅ Dinero encontrado registrado.";
+  else if(motivo==="otroIngreso") msgOk = "✅ Ingreso registrado.";
+  else if(motivo==="gasto") msgOk = "✅ Gasto registrado.";
+  else if(motivo==="otroEgreso") msgOk = "✅ Egreso registrado.";
+  alert(msgOk);
   cerrarMovimientoPantalla();
 }
 /* ==================== FIN MOVIMIENTO MANUAL ==================== */

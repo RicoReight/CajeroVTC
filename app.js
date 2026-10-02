@@ -817,66 +817,78 @@ function toggleMarcadoReponer(cb){const c=parseInt(cb.dataset.c);reponerState.ma
 function actualizarReponerManual(){
   const cont=document.getElementById("reponerManualLista");
   if(!cont)return;
-  let html="";
-  denominations.forEach((d,i)=>{
-    const act=stock[i]||0;
-    const add=reponerState.manualAdd[d.c]||0;
-    const qu=act+add;
-    const tope=(topesRecibir[d.c]!=null)?topesRecibir[d.c]:0;
-    const objetivo=Math.floor(tope*FACTOR_LLENADO);
-    const gc=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
 
-    let infoLimite="", colorLimite="#94a3b8", bloquearMas=false;
+  const grupos = [
+    { titulo: "💵 BILLETES", tipo: "bill", color: "#4ade80" },
+    { titulo: "🪙 MONEDAS", tipo: "coin", color: "#facc15" }
+  ];
 
-    if(tope>0){
-      const maxAdd=Math.max(0, tope-act);
-      if(maxAdd===0){
-        infoLimite="Tienes "+act+" · <b style='color:#f87171'>tope "+tope+" ya alcanzado</b>";
-        colorLimite="#fca5a5";
-        bloquearMas=true;
-      } else if(qu>=tope){
-        infoLimite="Tienes "+act+" · <b style='color:#f87171'>máx "+maxAdd+" (tope "+tope+")</b>";
-        colorLimite="#fca5a5";
-        bloquearMas=true;
-      } else if(objetivo>0 && qu>=objetivo){
-        infoLimite="Tienes "+act+" · puedes subir <b style='color:#fbbf24'>"+maxAdd+"</b> · <b style='color:#fbbf24'>sobre 70% ("+objetivo+")</b>";
+  let html = "";
+
+  grupos.forEach(g => {
+    const items = denominations.filter(d => d.type === g.tipo);
+    if(!items.length) return;
+
+    html += "<div style='font-size:12px;color:"+g.color+";font-weight:900;letter-spacing:0.5px;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid #334155'>"+g.titulo+"</div>";
+
+    items.forEach(d => {
+      const i = denominations.findIndex(x => x.c === d.c);
+      const act = stock[i] || 0;
+      const add = reponerState.manualAdd[d.c] || 0;
+      const qu = act + add;
+      const tope = topesRecibir[d.c] || 0;
+      const objetivo = Math.floor(tope * FACTOR_LLENADO);
+      const gc = (d.type === "bill" ? "bill-graphic " : "coin-graphic ") + d.class;
+      const subtotal = add * d.c;
+
+      let numColor = "#a78bfa";
+      let alerta = "";
+      if(add > 0){
+        if(tope > 0 && qu > tope){ numColor = "#ef4444"; alerta = " ⚠"; }
+        else if(objetivo > 0 && qu > objetivo){ numColor = "#fbbf24"; }
+        else { numColor = "#4ade80"; }
       } else {
-        infoLimite="Tienes "+act+" · puedes subir <b style='color:#86efac'>"+maxAdd+"</b> (tope "+tope+")";
+        numColor = "#475569";
       }
-    } else {
-      infoLimite="Tienes "+act+" · sin tope";
-    }
 
-    html+="<div style='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #334155'>";
-    html+="<div class='"+gc+"' style='flex-shrink:0;font-size:12px'>"+d.short+"</div>";
-    html+="<div style='flex:1;min-width:0'>";
-    html+="<div style='font-size:14px;color:#fff;font-weight:800'>"+d.n+"</div>";
-    html+="<div style='font-size:13px;color:"+colorLimite+";margin-top:3px;line-height:1.4;font-weight:600'>"+infoLimite+"</div>";
-    html+="</div>";
-    html+="<div style='display:flex;align-items:center;gap:6px;flex-shrink:0'>";
-    html+="<button type='button' onclick='ajustarManualReponer("+d.c+",-1)' style='width:36px;height:36px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:pointer'>−</button>";
-    const numColor = add>0 ? (bloquearMas ? "#fbbf24" : "#4ade80") : "#475569";
-    html+="<div style='width:40px;text-align:center;font-size:18px;font-weight:900;color:"+numColor+"'>"+add+"</div>";
-    const masStyle = bloquearMas
-      ? "width:36px;height:36px;padding:0;background:#1e293b;color:#475569;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:not-allowed;opacity:0.4"
-      : "width:36px;height:36px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:pointer";
-    const masOnclick = bloquearMas ? "" : "onclick='ajustarManualReponer("+d.c+",1)'";
-    html+="<button type='button' "+masOnclick+" style='"+masStyle+"'>+</button>";
-    html+="</div></div>";
+      const subtotalColor = subtotal > 0 ? "#4ade80" : "#475569";
+
+      html += "<div style='display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #1e293b'>";
+
+      // Icono grande
+      html += "<div class='"+gc+"' style='flex-shrink:0;font-size:14px'>"+d.short+"</div>";
+
+      // Nombre
+      html += "<div style='flex:1;min-width:0;font-size:15px;color:#fff;font-weight:800'>"+d.n+alerta+"</div>";
+
+      // Controles
+      html += "<div style='display:flex;align-items:center;gap:6px;flex-shrink:0'>";
+      html += "<button type='button' onclick='ajustarManualReponer("+d.c+",-1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:pointer'>−</button>";
+      html += "<div style='width:44px;text-align:center;font-size:22px;font-weight:900;color:"+numColor+"'>"+add+"</div>";
+      html += "<button type='button' onclick='ajustarManualReponer("+d.c+",1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:pointer'>+</button>";
+      html += "</div>";
+
+      // Subtotal
+      html += "<div style='width:76px;text-align:right;font-size:14px;font-weight:900;color:"+subtotalColor+";flex-shrink:0'>"+moneyText(subtotal)+"</div>";
+
+      html += "</div>";
+    });
   });
-  cont.innerHTML=html;
 
-  let tot=0;
-  denominations.forEach(d=>{tot+=(reponerState.manualAdd[d.c]||0)*d.c});
-  const elT=document.getElementById("reponerManualTotal");
-  if(elT)elT.textContent=moneyText(tot);
-  const elE=document.getElementById("reponerManualEstado");
-  if(elE&&reponerState.importeManual>0){
-    const dif=tot-reponerState.importeManual;
-    if(dif===0)elE.innerHTML="<span style='color:#4ade80;font-weight:800;font-size:14px'>✅ Coincide con lo que quieres sacar</span>";
-    else if(dif<0)elE.innerHTML="<span style='color:#fbbf24;font-weight:800;font-size:14px'>⚠️ Te faltan "+moneyText(-dif)+"</span>";
-    else elE.innerHTML="<span style='color:#f87171;font-weight:800;font-size:14px'>⚠️ Te pasas por "+moneyText(dif)+"</span>";
-  } else if(elE)elE.innerHTML="";
+  cont.innerHTML = html;
+
+  let tot = 0;
+  denominations.forEach(d => { tot += (reponerState.manualAdd[d.c] || 0) * d.c; });
+  const elT = document.getElementById("reponerManualTotal");
+  if(elT) elT.textContent = moneyText(tot);
+
+  const elE = document.getElementById("reponerManualEstado");
+  if(elE && reponerState.importeManual > 0){
+    const dif = tot - reponerState.importeManual;
+    if(dif === 0) elE.innerHTML = "<span style='color:#4ade80;font-weight:800;font-size:14px'>✅ Coincide</span>";
+    else if(dif < 0) elE.innerHTML = "<span style='color:#fbbf24;font-weight:800;font-size:14px'>⚠️ Faltan "+moneyText(-dif)+"</span>";
+    else elE.innerHTML = "<span style='color:#f87171;font-weight:800;font-size:14px'>⚠️ Te pasas "+moneyText(dif)+"</span>";
+  } else if(elE) elE.innerHTML = "";
 }
 
 function onCambioImporteManual(){const inp=document.getElementById("reponerImporteManual");if(!inp)return;const raw=parseFloat(inp.value.replace(',','.'))||0;const cents=Math.max(0,Math.round(raw*100));reponerState.importeManual=cents;if(cents>0){const rep=simularRepartoManual(cents);denominations.forEach((d,i)=>{reponerState.manualAdd[d.c]=rep[i]})}else denominations.forEach(d=>{reponerState.manualAdd[d.c]=0});actualizarReponerManual()}

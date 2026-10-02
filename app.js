@@ -364,16 +364,48 @@ function renderDepManualPiezas(){
   const bills = denominations.filter(d => d.type === "bill");
   if(!window.__depManualCounts) window.__depManualCounts = {};
   let html="";
+
   bills.forEach(d=>{
+    const idx = denominations.findIndex(x => x.c === d.c);
     const n = window.__depManualCounts[d.c] || 0;
+    const stockAct = stock[idx] || 0;
+    const reserva = reservaMinima[d.c] || 0;
     const gc = "bill-graphic " + d.class;
-    html+="<div style='display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #1e293b'>";
-    html+="<div class='"+gc+"' style='flex-shrink:0;font-size:11px'>"+d.short+"</div>";
-    html+="<div style='flex:1;font-size:13px;color:#fff'>"+d.n+"</div>";
-    html+="<div style='display:flex;align-items:center;gap:6px'>";
-    html+="<button type='button' onclick='ajustarDepManual("+d.c+",-1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer'>−</button>";
-    html+="<div style='width:40px;text-align:center;font-size:16px;font-weight:900;color:"+(n>0?"#4ade80":"#475569")+"'>"+n+"</div>";
-    html+="<button type='button' onclick='ajustarDepManual("+d.c+",1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer'>+</button>";
+
+    let infoLimite="", colorLimite="#94a3b8", bloquearMas=false;
+
+    if(reserva > 0){
+      const maxRemove = Math.max(0, stockAct - reserva);
+      if(maxRemove === 0){
+        infoLimite = "Tienes " + stockAct + " · <b style='color:#f87171'>reserva " + reserva + " ya alcanzada</b>";
+        colorLimite = "#fca5a5";
+        bloquearMas = true;
+      } else if(n >= maxRemove){
+        infoLimite = "Tienes " + stockAct + " · <b style='color:#f87171'>máx " + maxRemove + " (reserva " + reserva + ")</b>";
+        colorLimite = "#fca5a5";
+        bloquearMas = true;
+      } else {
+        infoLimite = "Tienes " + stockAct + " · puedes sacar <b style='color:#fca5a5'>" + maxRemove + "</b> (reserva " + reserva + ")";
+      }
+    } else {
+      infoLimite = "Tienes " + stockAct + " · sin reserva";
+    }
+
+    html+="<div style='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1e293b'>";
+    html+="<div class='"+gc+"' style='flex-shrink:0;font-size:12px'>"+d.short+"</div>";
+    html+="<div style='flex:1;min-width:0'>";
+    html+="<div style='font-size:14px;color:#fff;font-weight:800'>"+d.n+"</div>";
+    html+="<div style='font-size:13px;color:"+colorLimite+";margin-top:3px;line-height:1.4;font-weight:600'>"+infoLimite+"</div>";
+    html+="</div>";
+    html+="<div style='display:flex;align-items:center;gap:6px;flex-shrink:0'>";
+    html+="<button type='button' onclick='ajustarDepManual("+d.c+",-1)' style='width:36px;height:36px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:pointer'>−</button>";
+    const numColor = n>0 ? (bloquearMas ? "#f87171" : "#4ade80") : "#475569";
+    html+="<div style='width:40px;text-align:center;font-size:18px;font-weight:900;color:"+numColor+"'>"+n+"</div>";
+    const masStyle = bloquearMas
+      ? "width:36px;height:36px;padding:0;background:#1e293b;color:#475569;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:not-allowed;opacity:0.4"
+      : "width:36px;height:36px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:pointer";
+    const masOnclick = bloquearMas ? "" : "onclick='ajustarDepManual("+d.c+",1)'";
+    html+="<button type='button' "+masOnclick+" style='"+masStyle+"'>+</button>";
     html+="</div></div>";
   });
   cont.innerHTML=html;
@@ -381,8 +413,21 @@ function renderDepManualPiezas(){
 }
 
 function ajustarDepManual(c, delta){
+  const idx = denominations.findIndex(x => x.c === c);
+  const stockAct = stock[idx] || 0;
+  const reserva = reservaMinima[c] || 0;
   if(!window.__depManualCounts) window.__depManualCounts = {};
-  window.__depManualCounts[c] = Math.max(0, (window.__depManualCounts[c]||0) + delta);
+  const n = window.__depManualCounts[c] || 0;
+
+  if(delta > 0 && reserva > 0){
+    const maxRemove = Math.max(0, stockAct - reserva);
+    if(n >= maxRemove){
+      mostrarToast("⚠️ Reserva mínima alcanzada (" + reserva + ")");
+      return;
+    }
+  }
+
+  window.__depManualCounts[c] = Math.max(0, n + delta);
   renderDepManualPiezas();
 }
 
@@ -396,13 +441,13 @@ function actualizarSumaDepManual(){
   if(!el) return;
   const imp = Math.round((parseFloat(document.getElementById("depManualImporte")?.value.replace(',','.'))||0)*100);
   if(suma === 0){
-    el.innerHTML = "<span style='color:#64748b'>Sin piezas · se guardará solo el importe en el historial</span>";
+    el.innerHTML = "<span style='color:#64748b;font-size:14px;font-weight:700'>Sin piezas · se guardará solo el importe en el historial</span>";
   } else if(imp > 0 && suma === imp){
-    el.innerHTML = "<span style='color:#4ade80'>✅ Suma de piezas: "+moneyText(suma)+" (coincide con el importe)</span>";
+    el.innerHTML = "<span style='color:#4ade80;font-size:14px;font-weight:800'>✅ Suma de piezas: "+moneyText(suma)+" (coincide con el importe)</span>";
   } else if(imp > 0){
-    el.innerHTML = "<span style='color:#fbbf24'>⚠️ Suma de piezas: "+moneyText(suma)+" · Importe: "+moneyText(imp)+" (no coincide, se ignorará el aprendizaje)</span>";
+    el.innerHTML = "<span style='color:#fbbf24;font-size:14px;font-weight:800'>⚠️ Suma de piezas: "+moneyText(suma)+" · Importe: "+moneyText(imp)+" (no coincide, se ignorará el aprendizaje)</span>";
   } else {
-    el.innerHTML = "<span style='color:#38bdf8'>Suma de piezas: "+moneyText(suma)+"</span>";
+    el.innerHTML = "<span style='color:#38bdf8;font-size:14px;font-weight:800'>Suma de piezas: "+moneyText(suma)+"</span>";
   }
 }
 
@@ -779,16 +824,48 @@ function actualizarReponerManual(){
     const qu=act+add;
     const tope=(topesRecibir[d.c]!=null)?topesRecibir[d.c]:0;
     const objetivo=Math.floor(tope*FACTOR_LLENADO);
-    let colorQu="#38bdf8";
-    let aviso="";
-    if(add>0){
-      if(tope>0&&qu>tope){colorQu="#ef4444";aviso=" ⚠ supera tope ("+tope+")";}
-      else if(objetivo>0&&qu>objetivo){colorQu="#fbbf24";aviso=" · por encima del 70% ("+objetivo+")";}
-    }
     const gc=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
-    html+="<div style='display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #334155'><div class='"+gc+"' style='flex-shrink:0'>"+d.short+"</div><div style='flex:1;min-width:0'><div style='font-size:14px;font-weight:700;color:#fff'>"+d.n+"</div><div style='font-size:11px;color:#94a3b8'>Tienes "+act+" → quedarían <b style='color:"+colorQu+"'>"+qu+"</b>"+aviso+"</div></div><div style='display:flex;align-items:center;gap:6px;flex-shrink:0'><button type='button' onclick='ajustarManualReponer("+d.c+",-1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer'>−</button><div style='width:40px;text-align:center;font-size:18px;font-weight:900;color:"+(add>0?"#4ade80":"#475569")+"'>"+add+"</div><button type='button' onclick='ajustarManualReponer("+d.c+",1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer'>+</button></div></div>"
+
+    let infoLimite="", colorLimite="#94a3b8", bloquearMas=false;
+
+    if(tope>0){
+      const maxAdd=Math.max(0, tope-act);
+      if(maxAdd===0){
+        infoLimite="Tienes "+act+" · <b style='color:#f87171'>tope "+tope+" ya alcanzado</b>";
+        colorLimite="#fca5a5";
+        bloquearMas=true;
+      } else if(qu>=tope){
+        infoLimite="Tienes "+act+" · <b style='color:#f87171'>máx "+maxAdd+" (tope "+tope+")</b>";
+        colorLimite="#fca5a5";
+        bloquearMas=true;
+      } else if(objetivo>0 && qu>=objetivo){
+        infoLimite="Tienes "+act+" · puedes subir <b style='color:#fbbf24'>"+maxAdd+"</b> · <b style='color:#fbbf24'>sobre 70% ("+objetivo+")</b>";
+      } else {
+        infoLimite="Tienes "+act+" · puedes subir <b style='color:#86efac'>"+maxAdd+"</b> (tope "+tope+")";
+      }
+    } else {
+      infoLimite="Tienes "+act+" · sin tope";
+    }
+
+    html+="<div style='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #334155'>";
+    html+="<div class='"+gc+"' style='flex-shrink:0;font-size:12px'>"+d.short+"</div>";
+    html+="<div style='flex:1;min-width:0'>";
+    html+="<div style='font-size:14px;color:#fff;font-weight:800'>"+d.n+"</div>";
+    html+="<div style='font-size:13px;color:"+colorLimite+";margin-top:3px;line-height:1.4;font-weight:600'>"+infoLimite+"</div>";
+    html+="</div>";
+    html+="<div style='display:flex;align-items:center;gap:6px;flex-shrink:0'>";
+    html+="<button type='button' onclick='ajustarManualReponer("+d.c+",-1)' style='width:36px;height:36px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:pointer'>−</button>";
+    const numColor = add>0 ? (bloquearMas ? "#fbbf24" : "#4ade80") : "#475569";
+    html+="<div style='width:40px;text-align:center;font-size:18px;font-weight:900;color:"+numColor+"'>"+add+"</div>";
+    const masStyle = bloquearMas
+      ? "width:36px;height:36px;padding:0;background:#1e293b;color:#475569;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:not-allowed;opacity:0.4"
+      : "width:36px;height:36px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:pointer";
+    const masOnclick = bloquearMas ? "" : "onclick='ajustarManualReponer("+d.c+",1)'";
+    html+="<button type='button' "+masOnclick+" style='"+masStyle+"'>+</button>";
+    html+="</div></div>";
   });
   cont.innerHTML=html;
+
   let tot=0;
   denominations.forEach(d=>{tot+=(reponerState.manualAdd[d.c]||0)*d.c});
   const elT=document.getElementById("reponerManualTotal");
@@ -796,10 +873,10 @@ function actualizarReponerManual(){
   const elE=document.getElementById("reponerManualEstado");
   if(elE&&reponerState.importeManual>0){
     const dif=tot-reponerState.importeManual;
-    if(dif===0)elE.innerHTML="<span style='color:#4ade80'>✅ Coincide con lo que quieres sacar</span>";
-    else if(dif<0)elE.innerHTML="<span style='color:#fbbf24'>⚠️ Te faltan "+moneyText(-dif)+"</span>";
-    else elE.innerHTML="<span style='color:#f87171'>⚠️ Te pasas por "+moneyText(dif)+"</span>"
-  } else if(elE)elE.innerHTML=""
+    if(dif===0)elE.innerHTML="<span style='color:#4ade80;font-weight:800;font-size:14px'>✅ Coincide con lo que quieres sacar</span>";
+    else if(dif<0)elE.innerHTML="<span style='color:#fbbf24;font-weight:800;font-size:14px'>⚠️ Te faltan "+moneyText(-dif)+"</span>";
+    else elE.innerHTML="<span style='color:#f87171;font-weight:800;font-size:14px'>⚠️ Te pasas por "+moneyText(dif)+"</span>";
+  } else if(elE)elE.innerHTML="";
 }
 
 function onCambioImporteManual(){const inp=document.getElementById("reponerImporteManual");if(!inp)return;const raw=parseFloat(inp.value.replace(',','.'))||0;const cents=Math.max(0,Math.round(raw*100));reponerState.importeManual=cents;if(cents>0){const rep=simularRepartoManual(cents);denominations.forEach((d,i)=>{reponerState.manualAdd[d.c]=rep[i]})}else denominations.forEach(d=>{reponerState.manualAdd[d.c]=0});actualizarReponerManual()}
@@ -859,8 +936,25 @@ function simularRepartoManual(target){
   return añadidos;
 }
 
-function ajustarManualReponer(cents,delta){reponerState.manualAdd[cents]=Math.max(0,(reponerState.manualAdd[cents]||0)+delta);actualizarReponerManual()}
-function resetManualReponer(){denominations.forEach(d=>{reponerState.manualAdd[d.c]=0});reponerState.importeManual=0;const inp=document.getElementById("reponerImporteManual");if(inp)inp.value="";actualizarReponerManual()}
+function ajustarManualReponer(cents,delta){
+  const d = denominations.find(x => x.c === cents);
+  if(!d) return;
+  const i = denominations.findIndex(x => x.c === cents);
+  const act = stock[i] || 0;
+  const tope = topesRecibir[cents] || 0;
+  const add = reponerState.manualAdd[cents] || 0;
+
+  if(delta > 0 && tope > 0){
+    const maxAdd = Math.max(0, tope - act);
+    if(add >= maxAdd){
+      mostrarToast("⚠️ Máximo alcanzado (tope " + tope + ")");
+      return;
+    }
+  }
+
+  reponerState.manualAdd[cents] = Math.max(0, add + delta);
+  actualizarReponerManual();
+}function resetManualReponer(){denominations.forEach(d=>{reponerState.manualAdd[d.c]=0});reponerState.importeManual=0;const inp=document.getElementById("reponerImporteManual");if(inp)inp.value="";actualizarReponerManual()}
 
 function confirmarReponer(){
   let añadir=[];

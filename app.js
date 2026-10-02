@@ -491,21 +491,18 @@ function renderMovimientoPantalla(){
   html+="<div style='font-size:11px;color:#64748b;text-align:center;line-height:1.3'>Para corregir el inventario sin registrar, usa el <b style='color:#a78bfa'>Modo edición</b> en el inventario.</div>";
   html+="</div>";
 
-  // Motivo (solo uno según el tipo, sin Corrección)
-  html+="<div class='card' style='margin:0 0 12px 0'>";
-  html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>MOTIVO</div>";
+  // Explicación según tipo
+  let explicacion="", colorExp="#94a3b8", bgExp="#1e293b", icono="ℹ️", titulo="";
   if(st.tipo==="entrada"){
-    html+="<div style='padding:14px 10px;border-radius:10px;border:2px solid #22c55e;background:linear-gradient(135deg,#14532d,#15803d);color:#4ade80;font-weight:900;font-size:15px;text-align:center;letter-spacing:0.3px;box-shadow:0 0 0 3px rgba(34,197,94,0.3)'>💶 Propina</div>";
+    titulo="💶 Propina";
+    explicacion="Se sumará al stock y también a las propinas acumuladas.";
+    colorExp="#a7f3d0"; bgExp="#064e3b"; icono="💶";
   } else {
-    html+="<div style='padding:14px 10px;border-radius:10px;border:2px solid #ef4444;background:linear-gradient(135deg,#7f1d1d,#991b1b);color:#fca5a5;font-weight:900;font-size:15px;text-align:center;letter-spacing:0.3px;box-shadow:0 0 0 3px rgba(239,68,68,0.3)'>🚗 Gasto</div>";
+    titulo="🚗 Gasto";
+    explicacion="Se restará del stock como gasto operativo. NO afecta a propinas.";
+    colorExp="#fecaca"; bgExp="#450a0a"; icono="🚗";
   }
-  html+="</div>";
-
-  // Explicación
-  let explicacion="", colorExp="#94a3b8", bgExp="#1e293b", icono="ℹ️";
-  if(st.tipo==="entrada"){ explicacion="Se sumará al stock y también a las propinas acumuladas."; colorExp="#a7f3d0"; bgExp="#064e3b"; icono="💶"; }
-  else { explicacion="Se restará del stock como gasto operativo. NO afecta a propinas."; colorExp="#fecaca"; bgExp="#450a0a"; icono="🚗"; }
-  html+="<div style='font-size:13px;color:"+colorExp+";padding:10px 12px;background:"+bgExp+";border-radius:8px;margin-bottom:14px;line-height:1.4;font-weight:700'>"+icono+" "+explicacion+"</div>";
+  html+="<div style='font-size:14px;color:"+colorExp+";padding:12px 14px;background:"+bgExp+";border-radius:8px;margin-bottom:14px;line-height:1.4;font-weight:800;letter-spacing:0.3px'>"+titulo+"<div style='font-size:12px;font-weight:600;color:"+colorExp+";opacity:0.85;margin-top:4px;line-height:1.35'>"+explicacion+"</div></div>";
 
   // Piezas
   html+="<div class='card' style='margin:0 0 12px 0'>";
@@ -591,8 +588,7 @@ function renderMovimientoPantalla(){
   cont.innerHTML=html;
 }
 function setTipoMovimiento(t){
-  movimientoState.tipo=t;
-  movimientoState.motivo = (t==="entrada") ? "propina" : "gasto";
+  movimientoState.tipo = t;
   renderMovimientoPantalla();
 }
 function setMotivoMovimiento(m){

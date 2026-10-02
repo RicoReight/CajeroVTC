@@ -169,55 +169,63 @@ function calcularCierre(){
     return;
   }
 
-  // Si el importe pedido no se puede formar del todo, mostrar lo máximo formable con aviso
-  if(res.total < target && !res.tocoReserva){
-    // raro pero posible: solo se puede formar parcial sin tocar reserva
-    // En este caso sí que se ofrece la fase 2 con reserva
-  }
-
-  // Calcular cuánto stock queda después de entregar
+  // Calcular stock que queda tras entregar
   const sd=stock.slice();
   for(let i=0;i<res.usados.length;i++)sd[i]=Math.max(0,sd[i]-res.usados[i]);
 
-  // Ver qué denominaciones se quedan por debajo de su reserva mínima
-  const bajoReserva=[];
+  // Analizar cada denominación usada: ¿queda por debajo de la reserva?
+  const afectados={};
   for(let i=0;i<res.usados.length;i++){
+    const n=res.usados[i]||0;
+    if(n<=0) continue;
     const d=denominations[i];
     const res_i=reservaMinima[d.c]||0;
-    if(res_i>0 && sd[i] < res_i){
-      bajoReserva.push({d, queda:sd[i], reserva:res_i});
+    const quedan=sd[i];
+    if(res_i>0 && quedan < res_i){
+      afectados[d.c]={queda:quedan, reserva:res_i};
     }
   }
+  const tocaAlgo = Object.keys(afectados).length>0;
 
   let html="";
 
-  // Si toca reserva → aviso grande y claro arriba
-  if(res.tocoReserva){
-    html+="<div style='background:#7f1d1d;border:2px solid #ef4444;border-radius:10px;padding:14px;margin-bottom:14px'>";
-    html+="<div style='font-size:15px;color:#fecaca;font-weight:900;margin-bottom:8px;letter-spacing:0.5px'>⚠️ ESTE DEPÓSITO TOCA TU RESERVA MÍNIMA</div>";
-    html+="<div style='font-size:13px;color:#fecaca;line-height:1.5'>Con este importe te quedarás por debajo de la reserva en:</div>";
-    html+="<div style='margin-top:8px;font-size:14px;color:#fff;font-weight:700'>";
-    bajoReserva.forEach(x=>{
-      html+="· "+x.d.n+" → te quedarán <b style='color:#fca5a5'>"+x.queda+"</b> (reserva: "+x.reserva+")<br>";
-    });
-    html+="</div>";
-    html+="<div style='margin-top:10px;font-size:12px;color:#fca5a5;line-height:1.4'>Si no quieres tocar la reserva, deposita un importe menor o ajusta la reserva en Ajustes → 🔒 Límite y Máximos.</div>";
+  // Aviso compacto si toca reserva
+  if(tocaAlgo){
+    html+="<div style='background:#7f1d1d;border:1px solid #ef4444;border-radius:8px;padding:8px 12px;margin-bottom:12px;text-align:center'>";
+    html+="<div style='font-size:13px;color:#fecaca;font-weight:800'>⚠️ Este depósito toca tu reserva mínima</div>";
+    html+="<div style='font-size:11px;color:#fca5a5;margin-top:3px'>Los billetes marcados en rojo se quedarán sin cambio</div>";
     html+="</div>";
   }
 
-  // Desglose de billetes a entregar
+  // Encabezado y total
   html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;text-align:center'>💵 ENTREGAR EN BILLETES</div>";
   html+="<div style='font-size:32px;font-weight:900;color:#4ade80;margin:6px 0 14px;text-align:center'>"+moneyText(res.total)+"</div>";
+
+  // Grid de billetes: los afectados en ROJO, el resto normal
   html+="<div class='change-grid'>";
   res.usados.forEach((n,i)=>{
     if(n>0){
       const d=denominations[i];
-      html+="<div class='cash-item'><div class='badge'>x"+n+"</div><div class='bill-graphic "+d.class+"'>"+d.short+"</div></div>";
+      const af=afectados[d.c];
+      if(af){
+        // Billete afectado → fondo rojo + texto explicativo
+        html+="<div class='cash-item' style='position:relative;background:#7f1d1d!important;border:2px solid #ef4444!important;border-radius:12px;padding:8px;display:flex;flex-direction:column;align-items:center;justify-content:center'>";
+        html+="<div class='badge' style='background:#ef4444;color:#fff;font-weight:900'>x"+n+"</div>";
+        html+="<div class='bill-graphic "+d.class+"'>"+d.short+"</div>";
+        html+="<div style='margin-top:6px;font-size:9px;font-weight:900;color:#fecaca;text-align:center;line-height:1.2;letter-spacing:0.3px'>⚠ TOCA RESERVA<br>Quedan "+af.queda+" de "+af.reserva+"</div>";
+        html+="</div>";
+      } else {
+        // Billete normal
+        html+="<div class='cash-item'>";
+        html+="<div class='badge'>x"+n+"</div>";
+        html+="<div class='bill-graphic "+d.class+"'>"+d.short+"</div>";
+        html+="</div>";
+      }
     }
   });
   html+="</div>";
 
-  // Estado después del depósito
+  // Panel de estado después del depósito
   const checks=[["≤ 20 €",2000],["≤ 30 €",3000],["≤ 50 €",5000],["≤ 80 €",8000],["≤ 100 €",10000]];
   let tarjs="";
   let hay=false;
@@ -239,7 +247,7 @@ function calcularCierre(){
   }
   html+="</div>";
 
-  // Sobrante no entregable y total tras el depósito
+  // Sobrante y total tras depósito
   const sobr=target-res.total;
   const tot=stock.reduce((s,n,i)=>s+n*denominations[i].c,0);
   const queda=tot-res.total;
@@ -254,16 +262,14 @@ function calcularCierre(){
   btn.dataset.total=String(res.total);
   btn.dataset.usados=JSON.stringify(res.usados);
 
-  // Cambiar el texto del botón si toca reserva
-  if(res.tocoReserva){
-    btn.textContent="⚠️ CONFIRMAR DE TODAS FORMAS (toca reserva)";
+  if(tocaAlgo){
+    btn.textContent="⚠️ CONFIRMAR DE TODAS FORMAS";
     btn.style.background="#b45309";
   } else {
     btn.textContent="✅ CONFIRMAR DEPÓSITO";
     btn.style.background="#059669";
   }
 }
-
 function confirmarCierre(){const btn=document.getElementById("btnConfirmarCierre");if(!btn)return;const total=parseInt(btn.dataset.total)||0;const usados=JSON.parse(btn.dataset.usados||"[]");if(total<=0)return;if(!confirm("¿Confirmar depósito? Se entregarán "+moneyText(total)+" en billetes.\n\nLas propinas NO se tocan."))return;for(let i=0;i<usados.length;i++)stock[i]=Math.max(0,stock[i]-usados[i]);for(let i=0;i<usados.length;i++){statsOps.deposited[i]+=usados[i]||0}saveStats();saveStock();renderStockList();updateCashSummary();const cierres=loadCierres();cierres.push({fecha:new Date().toISOString(),total});saveCierres(cierres);renderCierreHistorico();document.getElementById("cierreInput").value="";const cont=document.getElementById("cierreResultado");if(cont){cont.style.display="none";cont.innerHTML=""}btn.style.display="none";alert("✅ Depósito realizado.\nEntregados: "+moneyText(total))}
 
 function renderCierreHistorico(){const box=document.getElementById("cierreHistorico");if(!box)return;const cierres=loadCierres();if(!cierres.length){box.style.display="none";box.innerHTML="";return}let html="<div style='font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:8px'>📜 ÚLTIMOS DEPÓSITOS</div>";cierres.slice(-10).reverse().forEach(c=>{const d=new Date(c.fecha);const f=d.toLocaleDateString("es-ES")+" · "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});const ic=c.manual?"📝 ":"";html+="<div style='padding:8px 0;border-bottom:1px solid #334155;font-size:13px'><div style='display:flex;justify-content:space-between'><span style='color:#94a3b8'>"+ic+f+"</span><span style='font-weight:800;color:#4ade80'>"+moneyText(c.total)+"</span></div></div>"});box.innerHTML=html;box.style.display="block"}

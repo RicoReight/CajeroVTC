@@ -14,9 +14,11 @@ const ARRANQUE={10000:0,5000:0,2000:2,1000:3,500:4,200:5,100:8,50:8,20:15,10:15,
 const FACTOR_LLENADO=0.7;
 let stock=loadStock(),totalTips=loadTips(),reservaMinima=loadReserva(),topesRecibir=loadTopes();
 let diaReset=loadDiaReset(),ultimoResetPropinas=loadUltimoResetPropinas(),statsOps=loadStats();
+let modoEdicion = safeStorage.get("uberCambioModoEdicion") === "1";
 let received=[],pendingTransaction=null,stockInputs=[],reservaInputs=[],summaryTimer=null,precioInterval=null,precioActual=0;
 let cambioState={aEntregar:{},aRecibir:{},modo:null,orden:[],ordenRecibir:[],sinDatos:false};
 let reponerState={viajes:20,colchon:3,marcados:{},modo:"auto",manualAdd:{},importeManual:0};
+let movimientoState={tipo:"entrada",motivo:"propina",piezas:{}};
 
 function loadStock(){const s=safeStorage.get("uberCambioStock");if(s){try{const a=JSON.parse(s);if(Array.isArray(a)&&a.length===denominations.length)return a.map(x=>Math.max(0,parseInt(x)||0))}catch(e){}}return[0,0,2,3,4,10,10,20,40,10,10,10,10]}
 function loadTips(){return parseInt(safeStorage.get("uberCambioTips"))||0}
@@ -38,7 +40,9 @@ function loadStats(){
           spent:o.spent.map(x=>parseInt(x)||0),
           deposited:Array.isArray(o.deposited)?o.deposited.map(x=>parseInt(x)||0):new Array(denominations.length).fill(0),
           repuesto:Array.isArray(o.repuesto)?o.repuesto.map(x=>parseInt(x)||0):new Array(denominations.length).fill(0),
-          cambioNeto:Array.isArray(o.cambioNeto)?o.cambioNeto.map(x=>parseInt(x)||0):new Array(denominations.length).fill(0)
+          cambioNeto:Array.isArray(o.cambioNeto)?o.cambioNeto.map(x=>parseInt(x)||0):new Array(denominations.length).fill(0),
+          manualIn:Array.isArray(o.manualIn)?o.manualIn.map(x=>parseInt(x)||0):new Array(denominations.length).fill(0),
+          manualOut:Array.isArray(o.manualOut)?o.manualOut.map(x=>parseInt(x)||0):new Array(denominations.length).fill(0)
         }
       }
     }catch(e){}
@@ -49,7 +53,9 @@ function loadStats(){
     spent:new Array(denominations.length).fill(0),
     deposited:new Array(denominations.length).fill(0),
     repuesto:new Array(denominations.length).fill(0),
-    cambioNeto:new Array(denominations.length).fill(0)
+    cambioNeto:new Array(denominations.length).fill(0),
+    manualIn:new Array(denominations.length).fill(0),
+    manualOut:new Array(denominations.length).fill(0)
   }
 }
 function saveStats(){safeStorage.set("uberCambioStats",JSON.stringify(statsOps))}
@@ -60,7 +66,9 @@ function resetStats(){
     spent:new Array(denominations.length).fill(0),
     deposited:new Array(denominations.length).fill(0),
     repuesto:new Array(denominations.length).fill(0),
-    cambioNeto:new Array(denominations.length).fill(0)
+    cambioNeto:new Array(denominations.length).fill(0),
+    manualIn:new Array(denominations.length).fill(0),
+    manualOut:new Array(denominations.length).fill(0)
   };
   saveStats();
 }
@@ -97,8 +105,81 @@ function confirmTransaction(){if(!pendingTransaction){alert("Introduce un precio
 
 function renderRecomendaciones(){const box=document.getElementById("recomendacionesBox");if(!box)return;if(statsOps.operations<10){box.innerHTML="";return}const ops=statsOps.operations;const falt=[],sob=[];denominations.forEach((d,i)=>{const aR=statsOps.received[i]/ops,aS=statsOps.spent[i]/ops;if(aS>0&&statsOps.spent[i]>statsOps.received[i]+2){const r=stock[i]/aS;if(r<30)falt.push({d,falta:Math.max(1,Math.ceil(aS*30)-stock[i])})}if(aR>aS*2&&statsOps.received[i]>8&&stock[i]>8)sob.push({d,exceso:statsOps.received[i]-statsOps.spent[i]})});if(!falt.length&&!sob.length){box.innerHTML="";return}let html="<div style='background:#0f172a;border:1px solid #475569;border-radius:10px;padding:12px;margin-top:14px'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>🤖 SUGERENCIAS · últimas "+ops+" operaciones</div>";if(falt.length){html+="<div style='font-size:11px;color:#fbbf24;font-weight:700;margin-bottom:4px'>⚠️ SE TE AGOTAN</div>";falt.forEach(x=>{html+="<div style='display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff'><span>"+x.d.n+"</span><span style='color:#fbbf24;font-weight:700'>pedir +"+x.falta+"</span></div>"})}if(sob.length){html+="<div style='font-size:11px;color:#4ade80;font-weight:700;margin:10px 0 4px'>💚 ACUMULAS DE MÁS</div>";sob.forEach(x=>{html+="<div style='display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff'><span>"+x.d.n+"</span><span style='color:#4ade80;font-weight:700'>+"+x.exceso+" de más</span></div>"})}html+="</div>";box.innerHTML=html}
 
-function renderStockList(){const box=document.getElementById("stockList");if(!box)return;box.innerHTML="";stockInputs=[];const tipEl=document.getElementById("totalTipDisplay");if(tipEl)tipEl.textContent="💶 Propinas: "+moneyText(totalTips);denominations.forEach((d,i)=>{const row=document.createElement("div");row.className="stock-item";const t=document.createElement("span");t.textContent=d.n;t.style.fontWeight="700";const ctrl=document.createElement("div");ctrl.className="stock-ctrl";const bm=document.createElement("button");bm.textContent="-";bm.onclick=()=>updateStockVal(i,stock[i]-1);const inp=document.createElement("input");inp.type="number";inp.min="0";inp.value=stock[i];inp.onchange=(e)=>updateStockVal(i,parseInt(e.target.value)||0);const bp=document.createElement("button");bp.textContent="+";bp.onclick=()=>updateStockVal(i,stock[i]+1);ctrl.appendChild(bm);ctrl.appendChild(inp);ctrl.appendChild(bp);row.appendChild(t);row.appendChild(ctrl);box.appendChild(row);stockInputs[i]=inp});renderRecomendaciones()}
+function renderStockList(){
+  const box=document.getElementById("stockList");
+  if(!box)return;
+  box.innerHTML="";
+  stockInputs=[];
+  const tipEl=document.getElementById("totalTipDisplay");
+  if(tipEl)tipEl.textContent="💶 Propinas: "+moneyText(totalTips);
+  denominations.forEach((d,i)=>{
+    const row=document.createElement("div");
+    row.className="stock-item";
+    const t=document.createElement("span");
+    t.textContent=d.n;
+    t.style.fontWeight="700";
+    const ctrl=document.createElement("div");
+    ctrl.className="stock-ctrl";
+    if(modoEdicion){
+      const bm=document.createElement("button");
+      bm.textContent="-";
+      bm.onclick=()=>updateStockVal(i,stock[i]-1);
+      const inp=document.createElement("input");
+      inp.type="number";
+      inp.min="0";
+      inp.value=stock[i];
+      inp.onchange=(e)=>updateStockVal(i,parseInt(e.target.value)||0);
+      const bp=document.createElement("button");
+      bp.textContent="+";
+      bp.onclick=()=>updateStockVal(i,stock[i]+1);
+      ctrl.appendChild(bm);
+      ctrl.appendChild(inp);
+      ctrl.appendChild(bp);
+      stockInputs[i]=inp;
+    } else {
+      const span=document.createElement("span");
+      span.textContent=stock[i];
+      span.style.fontSize="18px";
+      span.style.fontWeight="900";
+      span.style.color="#38bdf8";
+      span.style.padding="0 10px";
+      span.style.minWidth="40px";
+      span.style.textAlign="right";
+      ctrl.appendChild(span);
+    }
+    row.appendChild(t);
+    row.appendChild(ctrl);
+    box.appendChild(row);
+  });
+  renderRecomendaciones();
+  actualizarBotonModoEdicion();
+}
 function updateStockVal(i,v){stock[i]=Math.max(0,v);if(stockInputs[i])stockInputs[i].value=stock[i];saveStock()}
+
+function toggleModoEdicion(){
+  if(!modoEdicion){
+    if(!confirm("⚠️ Activar modo edición\n\nLos cambios con + / − NO se registran en el aprendizaje.\n\nÚsalos solo para corregir errores o meter monedas encontradas.\n\nPara movimientos reales (propinas sin viaje, gastos) usa el botón 📝 MOVIMIENTO MANUAL.")) return;
+    modoEdicion = true;
+  } else {
+    modoEdicion = false;
+  }
+  safeStorage.set("uberCambioModoEdicion", modoEdicion ? "1" : "0");
+  renderStockList();
+}
+
+function actualizarBotonModoEdicion(){
+  const btn=document.getElementById("toggleEdicionBtn");
+  if(!btn)return;
+  if(modoEdicion){
+    btn.textContent="ON";
+    btn.style.background="#7c3aed";
+    btn.style.color="#fff";
+  } else {
+    btn.textContent="OFF";
+    btn.style.background="#334155";
+    btn.style.color="#94a3b8";
+  }
+}
 
 function renderReservaList(){const box=document.getElementById("reservaList");if(!box)return;box.innerHTML="";reservaInputs=[];denominations.forEach((d,i)=>{const row=document.createElement("div");row.className="stock-item";const t=document.createElement("span");t.textContent=d.n;t.style.fontWeight="700";const ctrl=document.createElement("div");ctrl.className="stock-ctrl";const bm=document.createElement("button");bm.textContent="-";bm.onclick=()=>updateReservaVal(i,(reservaMinima[d.c]||0)-1);const inp=document.createElement("input");inp.type="number";inp.min="0";inp.value=reservaMinima[d.c]||0;inp.onchange=(e)=>updateReservaVal(i,parseInt(e.target.value)||0);const bp=document.createElement("button");bp.textContent="+";bp.onclick=()=>updateReservaVal(i,(reservaMinima[d.c]||0)+1);ctrl.appendChild(bm);ctrl.appendChild(inp);ctrl.appendChild(bp);row.appendChild(t);row.appendChild(ctrl);box.appendChild(row);reservaInputs[i]=inp})}
 function updateReservaVal(i,v){const d=denominations[i];reservaMinima[d.c]=Math.max(0,v);if(reservaInputs[i])reservaInputs[i].value=reservaMinima[d.c];saveReserva()}
@@ -132,19 +213,7 @@ function renderHistorialPanel(){const box=document.getElementById("historialPane
 function abrirCierrePantalla(){const d=document.getElementById("drawer"),o=document.getElementById("overlay");if(d)d.classList.remove("active");if(o)o.classList.remove("active");const p=document.getElementById("cierrePantalla");if(p)p.style.display="block";const inp=document.getElementById("cierreInput");if(inp)inp.value="";const cont=document.getElementById("cierreResultado");if(cont){cont.style.display="none";cont.innerHTML=""}const btn=document.getElementById("btnConfirmarCierre");if(btn)btn.style.display="none";const mb=document.getElementById("depositoManualBox");if(mb)mb.style.display="none";renderCierreHistorico()}
 function cerrarCierrePantalla(){const p=document.getElementById("cierrePantalla");if(p)p.style.display="none"}
 
-function findBilletes(target,bs,br){
-  const mu=Math.floor(target/500);
-  if(mu<=0)return{total:0,usados:[0,0,0,0,0],tocoReserva:false};
-  const den=[{u:20,idx:0},{u:10,idx:1},{u:4,idx:2},{u:2,idx:3},{u:1,idx:4}];
-  const disp=bs.map((n,i)=>Math.max(0,n-(br[i]||0)));
-  const r1=mejorEnRango(mu,disp,den);
-  if(r1&&r1.totalUnits===mu)return{total:mu*500,usados:r1.usados,tocoReserva:false};
-  const r2=mejorEnRango(mu,bs,den);
-  if(r2&&r2.totalUnits===mu)return{total:mu*500,usados:r2.usados,tocoReserva:true};
-  if(r1)return{total:r1.totalUnits*500,usados:r1.usados,tocoReserva:false};
-  if(r2)return{total:r2.totalUnits*500,usados:r2.usados,tocoReserva:true};
-  return{total:0,usados:[0,0,0,0,0],tocoReserva:false};
-}
+function findBilletes(target,bs,br){const mu=Math.floor(target/500);if(mu<=0)return{total:0,usados:[0,0,0,0,0],tocoReserva:false};const den=[{u:20,idx:0},{u:10,idx:1},{u:4,idx:2},{u:2,idx:3},{u:1,idx:4}];const disp=bs.map((n,i)=>Math.max(0,n-(br[i]||0)));const r1=mejorEnRango(mu,disp,den);if(r1&&r1.totalUnits===mu)return{total:mu*500,usados:r1.usados,tocoReserva:false};const r2=mejorEnRango(mu,bs,den);if(r2&&r2.totalUnits===mu)return{total:mu*500,usados:r2.usados,tocoReserva:true};if(r1)return{total:r1.totalUnits*500,usados:r1.usados,tocoReserva:false};if(r2)return{total:r2.totalUnits*500,usados:r2.usados,tocoReserva:true};return{total:0,usados:[0,0,0,0,0],tocoReserva:false}}
 
 function mejorEnRango(mu,cant,den){const n=den.length;const INF=999999;const totDisp=den.reduce((s,d)=>s+(cant[d.idx]|0)*d.u,0);const cap=Math.min(mu,totDisp);if(cap<=0)return null;const tbl=[];for(let i=0;i<=n;i++)tbl.push(new Array(cap+1).fill(INF));tbl[n][0]=0;for(let i=n-1;i>=0;i--){const d=den[i];const mN=cant[d.idx]|0;for(let v=0;v<=cap;v++){let best=INF;const tope=Math.min(mN,Math.floor(v/d.u));for(let c=0;c<=tope;c++){const sub=tbl[i+1][v-c*d.u];if(sub+c<best)best=sub+c}tbl[i][v]=best}}let bv=-1;for(let v=cap;v>=0;v--){if(tbl[0][v]<INF){bv=v;break}}if(bv<0)return null;const us=[0,0,0,0,0];let v=bv;for(let i=0;i<n;i++){const d=den[i];const mN=cant[d.idx]|0;for(let c=mN;c>=0;c--){const val=c*d.u;if(val>v)continue;if(tbl[i+1][v-val]+c===tbl[i][v]){us[d.idx]=c;v-=val;break}}}return{totalUnits:bv,usados:us}}
 
@@ -169,11 +238,9 @@ function calcularCierre(){
     return;
   }
 
-  // Calcular stock que queda tras entregar
   const sd=stock.slice();
   for(let i=0;i<res.usados.length;i++)sd[i]=Math.max(0,sd[i]-res.usados[i]);
 
-  // Analizar cada denominación usada: ¿queda por debajo de la reserva?
   const afectados={};
   for(let i=0;i<res.usados.length;i++){
     const n=res.usados[i]||0;
@@ -189,7 +256,6 @@ function calcularCierre(){
 
   let html="";
 
-  // Aviso compacto si toca reserva
   if(tocaAlgo){
     html+="<div style='background:#7f1d1d;border:1px solid #ef4444;border-radius:8px;padding:8px 12px;margin-bottom:12px;text-align:center'>";
     html+="<div style='font-size:13px;color:#fecaca;font-weight:800'>⚠️ Este depósito toca tu reserva mínima</div>";
@@ -197,25 +263,21 @@ function calcularCierre(){
     html+="</div>";
   }
 
-  // Encabezado y total
   html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;text-align:center'>💵 ENTREGAR EN BILLETES</div>";
   html+="<div style='font-size:32px;font-weight:900;color:#4ade80;margin:6px 0 14px;text-align:center'>"+moneyText(res.total)+"</div>";
 
-  // Grid de billetes: los afectados en ROJO, el resto normal
   html+="<div class='change-grid'>";
   res.usados.forEach((n,i)=>{
     if(n>0){
       const d=denominations[i];
       const af=afectados[d.c];
       if(af){
-        // Billete afectado → fondo rojo + solo "Quedan X" en grande
         html+="<div class='cash-item' style='position:relative;background:#7f1d1d!important;border:2px solid #ef4444!important;border-radius:12px;padding:8px;display:flex;flex-direction:column;align-items:center;justify-content:center'>";
         html+="<div class='badge' style='background:#ef4444;color:#fff;font-weight:900'>x"+n+"</div>";
         html+="<div class='bill-graphic "+d.class+"'>"+d.short+"</div>";
         html+="<div style='margin-top:8px;font-size:14px;font-weight:900;color:#fecaca;text-align:center;line-height:1'>Quedan <span style='color:#fff;font-size:18px'>"+af.queda+"</span></div>";
         html+="</div>";
       } else {
-        // Billete normal
         html+="<div class='cash-item'>";
         html+="<div class='badge'>x"+n+"</div>";
         html+="<div class='bill-graphic "+d.class+"'>"+d.short+"</div>";
@@ -225,7 +287,6 @@ function calcularCierre(){
   });
   html+="</div>";
 
-  // Panel de estado después del depósito
   const checks=[["≤ 20 €",2000],["≤ 30 €",3000],["≤ 50 €",5000],["≤ 80 €",8000],["≤ 100 €",10000]];
   let tarjs="";
   let hay=false;
@@ -247,7 +308,6 @@ function calcularCierre(){
   }
   html+="</div>";
 
-  // Sobrante y total tras depósito
   const sobr=target-res.total;
   const tot=stock.reduce((s,n,i)=>s+n*denominations[i].c,0);
   const queda=tot-res.total;
@@ -270,6 +330,7 @@ function calcularCierre(){
     btn.style.background="#059669";
   }
 }
+
 function confirmarCierre(){const btn=document.getElementById("btnConfirmarCierre");if(!btn)return;const total=parseInt(btn.dataset.total)||0;const usados=JSON.parse(btn.dataset.usados||"[]");if(total<=0)return;if(!confirm("¿Confirmar depósito? Se entregarán "+moneyText(total)+" en billetes.\n\nLas propinas NO se tocan."))return;for(let i=0;i<usados.length;i++)stock[i]=Math.max(0,stock[i]-usados[i]);for(let i=0;i<usados.length;i++){statsOps.deposited[i]+=usados[i]||0}saveStats();saveStock();renderStockList();updateCashSummary();const cierres=loadCierres();cierres.push({fecha:new Date().toISOString(),total});saveCierres(cierres);renderCierreHistorico();document.getElementById("cierreInput").value="";const cont=document.getElementById("cierreResultado");if(cont){cont.style.display="none";cont.innerHTML=""}btn.style.display="none";alert("✅ Depósito realizado.\nEntregados: "+moneyText(total))}
 
 function renderCierreHistorico(){const box=document.getElementById("cierreHistorico");if(!box)return;const cierres=loadCierres();if(!cierres.length){box.style.display="none";box.innerHTML="";return}let html="<div style='font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:8px'>📜 ÚLTIMOS DEPÓSITOS</div>";cierres.slice(-10).reverse().forEach(c=>{const d=new Date(c.fecha);const f=d.toLocaleDateString("es-ES")+" · "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});const ic=c.manual?"📝 ":"";html+="<div style='padding:8px 0;border-bottom:1px solid #334155;font-size:13px'><div style='display:flex;justify-content:space-between'><span style='color:#94a3b8'>"+ic+f+"</span><span style='font-weight:800;color:#4ade80'>"+moneyText(c.total)+"</span></div></div>"});box.innerHTML=html;box.style.display="block"}
@@ -346,7 +407,6 @@ function actualizarSumaDepManual(){
 }
 
 function añadirDepositoManual(){
-  // Fecha: preferimos el texto si está relleno, si no el date
   let fs = (document.getElementById("depManualFechaTxt")?.value || "").trim();
   if(!fs) fs = document.getElementById("depManualFecha")?.value || "";
   let hs = (document.getElementById("depManualHoraTxt")?.value || "").trim();
@@ -363,7 +423,6 @@ function añadirDepositoManual(){
   const [hh,mi]=hs.split(":").map(x=>parseInt(x));
   const fc=new Date(y,m-1,d,hh,mi,0);
 
-  // Recoger billetes
   const counts = window.__depManualCounts || {};
   const piezas = [];
   let sumaPiezas = 0;
@@ -390,7 +449,6 @@ function añadirDepositoManual(){
     saveStats();
   }
 
-  // Limpiar
   document.getElementById("depManualImporte").value="";
   window.__depManualCounts = {};
   const box=document.getElementById("depositoManualBox");
@@ -402,6 +460,134 @@ function añadirDepositoManual(){
     alert("✅ Depósito manual añadido:\n"+moneyText(imp));
   }
 }
+
+/* ==================== MOVIMIENTO MANUAL ==================== */
+function abrirMovimientoPantalla(){
+  const d=document.getElementById("drawer"),o=document.getElementById("overlay");
+  if(d)d.classList.remove("active");
+  if(o)o.classList.remove("active");
+  const p=document.getElementById("movimientoPantalla");
+  if(p)p.style.display="block";
+  movimientoState={tipo:"entrada",motivo:"propina",piezas:{}};
+  renderMovimientoPantalla();
+}
+function cerrarMovimientoPantalla(){
+  const p=document.getElementById("movimientoPantalla");
+  if(p)p.style.display="none";
+}
+function renderMovimientoPantalla(){
+  const cont=document.getElementById("movimientoContenido");
+  if(!cont)return;
+  const st=movimientoState;
+  let html="";
+  html+="<div class='card' style='margin:0 0 12px 0'>";
+  html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>TIPO DE MOVIMIENTO</div>";
+  html+="<div style='display:flex;gap:8px;margin-bottom:14px'>";
+  html+="<button type='button' onclick='setTipoMovimiento(\"entrada\")' style='flex:1;padding:12px;border-radius:10px;border:2px solid "+(st.tipo==="entrada"?"#22c55e":"#475569")+";background:"+(st.tipo==="entrada"?"#14532d":"#1e293b")+";color:"+(st.tipo==="entrada"?"#4ade80":"#94a3b8")+";font-weight:800;cursor:pointer;font-size:14px'>📥 ENTRADA</button>";
+  html+="<button type='button' onclick='setTipoMovimiento(\"salida\")' style='flex:1;padding:12px;border-radius:10px;border:2px solid "+(st.tipo==="salida"?"#ef4444":"#475569")+";background:"+(st.tipo==="salida"?"#7f1d1d":"#1e293b")+";color:"+(st.tipo==="salida"?"#fca5a5":"#94a3b8")+";font-weight:800;cursor:pointer;font-size:14px'>📤 SALIDA</button>";
+  html+="</div>";
+  html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>MOTIVO</div>";
+  html+="<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px'>";
+  if(st.tipo==="entrada"){
+    html+="<button type='button' onclick='setMotivoMovimiento(\"propina\")' style='padding:12px;border-radius:10px;border:2px solid "+(st.motivo==="propina"?"#22c55e":"#475569")+";background:"+(st.motivo==="propina"?"#14532d":"#1e293b")+";color:"+(st.motivo==="propina"?"#4ade80":"#94a3b8")+";font-weight:800;cursor:pointer;font-size:13px'>💶 Propina</button>";
+    html+="<button type='button' onclick='setMotivoMovimiento(\"correccion\")' style='padding:12px;border-radius:10px;border:2px solid "+(st.motivo==="correccion"?"#64748b":"#475569")+";background:"+(st.motivo==="correccion"?"#334155":"#1e293b")+";color:"+(st.motivo==="correccion"?"#cbd5e1":"#94a3b8")+";font-weight:800;cursor:pointer;font-size:13px'>🔧 Corrección</button>";
+  } else {
+    html+="<button type='button' onclick='setMotivoMovimiento(\"gasto\")' style='padding:12px;border-radius:10px;border:2px solid "+(st.motivo==="gasto"?"#ef4444":"#475569")+";background:"+(st.motivo==="gasto"?"#7f1d1d":"#1e293b")+";color:"+(st.motivo==="gasto"?"#fca5a5":"#94a3b8")+";font-weight:800;cursor:pointer;font-size:13px'>🚗 Gasto</button>";
+    html+="<button type='button' onclick='setMotivoMovimiento(\"correccion\")' style='padding:12px;border-radius:10px;border:2px solid "+(st.motivo==="correccion"?"#64748b":"#475569")+";background:"+(st.motivo==="correccion"?"#334155":"#1e293b")+";color:"+(st.motivo==="correccion"?"#cbd5e1":"#94a3b8")+";font-weight:800;cursor:pointer;font-size:13px'>🔧 Corrección</button>";
+  }
+  html+="</div></div>";
+
+  let explicacion="";
+  if(st.motivo==="propina") explicacion="Esta cantidad se sumará también a las propinas acumuladas.";
+  else if(st.motivo==="gasto") explicacion="Esta cantidad se registrará como gasto operativo. NO afecta a propinas.";
+  else explicacion="Solo se ajustará el stock. NO se registra en el aprendizaje.";
+  html+="<div style='font-size:11px;color:#94a3b8;padding:8px 12px;background:#1e293b;border-radius:8px;margin-bottom:14px;line-height:1.4'>ℹ️ "+explicacion+"</div>";
+
+  html+="<div class='card' style='margin:0 0 12px 0'>";
+  html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>PIEZAS</div>";
+  denominations.forEach(d=>{
+    const n=st.piezas[d.c]||0;
+    const gc=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
+    html+="<div style='display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #1e293b'>";
+    html+="<div class='"+gc+"' style='flex-shrink:0;font-size:11px'>"+d.short+"</div>";
+    html+="<div style='flex:1;font-size:13px;color:#fff'>"+d.n+"</div>";
+    html+="<div style='display:flex;align-items:center;gap:6px'>";
+    html+="<button type='button' onclick='ajustarMovimiento("+d.c+",-1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer'>−</button>";
+    html+="<div style='width:40px;text-align:center;font-size:16px;font-weight:900;color:"+(n>0?"#a78bfa":"#475569")+"'>"+n+"</div>";
+    html+="<button type='button' onclick='ajustarMovimiento("+d.c+",1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer'>+</button>";
+    html+="</div></div>";
+  });
+  html+="</div>";
+
+  let total=0;
+  denominations.forEach(d=>{ total += (st.piezas[d.c]||0) * d.c; });
+  html+="<div class='card' style='margin:0 0 12px 0;text-align:center;background:#1e293b;border:1px solid #475569'>";
+  html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>TOTAL DEL MOVIMIENTO</div>";
+  html+="<div style='font-size:32px;font-weight:900;color:#a78bfa'>"+moneyText(total)+"</div>";
+  html+="</div>";
+
+  html+="<button type='button' onclick='confirmarMovimiento()' style='width:100%;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:800;font-size:16px;cursor:pointer;margin-bottom:8px'>✅ GUARDAR MOVIMIENTO</button>";
+  html+="<button type='button' onclick='cerrarMovimientoPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>✖ Cancelar</button>";
+
+  cont.innerHTML=html;
+}
+function setTipoMovimiento(t){
+  movimientoState.tipo=t;
+  movimientoState.motivo=(t==="entrada")?"propina":"gasto";
+  renderMovimientoPantalla();
+}
+function setMotivoMovimiento(m){
+  movimientoState.motivo=m;
+  renderMovimientoPantalla();
+}
+function ajustarMovimiento(c,delta){
+  movimientoState.piezas[c]=Math.max(0,(movimientoState.piezas[c]||0)+delta);
+  renderMovimientoPantalla();
+}
+function confirmarMovimiento(){
+  const st=movimientoState;
+  let total=0;
+  const piezas=[];
+  denominations.forEach(d=>{
+    const n=st.piezas[d.c]||0;
+    if(n>0) piezas.push({n:n, idx:denominations.findIndex(x=>x.c===d.c)});
+    total += n*d.c;
+  });
+  if(!piezas.length){alert("No has añadido ninguna pieza.");return}
+  const tipo=st.tipo;
+  const motivo=st.motivo;
+  const esCorreccion=(motivo==="correccion");
+  let msgConfirm="";
+  if(tipo==="entrada" && motivo==="propina") msgConfirm="¿Registrar ENTRADA de propina por "+moneyText(total)+"?";
+  else if(tipo==="salida" && motivo==="gasto") msgConfirm="¿Registrar SALIDA por gasto de "+moneyText(total)+"?";
+  else msgConfirm="¿Registrar CORRECCIÓN de "+moneyText(total)+"?\n(no afectará al aprendizaje)";
+  if(!confirm(msgConfirm)) return;
+
+  piezas.forEach(p=>{
+    if(tipo==="entrada") stock[p.idx]+=p.n;
+    else stock[p.idx]=Math.max(0,stock[p.idx]-p.n);
+  });
+
+  if(!esCorreccion){
+    piezas.forEach(p=>{
+      if(tipo==="entrada") statsOps.manualIn[p.idx]+=p.n;
+      else statsOps.manualOut[p.idx]+=p.n;
+    });
+    saveStats();
+  }
+
+  if(tipo==="entrada" && motivo==="propina"){
+    totalTips+=total;
+    saveTips();
+  }
+
+  saveStock();
+  renderStockList();
+  updateCashSummary();
+  alert("✅ Movimiento registrado.");
+  cerrarMovimientoPantalla();
+}
+/* ==================== FIN MOVIMIENTO MANUAL ==================== */
 
 function abrirDiagnostico(){const d=document.getElementById("drawer"),o=document.getElementById("overlay");if(d)d.classList.remove("active");if(o)o.classList.remove("active");const p=document.getElementById("diagnosticoPantalla");if(p)p.style.display="block";renderDiagnostico()}
 function cerrarDiagnostico(){const p=document.getElementById("diagnosticoPantalla");if(p)p.style.display="none"}
@@ -442,6 +628,20 @@ function renderDiagnostico(){
       const cbTxt = cb>0?("+"+cb):String(cb);
       html+="<div style='display:grid;grid-template-columns:1.1fr 0.55fr 0.55fr 0.55fr 0.55fr 0.55fr 0.55fr 0.75fr;gap:3px;font-size:11px;color:#fff;padding:6px 0;border-bottom:1px solid #1e293b;text-align:right'><span style='text-align:left;font-weight:700'>"+d.n+"</span><span>"+sn+"</span><span style='color:#4ade80'>"+rn+"</span><span style='color:#fbbf24'>"+gn+"</span><span style='color:#f87171'>"+dp+"</span><span style='color:#38bdf8'>"+rp+"</span><span style='color:"+cbColor+"'>"+cbTxt+"</span><span style='color:"+co+";font-weight:800'>"+est+"</span></div>";
     });
+    html+="</div>";
+  }
+
+  // Movimientos manuales
+  let totalIn=0, totalOut=0;
+  denominations.forEach((d,i)=>{
+    totalIn += (statsOps.manualIn[i]||0) * d.c;
+    totalOut += (statsOps.manualOut[i]||0) * d.c;
+  });
+  if(totalIn>0 || totalOut>0){
+    html+="<div class='card' style='margin:0 0 12px 0'>";
+    html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>📝 MOVIMIENTOS MANUALES</div>";
+    html+="<div style='display:flex;justify-content:space-between;padding:6px 0;font-size:13px'><span style='color:#94a3b8'>📥 Entradas (propinas/correcciones)</span><span style='color:#4ade80;font-weight:800'>+"+moneyText(totalIn)+"</span></div>";
+    html+="<div style='display:flex;justify-content:space-between;padding:6px 0;font-size:13px'><span style='color:#94a3b8'>📤 Salidas (gastos)</span><span style='color:#f87171;font-weight:800'>−"+moneyText(totalOut)+"</span></div>";
     html+="</div>";
   }
 
@@ -648,7 +848,9 @@ function importInventory(file){
           spent:Array.isArray(data.stats.spent)?data.stats.spent.map(x=>parseInt(x)||0):new Array(denominations.length).fill(0),
           deposited:Array.isArray(data.stats.deposited)?data.stats.deposited.map(x=>parseInt(x)||0):new Array(denominations.length).fill(0),
           repuesto:Array.isArray(data.stats.repuesto)?data.stats.repuesto.map(x=>parseInt(x)||0):new Array(denominations.length).fill(0),
-          cambioNeto:Array.isArray(data.stats.cambioNeto)?data.stats.cambioNeto.map(x=>parseInt(x)||0):new Array(denominations.length).fill(0)
+          cambioNeto:Array.isArray(data.stats.cambioNeto)?data.stats.cambioNeto.map(x=>parseInt(x)||0):new Array(denominations.length).fill(0),
+          manualIn:Array.isArray(data.stats.manualIn)?data.stats.manualIn.map(x=>parseInt(x)||0):new Array(denominations.length).fill(0),
+          manualOut:Array.isArray(data.stats.manualOut)?data.stats.manualOut.map(x=>parseInt(x)||0):new Array(denominations.length).fill(0)
         };
         saveStats();
       }
@@ -851,7 +1053,6 @@ function init(){
   try{renderCierreHistorico()}catch(e){console.error("renderCierreHistorico",e)}
   try{checkAutoResetPropinas()}catch(e){console.error("checkAutoResetPropinas",e)}
 
-  // Sincronizar fecha/hora dual (calendario ↔ texto manual)
   setTimeout(() => {
     const fD = document.getElementById("depManualFecha");
     const fT = document.getElementById("depManualFechaTxt");

@@ -534,7 +534,7 @@ function renderMovimientoPantalla(){
   html+="<button type='button' onclick='setTipoMovimiento(\"salida\")' style='flex:1;padding:14px;border-radius:10px;border:2px solid "+(st.tipo==="salida"?"#ef4444":"#475569")+";background:"+(st.tipo==="salida"?"linear-gradient(135deg,#7f1d1d,#991b1b)":"#1e293b")+";color:"+(st.tipo==="salida"?"#fca5a5":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:15px;letter-spacing:0.5px;box-shadow:"+(st.tipo==="salida"?"0 0 0 3px rgba(239,68,68,0.25)":"none")+"'>📤 SALIDA</button>";
   html+="</div></div>";
 
-  // Motivo (3 en entrada, 2 en salida)
+  // Motivo
   html+="<div class='card' style='margin:0 0 12px 0'>";
   html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>MOTIVO</div>";
 
@@ -560,9 +560,9 @@ function renderMovimientoPantalla(){
     const gAct = st.motivo==="gasto";
     html+="<button type='button' onclick='setMotivoMovimiento(\"gasto\")' style='padding:12px 6px;border-radius:10px;border:2px solid "+(gAct?"#ef4444":"#475569")+";background:"+(gAct?"linear-gradient(135deg,#7f1d1d,#991b1b)":"#1e293b")+";color:"+(gAct?"#fca5a5":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:13px;letter-spacing:0.3px;box-shadow:"+(gAct?"0 0 0 3px rgba(239,68,68,0.25)":"none")+"'>🚗 Gasto</button>";
 
-    // Otro egreso
-    const oeAct = st.motivo==="otroEgreso";
-    html+="<button type='button' onclick='setMotivoMovimiento(\"otroEgreso\")' style='padding:12px 6px;border-radius:10px;border:2px solid "+(oeAct?"#f59e0b":"#475569")+";background:"+(oeAct?"linear-gradient(135deg,#78350f,#b45309)":"#1e293b")+";color:"+(oeAct?"#fbbf24":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:13px;letter-spacing:0.3px;box-shadow:"+(oeAct?"0 0 0 3px rgba(245,158,11,0.25)":"none")+"'>📤 Otro</button>";
+    // Limpieza
+    const lAct = st.motivo==="limpieza";
+    html+="<button type='button' onclick='setMotivoMovimiento(\"limpieza\")' style='padding:12px 6px;border-radius:10px;border:2px solid "+(lAct?"#0ea5e9":"#475569")+";background:"+(lAct?"linear-gradient(135deg,#075985,#0369a1)":"#1e293b")+";color:"+(lAct?"#7dd3fc":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:13px;letter-spacing:0.3px;box-shadow:"+(lAct?"0 0 0 3px rgba(14,165,233,0.25)":"none")+"'>🧽 Limpieza</button>";
     html+="</div>";
   }
   html+="</div>";
@@ -573,7 +573,7 @@ function renderMovimientoPantalla(){
   else if(st.motivo==="encontrado"){ titulo="🔍 Encontrado"; expl="Sube stock. NO suma a propinas."; colorExp="#ddd6fe"; bgExp="#4c1d95"; }
   else if(st.motivo==="otroIngreso"){ titulo="📥 Otro ingreso"; expl="Sube stock. NO suma a propinas."; colorExp="#bae6fd"; bgExp="#075985"; }
   else if(st.motivo==="gasto"){ titulo="🚗 Gasto"; expl="Resta stock. NO afecta a propinas."; colorExp="#fecaca"; bgExp="#7f1d1d"; }
-  else if(st.motivo==="otroEgreso"){ titulo="📤 Otro egreso"; expl="Resta stock. NO afecta a propinas."; colorExp="#fde68a"; bgExp="#78350f"; }
+  else if(st.motivo==="limpieza"){ titulo="🧽 Limpieza"; expl="Gasto de limpieza del coche. Resta stock."; colorExp="#bae6fd"; bgExp="#075985"; }
   html+="<div style='font-size:13px;color:"+colorExp+";padding:10px 12px;background:"+bgExp+";border-radius:8px;margin-bottom:14px;line-height:1.4;font-weight:800;letter-spacing:0.3px'>"+titulo+"<div style='font-size:12px;font-weight:600;color:"+colorExp+";opacity:0.85;margin-top:3px;line-height:1.3'>"+expl+"</div></div>";
 
   // Piezas
@@ -710,7 +710,7 @@ function confirmarMovimiento(){
   else if(motivo==="encontrado") msgConfirm="¿Registrar dinero ENCONTRADO por "+moneyText(total)+"?\n\nNO se sumará a propinas.";
   else if(motivo==="otroIngreso") msgConfirm="¿Registrar OTRO INGRESO por "+moneyText(total)+"?\n\nNO se sumará a propinas.";
   else if(motivo==="gasto") msgConfirm="¿Registrar GASTO de "+moneyText(total)+"?";
-  else if(motivo==="otroEgreso") msgConfirm="¿Registrar OTRO EGRESO de "+moneyText(total)+"?";
+  else if(motivo==="limpieza") msgConfirm="¿Registrar GASTO de LIMPIEZA por "+moneyText(total)+"?";
   if(!confirm(msgConfirm)) return;
 
   piezas.forEach(p=>{
@@ -739,7 +739,7 @@ function confirmarMovimiento(){
   else if(motivo==="encontrado") msgOk = "✅ Dinero encontrado registrado.";
   else if(motivo==="otroIngreso") msgOk = "✅ Ingreso registrado.";
   else if(motivo==="gasto") msgOk = "✅ Gasto registrado.";
-  else if(motivo==="otroEgreso") msgOk = "✅ Egreso registrado.";
+  else if(motivo==="limpieza") msgOk = "✅ Gasto de limpieza registrado.";
   alert(msgOk);
   cerrarMovimientoPantalla();
 }

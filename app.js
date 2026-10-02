@@ -480,45 +480,119 @@ function renderMovimientoPantalla(){
   if(!cont)return;
   const st=movimientoState;
   let html="";
+
+  // Selector Entrada / Salida
   html+="<div class='card' style='margin:0 0 12px 0'>";
   html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>TIPO DE MOVIMIENTO</div>";
   html+="<div style='display:flex;gap:8px;margin-bottom:14px'>";
-  html+="<button type='button' onclick='setTipoMovimiento(\"entrada\")' style='flex:1;padding:12px;border-radius:10px;border:2px solid "+(st.tipo==="entrada"?"#22c55e":"#475569")+";background:"+(st.tipo==="entrada"?"#14532d":"#1e293b")+";color:"+(st.tipo==="entrada"?"#4ade80":"#94a3b8")+";font-weight:800;cursor:pointer;font-size:14px'>📥 ENTRADA</button>";
-  html+="<button type='button' onclick='setTipoMovimiento(\"salida\")' style='flex:1;padding:12px;border-radius:10px;border:2px solid "+(st.tipo==="salida"?"#ef4444":"#475569")+";background:"+(st.tipo==="salida"?"#7f1d1d":"#1e293b")+";color:"+(st.tipo==="salida"?"#fca5a5":"#94a3b8")+";font-weight:800;cursor:pointer;font-size:14px'>📤 SALIDA</button>";
+  html+="<button type='button' onclick='setTipoMovimiento(\"entrada\")' style='flex:1;padding:14px;border-radius:10px;border:2px solid "+(st.tipo==="entrada"?"#22c55e":"#475569")+";background:"+(st.tipo==="entrada"?"linear-gradient(135deg,#14532d,#15803d)":"#1e293b")+";color:"+(st.tipo==="entrada"?"#4ade80":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:14px;letter-spacing:0.5px;box-shadow:"+(st.tipo==="entrada"?"0 0 0 3px rgba(34,197,94,0.25)":"none")+"'>📥 ENTRADA</button>";
+  html+="<button type='button' onclick='setTipoMovimiento(\"salida\")' style='flex:1;padding:14px;border-radius:10px;border:2px solid "+(st.tipo==="salida"?"#ef4444":"#475569")+";background:"+(st.tipo==="salida"?"linear-gradient(135deg,#7f1d1d,#991b1b)":"#1e293b")+";color:"+(st.tipo==="salida"?"#fca5a5":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:14px;letter-spacing:0.5px;box-shadow:"+(st.tipo==="salida"?"0 0 0 3px rgba(239,68,68,0.25)":"none")+"'>📤 SALIDA</button>";
   html+="</div>";
+
+  // Motivo
   html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>MOTIVO</div>";
   html+="<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px'>";
+
+  const correAct = st.motivo==="correccion";
+  const correStyle = "padding:14px 10px;border-radius:10px;border:2px solid "+(correAct?"#f59e0b":"#64748b")+";background:"+(correAct?"linear-gradient(135deg,#78350f,#b45309)":"#1e293b")+";color:"+(correAct?"#fbbf24":"#cbd5e1")+";font-weight:900;cursor:pointer;font-size:14px;letter-spacing:0.3px;box-shadow:"+(correAct?"0 0 0 3px rgba(245,158,11,0.3)":"none");
+
   if(st.tipo==="entrada"){
-    html+="<button type='button' onclick='setMotivoMovimiento(\"propina\")' style='padding:12px;border-radius:10px;border:2px solid "+(st.motivo==="propina"?"#22c55e":"#475569")+";background:"+(st.motivo==="propina"?"#14532d":"#1e293b")+";color:"+(st.motivo==="propina"?"#4ade80":"#94a3b8")+";font-weight:800;cursor:pointer;font-size:13px'>💶 Propina</button>";
-    html+="<button type='button' onclick='setMotivoMovimiento(\"correccion\")' style='padding:12px;border-radius:10px;border:2px solid "+(st.motivo==="correccion"?"#64748b":"#475569")+";background:"+(st.motivo==="correccion"?"#334155":"#1e293b")+";color:"+(st.motivo==="correccion"?"#cbd5e1":"#94a3b8")+";font-weight:800;cursor:pointer;font-size:13px'>🔧 Corrección</button>";
+    const propAct = st.motivo==="propina";
+    const propStyle = "padding:14px 10px;border-radius:10px;border:2px solid "+(propAct?"#22c55e":"#64748b")+";background:"+(propAct?"linear-gradient(135deg,#14532d,#15803d)":"#1e293b")+";color:"+(propAct?"#4ade80":"#cbd5e1")+";font-weight:900;cursor:pointer;font-size:14px;letter-spacing:0.3px;box-shadow:"+(propAct?"0 0 0 3px rgba(34,197,94,0.3)":"none");
+    html+="<button type='button' onclick='setMotivoMovimiento(\"propina\")' style='"+propStyle+"'>💶 Propina</button>";
+    html+="<button type='button' onclick='setMotivoMovimiento(\"correccion\")' style='"+correStyle+"'>🔧 Corrección</button>";
   } else {
-    html+="<button type='button' onclick='setMotivoMovimiento(\"gasto\")' style='padding:12px;border-radius:10px;border:2px solid "+(st.motivo==="gasto"?"#ef4444":"#475569")+";background:"+(st.motivo==="gasto"?"#7f1d1d":"#1e293b")+";color:"+(st.motivo==="gasto"?"#fca5a5":"#94a3b8")+";font-weight:800;cursor:pointer;font-size:13px'>🚗 Gasto</button>";
-    html+="<button type='button' onclick='setMotivoMovimiento(\"correccion\")' style='padding:12px;border-radius:10px;border:2px solid "+(st.motivo==="correccion"?"#64748b":"#475569")+";background:"+(st.motivo==="correccion"?"#334155":"#1e293b")+";color:"+(st.motivo==="correccion"?"#cbd5e1":"#94a3b8")+";font-weight:800;cursor:pointer;font-size:13px'>🔧 Corrección</button>";
+    const gasAct = st.motivo==="gasto";
+    const gasStyle = "padding:14px 10px;border-radius:10px;border:2px solid "+(gasAct?"#ef4444":"#64748b")+";background:"+(gasAct?"linear-gradient(135deg,#7f1d1d,#991b1b)":"#1e293b")+";color:"+(gasAct?"#fca5a5":"#cbd5e1")+";font-weight:900;cursor:pointer;font-size:14px;letter-spacing:0.3px;box-shadow:"+(gasAct?"0 0 0 3px rgba(239,68,68,0.3)":"none");
+    html+="<button type='button' onclick='setMotivoMovimiento(\"gasto\")' style='"+gasStyle+"'>🚗 Gasto</button>";
+    html+="<button type='button' onclick='setMotivoMovimiento(\"correccion\")' style='"+correStyle+"'>🔧 Corrección</button>";
   }
   html+="</div></div>";
 
-  let explicacion="";
-  if(st.motivo==="propina") explicacion="Esta cantidad se sumará también a las propinas acumuladas.";
-  else if(st.motivo==="gasto") explicacion="Esta cantidad se registrará como gasto operativo. NO afecta a propinas.";
-  else explicacion="Solo se ajustará el stock. NO se registra en el aprendizaje.";
-  html+="<div style='font-size:11px;color:#94a3b8;padding:8px 12px;background:#1e293b;border-radius:8px;margin-bottom:14px;line-height:1.4'>ℹ️ "+explicacion+"</div>";
+  // Explicación según motivo
+  let explicacion="", colorExp="#94a3b8", bgExp="#1e293b", icono="ℹ️";
+  if(st.motivo==="propina"){ explicacion="Esta cantidad se sumará también a las propinas acumuladas."; colorExp="#a7f3d0"; bgExp="#064e3b"; icono="💶"; }
+  else if(st.motivo==="gasto"){ explicacion="Esta cantidad se registrará como gasto operativo. NO afecta a propinas."; colorExp="#fecaca"; bgExp="#450a0a"; icono="🚗"; }
+  else { explicacion="Solo se ajustará el stock. NO se registra en el aprendizaje."; colorExp="#fde68a"; bgExp="#451a03"; icono="🔧"; }
+  html+="<div style='font-size:12px;color:"+colorExp+";padding:10px 12px;background:"+bgExp+";border-radius:8px;margin-bottom:14px;line-height:1.4;font-weight:700'>"+icono+" "+explicacion+"</div>";
 
+  // Piezas
   html+="<div class='card' style='margin:0 0 12px 0'>";
   html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>PIEZAS</div>";
+
+  const esCorreccion = (st.motivo === "correccion");
+
   denominations.forEach(d=>{
-    const n=st.piezas[d.c]||0;
-    const gc=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
-    html+="<div style='display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #1e293b'>";
+    const idx = denominations.findIndex(x => x.c === d.c);
+    const n = st.piezas[d.c]||0;
+    const stockAct = stock[idx] || 0;
+    const tope = topesRecibir[d.c] || 0;
+    const reserva = reservaMinima[d.c] || 0;
+    const gc = (d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
+
+    let infoLimite = "", colorLimite = "#64748b", bloquearMas = false;
+
+    if(!esCorreccion){
+      if(st.tipo === "entrada"){
+        if(tope > 0){
+          const maxAdd = Math.max(0, tope - stockAct);
+          if(maxAdd === 0){
+            infoLimite = "Tienes " + stockAct + " · <b style='color:#f87171'>tope " + tope + " ya alcanzado</b>";
+            colorLimite = "#fca5a5";
+            bloquearMas = true;
+          } else if(n >= maxAdd){
+            infoLimite = "Tienes " + stockAct + " · <b style='color:#f87171'>máx " + maxAdd + " (tope " + tope + ")</b>";
+            colorLimite = "#fca5a5";
+            bloquearMas = true;
+          } else {
+            infoLimite = "Tienes " + stockAct + " · puedes subir <b style='color:#86efac'>" + maxAdd + "</b> (tope " + tope + ")";
+          }
+        } else {
+          infoLimite = "Tienes " + stockAct + " · sin tope";
+        }
+      } else {
+        if(reserva > 0){
+          const maxRemove = Math.max(0, stockAct - reserva);
+          if(maxRemove === 0){
+            infoLimite = "Tienes " + stockAct + " · <b style='color:#f87171'>reserva " + reserva + " ya alcanzada</b>";
+            colorLimite = "#fca5a5";
+            bloquearMas = true;
+          } else if(n >= maxRemove){
+            infoLimite = "Tienes " + stockAct + " · <b style='color:#f87171'>máx " + maxRemove + " (reserva " + reserva + ")</b>";
+            colorLimite = "#fca5a5";
+            bloquearMas = true;
+          } else {
+            infoLimite = "Tienes " + stockAct + " · puedes quitar <b style='color:#fca5a5'>" + maxRemove + "</b> (reserva " + reserva + ")";
+          }
+        } else {
+          infoLimite = "Tienes " + stockAct + " · sin reserva";
+        }
+      }
+    } else {
+      infoLimite = "Tienes " + stockAct + " · sin límite";
+    }
+
+    html+="<div style='display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #1e293b'>";
     html+="<div class='"+gc+"' style='flex-shrink:0;font-size:11px'>"+d.short+"</div>";
-    html+="<div style='flex:1;font-size:13px;color:#fff'>"+d.n+"</div>";
-    html+="<div style='display:flex;align-items:center;gap:6px'>";
+    html+="<div style='flex:1;min-width:0'>";
+    html+="<div style='font-size:13px;color:#fff;font-weight:700'>"+d.n+"</div>";
+    html+="<div style='font-size:10px;color:"+colorLimite+";margin-top:2px;line-height:1.35'>"+infoLimite+"</div>";
+    html+="</div>";
+    html+="<div style='display:flex;align-items:center;gap:6px;flex-shrink:0'>";
     html+="<button type='button' onclick='ajustarMovimiento("+d.c+",-1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer'>−</button>";
-    html+="<div style='width:40px;text-align:center;font-size:16px;font-weight:900;color:"+(n>0?"#a78bfa":"#475569")+"'>"+n+"</div>";
-    html+="<button type='button' onclick='ajustarMovimiento("+d.c+",1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer'>+</button>";
-    html+="</div></div>";
+    const numColor = n > 0 ? (bloquearMas ? "#f87171" : "#a78bfa") : "#475569";
+    html+="<div style='width:40px;text-align:center;font-size:16px;font-weight:900;color:"+numColor+"'>"+n+"</div>";
+    const masStyle = bloquearMas
+      ? "width:34px;height:34px;padding:0;background:#1e293b;color:#475569;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:not-allowed;opacity:0.5"
+      : "width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer";
+    const masOnclick = bloquearMas ? "" : "onclick='ajustarMovimiento("+d.c+",1)'";
+    html+="<button type='button' "+masOnclick+" style='"+masStyle+"'>+</button>";
+    html+="</div>";
+    html+="</div>";
   });
   html+="</div>";
 
+  // Total
   let total=0;
   denominations.forEach(d=>{ total += (st.piezas[d.c]||0) * d.c; });
   html+="<div class='card' style='margin:0 0 12px 0;text-align:center;background:#1e293b;border:1px solid #475569'>";
@@ -541,7 +615,32 @@ function setMotivoMovimiento(m){
   renderMovimientoPantalla();
 }
 function ajustarMovimiento(c,delta){
-  movimientoState.piezas[c]=Math.max(0,(movimientoState.piezas[c]||0)+delta);
+  const idx = denominations.findIndex(x => x.c === c);
+  const st = movimientoState;
+  const stockAct = stock[idx] || 0;
+  const tope = topesRecibir[c] || 0;
+  const reserva = reservaMinima[c] || 0;
+  const n = st.piezas[c] || 0;
+  const esCorreccion = (st.motivo === "correccion");
+
+  if(delta > 0 && !esCorreccion){
+    if(st.tipo === "entrada" && tope > 0){
+      const maxAdd = Math.max(0, tope - stockAct);
+      if(n >= maxAdd){
+        mostrarToast("⚠️ Máximo alcanzado (tope " + tope + ")");
+        return;
+      }
+    }
+    if(st.tipo === "salida" && reserva > 0){
+      const maxRemove = Math.max(0, stockAct - reserva);
+      if(n >= maxRemove){
+        mostrarToast("⚠️ Reserva mínima alcanzada (" + reserva + ")");
+        return;
+      }
+    }
+  }
+
+  st.piezas[c] = Math.max(0, n + delta);
   renderMovimientoPantalla();
 }
 function confirmarMovimiento(){

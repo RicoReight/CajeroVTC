@@ -208,11 +208,11 @@ function calcularCierre(){
       const d=denominations[i];
       const af=afectados[d.c];
       if(af){
-        // Billete afectado → fondo rojo + texto explicativo
+        // Billete afectado → fondo rojo + solo "Quedan X" en grande
         html+="<div class='cash-item' style='position:relative;background:#7f1d1d!important;border:2px solid #ef4444!important;border-radius:12px;padding:8px;display:flex;flex-direction:column;align-items:center;justify-content:center'>";
         html+="<div class='badge' style='background:#ef4444;color:#fff;font-weight:900'>x"+n+"</div>";
         html+="<div class='bill-graphic "+d.class+"'>"+d.short+"</div>";
-        html+="<div style='margin-top:6px;font-size:9px;font-weight:900;color:#fecaca;text-align:center;line-height:1.2;letter-spacing:0.3px'>⚠ TOCA RESERVA<br>Quedan "+af.queda+" de "+af.reserva+"</div>";
+        html+="<div style='margin-top:8px;font-size:14px;font-weight:900;color:#fecaca;text-align:center;line-height:1'>Quedan <span style='color:#fff;font-size:18px'>"+af.queda+"</span></div>";
         html+="</div>";
       } else {
         // Billete normal

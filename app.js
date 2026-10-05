@@ -208,7 +208,34 @@ function saveCierres(c){safeStorage.set("uberCambioCierres",JSON.stringify(c))}
 
 function checkAutoResetPropinas(){if(!ultimoResetPropinas){ultimoResetPropinas=new Date().toISOString();saveUltimoResetPropinas();return}const last=new Date(ultimoResetPropinas);const now=new Date();const cand=new Date(last.getFullYear(),last.getMonth(),diaReset,0,0,0);if(cand<=last)cand.setMonth(cand.getMonth()+1);if(now>=cand){const h=loadHistoricoResets();h.push({fecha:now.toISOString(),propinas:totalTips});saveHistoricoResets(h);totalTips=0;saveTips();ultimoResetPropinas=now.toISOString();saveUltimoResetPropinas();renderStockList();renderResetPanel()}}
 
-function renderHistorialPanel(){const box=document.getElementById("historialPanel");if(!box)return;const cierres=loadCierres(),resets=loadHistoricoResets();let html="";if(cierres.length){html+="<div style='font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:6px'>📜 ÚLTIMOS DEPÓSITOS</div>";cierres.slice(-10).reverse().forEach(c=>{const d=new Date(c.fecha);const f=d.toLocaleDateString("es-ES")+" "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});const ic=c.manual?"📝 ":"";html+="<div style='display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #334155;font-size:13px'><span style='color:#94a3b8'>"+ic+f+"</span><span style='font-weight:800;color:#4ade80'>"+moneyText(c.total)+"</span></div>"})}if(resets.length){html+="<div style='font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin:14px 0 6px'>🔄 ÚLTIMOS RESETS DE PROPINAS</div>";resets.slice(-10).reverse().forEach(r=>{const d=new Date(r.fecha);const f=d.toLocaleDateString("es-ES")+" "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});html+="<div style='display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #334155;font-size:13px'><span style='color:#94a3b8'>"+f+"</span><span style='font-weight:800;color:#fbbf24'>"+moneyText(r.propinas)+"</span></div>"})}box.innerHTML=html}
+function renderHistorialPanel(){
+  const box=document.getElementById("historialPanel");
+  if(!box)return;
+  const cierres=loadCierres(),resets=loadHistoricoResets();
+  let html="";
+  if(cierres.length){
+    html+="<div style='font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:6px'>📜 ÚLTIMOS DEPÓSITOS</div>";
+    const total = cierres.length;
+    cierres.slice(-10).reverse().forEach((c,revIdx)=>{
+      const idx = total - 1 - revIdx;
+      const d=new Date(c.fecha);
+      const f=d.toLocaleDateString("es-ES")+" "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+      const ic=c.manual?"📝 ":"";
+      const tieneDetalle = Array.isArray(c.usados) && c.usados.length>0;
+      const flecha = tieneDetalle ? "<span style='color:#38bdf8;font-weight:900;font-size:18px'>›</span>" : "";
+      html+="<div onclick='verDetalleDeposito("+idx+")' style='display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #334155;font-size:13px;cursor:pointer'><span style='color:#94a3b8'>"+ic+f+"</span><span style='display:flex;align-items:center;gap:8px'><span style='font-weight:800;color:#4ade80'>"+moneyText(c.total)+"</span>"+flecha+"</span></div>";
+    });
+  }
+  if(resets.length){
+    html+="<div style='font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin:14px 0 6px'>🔄 ÚLTIMOS RESETS DE PROPINAS</div>";
+    resets.slice(-10).reverse().forEach(r=>{
+      const d=new Date(r.fecha);
+      const f=d.toLocaleDateString("es-ES")+" "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+      html+="<div style='display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #334155;font-size:13px'><span style='color:#94a3b8'>"+f+"</span><span style='font-weight:800;color:#fbbf24'>"+moneyText(r.propinas)+"</span></div>";
+    });
+  }
+  box.innerHTML=html;
+}
 
 function abrirCierrePantalla(){const d=document.getElementById("drawer"),o=document.getElementById("overlay");if(d)d.classList.remove("active");if(o)o.classList.remove("active");const p=document.getElementById("cierrePantalla");if(p)p.style.display="block";const inp=document.getElementById("cierreInput");if(inp)inp.value="";const cont=document.getElementById("cierreResultado");if(cont){cont.style.display="none";cont.innerHTML=""}const btn=document.getElementById("btnConfirmarCierre");if(btn)btn.style.display="none";const mb=document.getElementById("depositoManualBox");if(mb)mb.style.display="none";renderCierreHistorico()}
 function cerrarCierrePantalla(){const p=document.getElementById("cierrePantalla");if(p)p.style.display="none"}
@@ -331,9 +358,53 @@ function calcularCierre(){
   }
 }
 
-function confirmarCierre(){const btn=document.getElementById("btnConfirmarCierre");if(!btn)return;const total=parseInt(btn.dataset.total)||0;const usados=JSON.parse(btn.dataset.usados||"[]");if(total<=0)return;if(!confirm("¿Confirmar depósito? Se entregarán "+moneyText(total)+" en billetes.\n\nLas propinas NO se tocan."))return;for(let i=0;i<usados.length;i++)stock[i]=Math.max(0,stock[i]-usados[i]);for(let i=0;i<usados.length;i++){statsOps.deposited[i]+=usados[i]||0}saveStats();saveStock();renderStockList();updateCashSummary();const cierres=loadCierres();cierres.push({fecha:new Date().toISOString(),total});saveCierres(cierres);renderCierreHistorico();document.getElementById("cierreInput").value="";const cont=document.getElementById("cierreResultado");if(cont){cont.style.display="none";cont.innerHTML=""}btn.style.display="none";alert("✅ Depósito realizado.\nEntregados: "+moneyText(total))}
+function confirmarCierre(){
+  const btn=document.getElementById("btnConfirmarCierre");
+  if(!btn)return;
+  const total=parseInt(btn.dataset.total)||0;
+  const usados=JSON.parse(btn.dataset.usados||"[]");
+  if(total<=0)return;
+  if(!confirm("¿Confirmar depósito? Se entregarán "+moneyText(total)+" en billetes.\n\nLas propinas NO se tocan."))return;
+  for(let i=0;i<usados.length;i++)stock[i]=Math.max(0,stock[i]-usados[i]);
+  for(let i=0;i<usados.length;i++){statsOps.deposited[i]+=usados[i]||0}
+  saveStats();
+  saveStock();
+  renderStockList();
+  updateCashSummary();
+  const cierres=loadCierres();
+  cierres.push({fecha:new Date().toISOString(),total,usados:usados.slice()});
+  saveCierres(cierres);
+  renderCierreHistorico();
+  document.getElementById("cierreInput").value="";
+  const cont=document.getElementById("cierreResultado");
+  if(cont){cont.style.display="none";cont.innerHTML=""}
+  btn.style.display="none";
+  alert("✅ Depósito realizado.\nEntregados: "+moneyText(total));
+}
 
-function renderCierreHistorico(){const box=document.getElementById("cierreHistorico");if(!box)return;const cierres=loadCierres();if(!cierres.length){box.style.display="none";box.innerHTML="";return}let html="<div style='font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:8px'>📜 ÚLTIMOS DEPÓSITOS</div>";cierres.slice(-10).reverse().forEach(c=>{const d=new Date(c.fecha);const f=d.toLocaleDateString("es-ES")+" · "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});const ic=c.manual?"📝 ":"";html+="<div style='padding:8px 0;border-bottom:1px solid #334155;font-size:13px'><div style='display:flex;justify-content:space-between'><span style='color:#94a3b8'>"+ic+f+"</span><span style='font-weight:800;color:#4ade80'>"+moneyText(c.total)+"</span></div></div>"});box.innerHTML=html;box.style.display="block"}
+function renderCierreHistorico(){
+  const box=document.getElementById("cierreHistorico");
+  if(!box)return;
+  const cierres=loadCierres();
+  if(!cierres.length){box.style.display="none";box.innerHTML="";return}
+  let html="<div style='font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:8px'>📜 ÚLTIMOS DEPÓSITOS</div>";
+  const total = cierres.length;
+  cierres.slice(-10).reverse().forEach((c,revIdx)=>{
+    const idx = total - 1 - revIdx;
+    const d=new Date(c.fecha);
+    const f=d.toLocaleDateString("es-ES")+" · "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+    const ic=c.manual?"📝 ":"";
+    const tieneDetalle = Array.isArray(c.usados) && c.usados.length>0;
+    const flecha = tieneDetalle ? "<span style='color:#38bdf8;font-weight:900;font-size:18px'>›</span>" : "";
+    html+="<div onclick='verDetalleDeposito("+idx+")' style='padding:10px 0;border-bottom:1px solid #334155;font-size:13px;cursor:pointer'>";
+    html+="<div style='display:flex;justify-content:space-between;align-items:center;gap:8px'>";
+    html+="<span style='color:#94a3b8'>"+ic+f+"</span>";
+    html+="<span style='display:flex;align-items:center;gap:8px'><span style='font-weight:800;color:#4ade80'>"+moneyText(c.total)+"</span>"+flecha+"</span>";
+    html+="</div></div>";
+  });
+  box.innerHTML=html;
+  box.style.display="block";
+}
 
 function toggleDepositoManual(){
   const box=document.getElementById("depositoManualBox");
@@ -479,8 +550,17 @@ function añadirDepositoManual(){
   });
   const tienePiezas = sumaPiezas>0 && sumaPiezas===imp;
 
+  // Construir array usados (solo billetes, índices 0-4)
+  const usados = [0,0,0,0,0];
+  if(tienePiezas){
+    piezas.forEach(p=>{
+      const i = denominations.findIndex(x => x.c === p.c);
+      if(i >= 0 && i < 5) usados[i] = p.n;
+    });
+  }
+
   const cierres=loadCierres();
-  cierres.push({fecha:fc.toISOString(),total:imp,manual:true});
+  cierres.push({fecha:fc.toISOString(),total:imp,manual:true,usados:usados});
   saveCierres(cierres);
   renderCierreHistorico();
 
@@ -1301,6 +1381,65 @@ function init(){
       setTimeout(()=>{if(s.parentNode)s.parentNode.removeChild(s)},500)
     },2500)
   }
+}
+
+function verDetalleDeposito(idx){
+  const cierres = loadCierres();
+  const c = cierres[idx];
+  if(!c){ mostrarToast("No se encontró el depósito."); return; }
+
+  const d = new Date(c.fecha);
+  const fecha = d.toLocaleDateString("es-ES",{day:"2-digit",month:"long",year:"numeric"});
+  const hora = d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+
+  const prev = document.getElementById("modalDetalleDeposito");
+  if(prev) prev.remove();
+  const m = document.createElement("div");
+  m.id = "modalDetalleDeposito";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px";
+
+  let html = "<div style='background:#1e293b;color:#f8fafc;border-radius:14px;padding:18px;max-width:400px;width:100%;border:1px solid #334155;max-height:85vh;overflow-y:auto'>";
+  html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;text-align:center'>DETALLE DEL DEPÓSITO</div>";
+  html += "<div style='font-size:14px;color:#fff;font-weight:800;text-align:center;margin-top:6px'>"+(c.manual?"📝 Manual · ":"")+fecha+"</div>";
+  html += "<div style='font-size:12px;color:#94a3b8;text-align:center'>"+hora+"</div>";
+  html += "<div style='font-size:32px;font-weight:900;color:#4ade80;text-align:center;margin:12px 0 16px'>"+moneyText(c.total)+"</div>";
+
+  if(Array.isArray(c.usados) && c.usados.length > 0){
+    const totalPiezas = c.usados.reduce((s,n)=>s+n,0);
+    if(totalPiezas > 0){
+      html += "<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>💵 BILLETES ENTREGADOS</div>";
+      const bills = denominations.slice(0,5);
+      let anyBill = false;
+      bills.forEach((dd,i)=>{
+        const n = c.usados[i] || 0;
+        if(n > 0){
+          anyBill = true;
+          const gc = "bill-graphic " + dd.class;
+          html += "<div style='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155'>";
+          html += "<div class='"+gc+"' style='flex-shrink:0;font-size:12px'>"+dd.short+"</div>";
+          html += "<div style='flex:1;font-size:14px;color:#fff;font-weight:700'>"+dd.n+"</div>";
+          html += "<div style='font-size:16px;font-weight:900;color:#4ade80'>×"+n+"</div>";
+          html += "</div>";
+        }
+      });
+      if(!anyBill){
+        html += "<div style='font-size:13px;color:#64748b;text-align:center;padding:10px 0;font-style:italic'>No hay detalle de billetes.</div>";
+      }
+    } else {
+      html += "<div style='font-size:13px;color:#64748b;text-align:center;padding:14px 0;font-style:italic;line-height:1.5'>Este depósito se registró sin detalle de piezas.<br>Los próximos ya tendrán detalle automático.</div>";
+    }
+  } else {
+    html += "<div style='font-size:13px;color:#64748b;text-align:center;padding:14px 0;font-style:italic;line-height:1.5'>Este depósito se registró sin detalle de piezas.<br>Los próximos ya tendrán detalle automático.</div>";
+  }
+
+  html += "<button type='button' id='modalDetalleOk' style='width:100%;margin-top:18px;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer'>Cerrar</button>";
+  html += "</div>";
+
+  m.innerHTML = html;
+  document.body.appendChild(m);
+
+  document.getElementById("modalDetalleOk").onclick = () => m.remove();
+  m.addEventListener("click", e => { if(e.target === m) m.remove(); });
 }
 
 init();

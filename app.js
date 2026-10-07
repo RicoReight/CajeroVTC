@@ -804,8 +804,8 @@ function renderMovimientoPantalla(){
   html+="<div class='card' style='margin:0 0 12px 0'>";
   html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>TIPO DE MOVIMIENTO</div>";
   html+="<div style='display:flex;gap:8px'>";
-  html+="<button type='button' onclick='setTipoMovimiento(\"entrada\")' style='flex:1;padding:14px;border-radius:10px;border:2px solid "+(st.tipo==="entrada"?"#22c55e":"#475569")+";background:"+(st.tipo==="entrada"?"linear-gradient(135deg,#14532d,#15803d)":"#1e293b")+";color:"+(st.tipo==="entrada"?"#4ade80":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:15px;letter-spacing:0.5px;box-shadow:"+(st.tipo==="entrada"?"0 0 0 3px rgba(34,197,94,0.25)":"none")+"'>📥 ENTRADA</button>";
-  html+="<button type='button' onclick='setTipoMovimiento(\"salida\")' style='flex:1;padding:14px;border-radius:10px;border:2px solid "+(st.tipo==="salida"?"#ef4444":"#475569")+";background:"+(st.tipo==="salida"?"linear-gradient(135deg,#7f1d1d,#991b1b)":"#1e293b")+";color:"+(st.tipo==="salida"?"#fca5a5":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:15px;letter-spacing:0.5px;box-shadow:"+(st.tipo==="salida"?"0 0 0 3px rgba(239,68,68,0.25)":"none")+"'>📤 SALIDA</button>";
+  html+="<button type='button' onclick='setTipoMovimiento(\"entrada\")' style='flex:1;padding:16px;border-radius:10px;border:2px solid "+(st.tipo==="entrada"?"#22c55e":"#475569")+";background:"+(st.tipo==="entrada"?"linear-gradient(135deg,#14532d,#15803d)":"#1e293b")+";color:"+(st.tipo==="entrada"?"#4ade80":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:16px;letter-spacing:0.5px;box-shadow:"+(st.tipo==="entrada"?"0 0 0 3px rgba(34,197,94,0.25)":"none")+"'>📥 ENTRADA</button>";
+  html+="<button type='button' onclick='setTipoMovimiento(\"salida\")' style='flex:1;padding:16px;border-radius:10px;border:2px solid "+(st.tipo==="salida"?"#ef4444":"#475569")+";background:"+(st.tipo==="salida"?"linear-gradient(135deg,#7f1d1d,#991b1b)":"#1e293b")+";color:"+(st.tipo==="salida"?"#fca5a5":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:16px;letter-spacing:0.5px;box-shadow:"+(st.tipo==="salida"?"0 0 0 3px rgba(239,68,68,0.25)":"none")+"'>📤 SALIDA</button>";
   html+="</div></div>";
 
   // Motivo
@@ -814,45 +814,37 @@ function renderMovimientoPantalla(){
 
   if(st.tipo==="entrada"){
     html+="<div style='display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px'>";
-
-    // Propina
     const pAct = st.motivo==="propina";
-    html+="<button type='button' onclick='setMotivoMovimiento(\"propina\")' style='padding:12px 6px;border-radius:10px;border:2px solid "+(pAct?"#22c55e":"#475569")+";background:"+(pAct?"linear-gradient(135deg,#14532d,#15803d)":"#1e293b")+";color:"+(pAct?"#4ade80":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:13px;letter-spacing:0.3px;box-shadow:"+(pAct?"0 0 0 3px rgba(34,197,94,0.25)":"none")+"'>💶 Propina</button>";
-
-    // Encontrado
+    html+="<button type='button' onclick='setMotivoMovimiento(\"propina\")' style='padding:14px 6px;border-radius:10px;border:2px solid "+(pAct?"#22c55e":"#475569")+";background:"+(pAct?"linear-gradient(135deg,#14532d,#15803d)":"#1e293b")+";color:"+(pAct?"#4ade80":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:14px;box-shadow:"+(pAct?"0 0 0 3px rgba(34,197,94,0.25)":"none")+"'>💶 Propina</button>";
     const eAct = st.motivo==="encontrado";
-    html+="<button type='button' onclick='setMotivoMovimiento(\"encontrado\")' style='padding:12px 6px;border-radius:10px;border:2px solid "+(eAct?"#8b5cf6":"#475569")+";background:"+(eAct?"linear-gradient(135deg,#4c1d95,#6d28d9)":"#1e293b")+";color:"+(eAct?"#c4b5fd":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:13px;letter-spacing:0.3px;box-shadow:"+(eAct?"0 0 0 3px rgba(139,92,246,0.25)":"none")+"'>🔍 Encontrado</button>";
-
-    // Otro ingreso
+    html+="<button type='button' onclick='setMotivoMovimiento(\"encontrado\")' style='padding:14px 6px;border-radius:10px;border:2px solid "+(eAct?"#8b5cf6":"#475569")+";background:"+(eAct?"linear-gradient(135deg,#4c1d95,#6d28d9)":"#1e293b")+";color:"+(eAct?"#c4b5fd":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:14px;box-shadow:"+(eAct?"0 0 0 3px rgba(139,92,246,0.25)":"none")+"'>🔍 Encontrado</button>";
     const oAct = st.motivo==="otroIngreso";
-    html+="<button type='button' onclick='setMotivoMovimiento(\"otroIngreso\")' style='padding:12px 6px;border-radius:10px;border:2px solid "+(oAct?"#0ea5e9":"#475569")+";background:"+(oAct?"linear-gradient(135deg,#075985,#0369a1)":"#1e293b")+";color:"+(oAct?"#7dd3fc":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:13px;letter-spacing:0.3px;box-shadow:"+(oAct?"0 0 0 3px rgba(14,165,233,0.25)":"none")+"'>📥 Otro</button>";
+    html+="<button type='button' onclick='setMotivoMovimiento(\"otroIngreso\")' style='padding:14px 6px;border-radius:10px;border:2px solid "+(oAct?"#0ea5e9":"#475569")+";background:"+(oAct?"linear-gradient(135deg,#075985,#0369a1)":"#1e293b")+";color:"+(oAct?"#7dd3fc":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:14px;box-shadow:"+(oAct?"0 0 0 3px rgba(14,165,233,0.25)":"none")+"'>📥 Otro</button>";
     html+="</div>";
   } else {
     html+="<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px'>";
-
-    // Gasto
     const gAct = st.motivo==="gasto";
-    html+="<button type='button' onclick='setMotivoMovimiento(\"gasto\")' style='padding:12px 6px;border-radius:10px;border:2px solid "+(gAct?"#ef4444":"#475569")+";background:"+(gAct?"linear-gradient(135deg,#7f1d1d,#991b1b)":"#1e293b")+";color:"+(gAct?"#fca5a5":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:13px;letter-spacing:0.3px;box-shadow:"+(gAct?"0 0 0 3px rgba(239,68,68,0.25)":"none")+"'>🚗 Gasto</button>";
-
-    // Limpieza
+    html+="<button type='button' onclick='setMotivoMovimiento(\"gasto\")' style='padding:14px 6px;border-radius:10px;border:2px solid "+(gAct?"#ef4444":"#475569")+";background:"+(gAct?"linear-gradient(135deg,#7f1d1d,#991b1b)":"#1e293b")+";color:"+(gAct?"#fca5a5":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:14px;box-shadow:"+(gAct?"0 0 0 3px rgba(239,68,68,0.25)":"none")+"'>🚗 Gasto</button>";
     const lAct = st.motivo==="limpieza";
-    html+="<button type='button' onclick='setMotivoMovimiento(\"limpieza\")' style='padding:12px 6px;border-radius:10px;border:2px solid "+(lAct?"#0ea5e9":"#475569")+";background:"+(lAct?"linear-gradient(135deg,#075985,#0369a1)":"#1e293b")+";color:"+(lAct?"#7dd3fc":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:13px;letter-spacing:0.3px;box-shadow:"+(lAct?"0 0 0 3px rgba(14,165,233,0.25)":"none")+"'>🧽 Limpieza</button>";
+    html+="<button type='button' onclick='setMotivoMovimiento(\"limpieza\")' style='padding:14px 6px;border-radius:10px;border:2px solid "+(lAct?"#0ea5e9":"#475569")+";background:"+(lAct?"linear-gradient(135deg,#075985,#0369a1)":"#1e293b")+";color:"+(lAct?"#7dd3fc":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:14px;box-shadow:"+(lAct?"0 0 0 3px rgba(14,165,233,0.25)":"none")+"'>🧽 Limpieza</button>";
     html+="</div>";
   }
   html+="</div>";
 
-  // Explicación según motivo
+  // Explicación
   let expl="", colorExp="#94a3b8", bgExp="#1e293b", titulo="";
   if(st.motivo==="propina"){ titulo="💶 Propina"; expl="Sube stock y suma a propinas."; colorExp="#a7f3d0"; bgExp="#064e3b"; }
   else if(st.motivo==="encontrado"){ titulo="🔍 Encontrado"; expl="Sube stock. NO suma a propinas."; colorExp="#ddd6fe"; bgExp="#4c1d95"; }
   else if(st.motivo==="otroIngreso"){ titulo="📥 Otro ingreso"; expl="Sube stock. NO suma a propinas."; colorExp="#bae6fd"; bgExp="#075985"; }
   else if(st.motivo==="gasto"){ titulo="🚗 Gasto"; expl="Resta stock. NO afecta a propinas."; colorExp="#fecaca"; bgExp="#7f1d1d"; }
   else if(st.motivo==="limpieza"){ titulo="🧽 Limpieza"; expl="Gasto de limpieza del coche. Resta stock."; colorExp="#bae6fd"; bgExp="#075985"; }
-  html+="<div style='font-size:13px;color:"+colorExp+";padding:10px 12px;background:"+bgExp+";border-radius:8px;margin-bottom:14px;line-height:1.4;font-weight:800;letter-spacing:0.3px'>"+titulo+"<div style='font-size:12px;font-weight:600;color:"+colorExp+";opacity:0.85;margin-top:3px;line-height:1.3'>"+expl+"</div></div>";
+  html+="<div style='font-size:14px;color:"+colorExp+";padding:12px 14px;background:"+bgExp+";border-radius:8px;margin-bottom:14px;line-height:1.4;font-weight:800;letter-spacing:0.3px'>"+titulo+"<div style='font-size:12px;font-weight:600;color:"+colorExp+";opacity:0.85;margin-top:4px;line-height:1.35'>"+expl+"</div></div>";
 
-  // Piezas
+  // Piezas — tarjetas grandes
   html+="<div class='card' style='margin:0 0 12px 0'>";
-  html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>PIEZAS</div>";
+  html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>PIEZAS · TOCA PARA AÑADIR</div>";
+
+  html+="<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:8px'>";
 
   denominations.forEach(d=>{
     const idx = denominations.findIndex(x => x.c === d.c);
@@ -862,58 +854,69 @@ function renderMovimientoPantalla(){
     const reserva = reservaMinima[d.c] || 0;
     const gc = (d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
 
-    let infoLimite = "", colorLimite = "#94a3b8", bloquearMas = false;
+    let bloquearMas = false, colorSub = "#64748b";
 
     if(st.tipo === "entrada"){
       if(tope > 0){
         const maxAdd = Math.max(0, tope - stockAct);
-        if(maxAdd === 0){
-          infoLimite = "Tienes " + stockAct + " · <b style='color:#f87171'>tope " + tope + " ya alcanzado</b>";
-          colorLimite = "#fca5a5"; bloquearMas = true;
-        } else if(n >= maxAdd){
-          infoLimite = "Tienes " + stockAct + " · <b style='color:#f87171'>máx " + maxAdd + " (tope " + tope + ")</b>";
-          colorLimite = "#fca5a5"; bloquearMas = true;
-        } else {
-          infoLimite = "Tienes " + stockAct + " · puedes subir <b style='color:#86efac'>" + maxAdd + "</b> (tope " + tope + ")";
-        }
-      } else {
-        infoLimite = "Tienes " + stockAct + " · sin tope";
+        if(n >= maxAdd) bloquearMas = true;
       }
     } else {
       if(reserva > 0){
         const maxRemove = Math.max(0, stockAct - reserva);
-        if(maxRemove === 0){
-          infoLimite = "Tienes " + stockAct + " · <b style='color:#f87171'>reserva " + reserva + " ya alcanzada</b>";
-          colorLimite = "#fca5a5"; bloquearMas = true;
-        } else if(n >= maxRemove){
-          infoLimite = "Tienes " + stockAct + " · <b style='color:#f87171'>máx " + maxRemove + " (reserva " + reserva + ")</b>";
-          colorLimite = "#fca5a5"; bloquearMas = true;
-        } else {
-          infoLimite = "Tienes " + stockAct + " · puedes quitar <b style='color:#fca5a5'>" + maxRemove + "</b> (reserva " + reserva + ")";
-        }
-      } else {
-        infoLimite = "Tienes " + stockAct + " · sin reserva";
+        if(n >= maxRemove) bloquearMas = true;
       }
     }
 
-    html+="<div style='display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1e293b'>";
-    html+="<div class='"+gc+"' style='flex-shrink:0;font-size:12px'>"+d.short+"</div>";
-    html+="<div style='flex:1;min-width:0'>";
-    html+="<div style='font-size:14px;color:#fff;font-weight:800'>"+d.n+"</div>";
-    html+="<div style='font-size:13px;color:"+colorLimite+";margin-top:3px;line-height:1.4;font-weight:600'>"+infoLimite+"</div>";
+    // Color de fondo según estado
+    let bgCard = "#283548";
+    let borderCard = "#475569";
+    let colorNum = "#94a3b8";
+    if(n > 0){
+      if(bloquearMas){
+        bgCard = "#7f1d1d";
+        borderCard = "#ef4444";
+        colorNum = "#fca5a5";
+      } else {
+        bgCard = "#4c1d95";
+        borderCard = "#8b5cf6";
+        colorNum = "#c4b5fd";
+      }
+    }
+
+    // Estilo de la tarjeta
+    const cardStyle = "position:relative;padding:12px 6px;border-radius:12px;border:2px solid "+borderCard+";background:"+bgCard+";cursor:"+(bloquearMas?"not-allowed":"pointer")+";opacity:"+(bloquearMas?"0.7":"1")+";text-align:center;min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px";
+
+    const onclick = bloquearMas ? "" : "onclick='ajustarMovimiento("+d.c+",1)'";
+
+    html+="<div "+onclick+" style='"+cardStyle+"'>";
+
+    // Botón ✕ de restar (arriba derecha) — solo si n>0
+    if(n > 0){
+      html+="<button type='button' onclick='event.stopPropagation();ajustarMovimiento("+d.c+",-1)' style='position:absolute;top:-8px;right:-8px;width:32px;height:32px;border-radius:50%;background:#ef4444;color:#fff;border:2px solid #0f172a;font-size:16px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.4)'>−</button>";
+      // Badge con cantidad
+      html+="<div style='position:absolute;top:-8px;left:-8px;min-width:28px;height:28px;padding:0 8px;border-radius:14px;background:#a78bfa;color:#0f172a;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #0f172a;box-shadow:0 2px 6px rgba(0,0,0,0.4)'>"+n+"</div>";
+    }
+
+    // Icono del billete/moneda
+    html+="<div class='"+gc+"' style='font-size:13px;flex-shrink:0'>"+d.short+"</div>";
+    // Nombre
+    html+="<div style='font-size:14px;font-weight:900;color:#fff;letter-spacing:0.3px'>"+d.n+"</div>";
+    // Info stock pequeño
+    let infoTxt = "";
+    if(st.tipo === "entrada" && tope > 0){
+      infoTxt = "tienes "+stockAct;
+    } else if(st.tipo === "salida" && reserva > 0){
+      infoTxt = "tienes "+stockAct;
+    } else {
+      infoTxt = "tienes "+stockAct;
+    }
+    html+="<div style='font-size:10px;color:#94a3b8;font-weight:700'>"+infoTxt+"</div>";
+
     html+="</div>";
-    html+="<div style='display:flex;align-items:center;gap:6px;flex-shrink:0'>";
-    html+="<button type='button' onclick='ajustarMovimiento("+d.c+",-1)' style='width:36px;height:36px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:pointer'>−</button>";
-    const numColor = n > 0 ? (bloquearMas ? "#f87171" : "#a78bfa") : "#475569";
-    html+="<div style='width:40px;text-align:center;font-size:18px;font-weight:900;color:"+numColor+"'>"+n+"</div>";
-    const masStyle = bloquearMas
-      ? "width:36px;height:36px;padding:0;background:#1e293b;color:#475569;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:not-allowed;opacity:0.4"
-      : "width:36px;height:36px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:pointer";
-    const masOnclick = bloquearMas ? "" : "onclick='ajustarMovimiento("+d.c+",1)'";
-    html+="<button type='button' "+masOnclick+" style='"+masStyle+"'>+</button>";
-    html+="</div></div>";
   });
-  html+="</div>";
+
+  html+="</div></div>";
 
   // Total
   let total=0;
@@ -923,8 +926,8 @@ function renderMovimientoPantalla(){
   html+="<div style='font-size:32px;font-weight:900;color:#a78bfa'>"+moneyText(total)+"</div>";
   html+="</div>";
 
-  html+="<button type='button' onclick='confirmarMovimiento()' style='width:100%;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:800;font-size:16px;cursor:pointer;margin-bottom:8px'>✅ GUARDAR MOVIMIENTO</button>";
-  html+="<button type='button' onclick='cerrarMovimientoPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>✖ Cancelar</button>";
+  html+="<button type='button' onclick='confirmarMovimiento()' style='width:100%;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:16px;font-weight:800;font-size:16px;cursor:pointer;margin-bottom:8px'>✅ GUARDAR MOVIMIENTO</button>";
+  html+="<button type='button' onclick='cerrarMovimientoPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:700;font-size:15px;cursor:pointer'>✖ Cancelar</button>";
 
   cont.innerHTML=html;
 }

@@ -169,7 +169,7 @@ function calculate(){
     return;
   }
 
-  // Piezas que se devuelven al cliente (las no marcadas)
+  // usedFinal = cambio original menos las piezas marcadas
   const usedFinal = used.map((n,i)=>{
     const marc = propinasDelCambio[denominations[i].c] || 0;
     return Math.max(0, n - marc);
@@ -192,21 +192,24 @@ function calculate(){
   changeGrid.appendChild(tituloDevolver);
 
   let anyDevolver = false;
-  usedFinal.forEach((n,i)=>{
-    if(n<=0) return;
-    anyDevolver = true;
+  used.forEach((nTotal,i)=>{
+    if(nTotal<=0) return;
     const d=denominations[i];
     const c=d.c;
+    const marcadas = propinasDelCambio[c]||0;
+    const devolver = nTotal - marcadas;
+    if(devolver <= 0) return;
+    anyDevolver = true;
 
     const it=document.createElement("div");
     it.className="cash-item";
     it.style.cssText="cursor:pointer;border:1px solid #334155";
     it.title="Toca para quedártela como propina";
-    it.onclick=()=>subirMarca(c, used[i]);
+    it.onclick=()=>subirMarca(c, nTotal);
 
     const bd=document.createElement("div");
     bd.className="badge";
-    bd.textContent="x"+n;
+    bd.textContent="x"+devolver;
 
     const gr=document.createElement("div");
     gr.className=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;

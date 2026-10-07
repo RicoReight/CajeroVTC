@@ -854,64 +854,56 @@ function renderMovimientoPantalla(){
     const reserva = reservaMinima[d.c] || 0;
     const gc = (d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
 
-    let bloquearMas = false, colorSub = "#64748b";
+    let bloquearMas = false;
+    let limiteInfo = "";
 
     if(st.tipo === "entrada"){
       if(tope > 0){
         const maxAdd = Math.max(0, tope - stockAct);
+        limiteInfo = "máx " + maxAdd;
         if(n >= maxAdd) bloquearMas = true;
       }
     } else {
-      if(reserva > 0){
-        const maxRemove = Math.max(0, stockAct - reserva);
-        if(n >= maxRemove) bloquearMas = true;
-      }
+      const maxRemove = Math.max(0, stockAct - reserva);
+      limiteInfo = "máx " + maxRemove;
+      if(n >= maxRemove) bloquearMas = true;
     }
 
-    // Color de fondo según estado
+    // Color de fondo
     let bgCard = "#283548";
     let borderCard = "#475569";
-    let colorNum = "#94a3b8";
     if(n > 0){
       if(bloquearMas){
         bgCard = "#7f1d1d";
         borderCard = "#ef4444";
-        colorNum = "#fca5a5";
       } else {
         bgCard = "#4c1d95";
         borderCard = "#8b5cf6";
-        colorNum = "#c4b5fd";
       }
     }
 
-    // Estilo de la tarjeta
-    const cardStyle = "position:relative;padding:12px 6px;border-radius:12px;border:2px solid "+borderCard+";background:"+bgCard+";cursor:"+(bloquearMas?"not-allowed":"pointer")+";opacity:"+(bloquearMas?"0.7":"1")+";text-align:center;min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px";
+    const cardStyle = "position:relative;padding:14px 6px 10px 6px;border-radius:12px;border:2px solid "+borderCard+";background:"+bgCard+";cursor:"+(bloquearMas?"not-allowed":"pointer")+";opacity:"+(bloquearMas?"0.7":"1")+";text-align:center;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px";
 
     const onclick = bloquearMas ? "" : "onclick='ajustarMovimiento("+d.c+",1)'";
 
     html+="<div "+onclick+" style='"+cardStyle+"'>";
 
-    // Botón ✕ de restar (arriba derecha) — solo si n>0
+    // Fila superior: badge cantidad y botón −
     if(n > 0){
-      html+="<button type='button' onclick='event.stopPropagation();ajustarMovimiento("+d.c+",-1)' style='position:absolute;top:-8px;right:-8px;width:32px;height:32px;border-radius:50%;background:#ef4444;color:#fff;border:2px solid #0f172a;font-size:16px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.4)'>−</button>";
-      // Badge con cantidad
-      html+="<div style='position:absolute;top:-8px;left:-8px;min-width:28px;height:28px;padding:0 8px;border-radius:14px;background:#a78bfa;color:#0f172a;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #0f172a;box-shadow:0 2px 6px rgba(0,0,0,0.4)'>"+n+"</div>";
+      html+="<div style='width:100%;display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;padding:0 2px'>";
+      html+="<div style='min-width:26px;height:26px;padding:0 8px;border-radius:13px;background:#a78bfa;color:#0f172a;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #0f172a'>"+n+"</div>";
+      html+="<button type='button' onclick='event.stopPropagation();ajustarMovimiento("+d.c+",-1)' style='width:30px;height:30px;padding:0;border-radius:50%;background:#ef4444;color:#fff;border:2px solid #0f172a;font-size:16px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center'>−</button>";
+      html+="</div>";
+    } else {
+      html+="<div style='height:4px'></div>";
     }
 
-    // Icono del billete/moneda
+    // Icono
     html+="<div class='"+gc+"' style='font-size:13px;flex-shrink:0'>"+d.short+"</div>";
     // Nombre
     html+="<div style='font-size:14px;font-weight:900;color:#fff;letter-spacing:0.3px'>"+d.n+"</div>";
-    // Info stock pequeño
-    let infoTxt = "";
-    if(st.tipo === "entrada" && tope > 0){
-      infoTxt = "tienes "+stockAct;
-    } else if(st.tipo === "salida" && reserva > 0){
-      infoTxt = "tienes "+stockAct;
-    } else {
-      infoTxt = "tienes "+stockAct;
-    }
-    html+="<div style='font-size:10px;color:#94a3b8;font-weight:700'>"+infoTxt+"</div>";
+    // Info
+    html+="<div style='font-size:10px;color:#94a3b8;font-weight:700;line-height:1.2'>tienes "+stockAct+(limiteInfo?" · "+limiteInfo:"")+"</div>";
 
     html+="</div>";
   });
@@ -949,17 +941,18 @@ function ajustarMovimiento(c,delta){
   const n = st.piezas[c] || 0;
 
   if(delta > 0){
-    if(st.tipo === "entrada" && tope > 0){
-      const maxAdd = Math.max(0, tope - stockAct);
-      if(n >= maxAdd){
-        mostrarToast("⚠️ Máximo alcanzado (tope " + tope + ")");
-        return;
+    if(st.tipo === "entrada"){
+      if(tope > 0){
+        const maxAdd = Math.max(0, tope - stockAct);
+        if(n >= maxAdd){
+          mostrarToast("⚠️ Máximo alcanzado (tope " + tope + ")");
+          return;
+        }
       }
-    }
-    if(st.tipo === "salida" && reserva > 0){
+    } else {
       const maxRemove = Math.max(0, stockAct - reserva);
       if(n >= maxRemove){
-        mostrarToast("⚠️ Reserva mínima alcanzada (" + reserva + ")");
+        mostrarToast("⚠️ Máximo alcanzado (solo tienes " + stockAct + ")");
         return;
       }
     }

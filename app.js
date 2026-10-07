@@ -116,7 +116,6 @@ function calculate(){
   const price=Math.round(rp*100);
   const paid=received.reduce((a,b)=>a+b,0);
 
-  // El input SIEMPRE refleja la propina manual
   const inputTip = Math.round((parseFloat(document.getElementById("tip").value.replace(',','.'))||0)*100);
   tipManual = inputTip;
 
@@ -127,7 +126,6 @@ function calculate(){
 
   if(price<=0||paid===0){resultDiv.style.display="none";return}
 
-  // Cambio calculado SOLO con la propina manual (nunca con las piezas marcadas)
   const totalCharge = price + tipManual;
   if(paid < totalCharge){
     changeTotal.textContent="FALTAN "+moneyText(totalCharge-paid);
@@ -171,7 +169,6 @@ function calculate(){
     return;
   }
 
-  // usedFinal = cambio original - piezas que se queda el usuario
   const usedFinal = used.map((n,i)=>{
     const marc = propinasDelCambio[denominations[i].c] || 0;
     return Math.max(0, n - marc);
@@ -187,60 +184,49 @@ function calculate(){
   changeTotal.textContent=h;
   changeGrid.innerHTML="";
 
-  // Título
   const titulo=document.createElement("div");
   titulo.style.cssText="grid-column:1/-1;font-size:11px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:6px;text-align:left";
   titulo.textContent = sumaPiezas>0 ? "👇 TOCA LAS PIEZAS ÁMBAR PARA DEVOLVERLAS AL CAMBIO" : "👇 TOCA UNA PIEZA PARA QUEDÁRTELA";
   changeGrid.appendChild(titulo);
 
-  // Render de cada pieza del cambio original
+  // Agrupado por denominación
   used.forEach((n,i)=>{
-    if(n>0){
-      const d=denominations[i];
-      const c=d.c;
-      const marcadas = propinasDelCambio[c]||0;
-      const normales = n - marcadas;
+    if(n<=0) return;
+    const d=denominations[i];
+    const c=d.c;
+    const marcadas = propinasDelCambio[c]||0;
+    const todasMarcadas = marcadas === n;
 
-      // Piezas normales (van al cambio)
-      for(let k=0;k<normales;k++){
-        const it=document.createElement("div");
-        it.className="cash-item";
-        it.style.cursor="pointer";
-        it.style.border="1px solid #334155";
-        it.onclick=()=>quedarmeConPiezaDelCambio(c, n);
-        const bd=document.createElement("div");
-        bd.className="badge";
-        bd.textContent="x1";
-        const gr=document.createElement("div");
-        gr.className=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
-        gr.textContent=d.short;
-        it.appendChild(bd);
-        it.appendChild(gr);
-        changeGrid.appendChild(it);
-      }
+    const it=document.createElement("div");
+    it.className="cash-item";
+    it.style.cssText="cursor:pointer;position:relative;border:2px solid "+(marcadas>0?"#f59e0b":"#334155")+";background:"+(marcadas>0?"#78350f":"transparent");
 
-      // Piezas marcadas (te las quedas)
-      for(let k=0;k<marcadas;k++){
-        const it=document.createElement("div");
-        it.className="cash-item";
-        it.style.cssText="cursor:pointer;background:#78350f;border:2px solid #f59e0b";
-        it.onclick=()=>quitarPiezaPropina(c);
-        const bd=document.createElement("div");
-        bd.className="badge";
-        bd.style.background="#f59e0b";
-        bd.style.color="#000";
-        bd.textContent="x1";
-        const gr=document.createElement("div");
-        gr.className=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
-        gr.textContent=d.short;
-        it.appendChild(bd);
-        it.appendChild(gr);
-        changeGrid.appendChild(it);
-      }
+    // Badge con total
+    const bd=document.createElement("div");
+    bd.className="badge";
+    if(marcadas>0){ bd.style.background="#f59e0b"; bd.style.color="#000"; }
+    bd.textContent="x"+n;
+
+    // Icono
+    const gr=document.createElement("div");
+    gr.className=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
+    gr.textContent=d.short;
+
+    it.appendChild(bd);
+    it.appendChild(gr);
+
+    // Contador de marcadas
+    if(marcadas>0){
+      const cnt=document.createElement("div");
+      cnt.style.cssText="margin-top:6px;font-size:12px;font-weight:900;color:"+(todasMarcadas?"#4ade80":"#fbbf24")+";letter-spacing:0.5px";
+      cnt.textContent = todasMarcadas ? "✓ todas" : (marcadas+"/"+n);
+      it.appendChild(cnt);
     }
+
+    it.onclick=()=>togglePiezaDelCambio(c, n);
+    changeGrid.appendChild(it);
   });
 
-  // Resumen
   const resumen=document.createElement("div");
   resumen.style.cssText="grid-column:1/-1;margin-top:14px;padding:10px;background:#0f172a;border-radius:8px;text-align:center;font-size:13px;color:#94a3b8;font-weight:700";
   resumen.innerHTML="Devuelves al cliente: <b style='color:#4ade80;font-size:15px'>"+moneyText(devolverTotal)+"</b>";
@@ -1612,17 +1598,14 @@ function verDetalleDeposito(idx){
   m.addEventListener("click", e => { if(e.target === m) m.remove(); });
 }
 
-function quedarmeConPiezaDelCambio(c, maxDisponible){
+function togglePiezaDelCambio(c, totalDisponible){
   const actual = propinasDelCambio[c]||0;
-  if(actual >= maxDisponible) return;
-  propinasDelCambio[c] = actual + 1;
-  calculate();
-}
-
-function quitarPiezaPropina(c){
-  if(!propinasDelCambio[c]) return;
-  propinasDelCambio[c]--;
-  if(propinasDelCambio[c]<=0) delete propinasDelCambio[c];
+  if(actual >= totalDisponible){
+    // Ya están todas marcadas → reset a 0
+    delete propinasDelCambio[c];
+  } else {
+    propinasDelCambio[c] = actual + 1;
+  }
   calculate();
 }
 

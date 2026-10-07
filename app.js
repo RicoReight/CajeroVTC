@@ -16,6 +16,7 @@ let stock=loadStock(),totalTips=loadTips(),reservaMinima=loadReserva(),topesReci
 let diaReset=loadDiaReset(),ultimoResetPropinas=loadUltimoResetPropinas(),statsOps=loadStats();
 let modoEdicion = safeStorage.get("uberCambioModoEdicion") === "1";
 let received=[],pendingTransaction=null,stockInputs=[],reservaInputs=[],summaryTimer=null,precioInterval=null,precioActual=0;
+let propinasDelCambio = {};
 let cambioState={aEntregar:{},aRecibir:{},modo:null,orden:[],ordenRecibir:[],sinDatos:false};
 let reponerState={viajes:20,colchon:3,marcados:{},modo:"auto",manualAdd:{},importeManual:0};
 let movimientoState={tipo:"entrada",motivo:"propina",piezas:{}};
@@ -91,7 +92,16 @@ function renderButtons(){const box=document.getElementById("moneyButtons");if(!b
 function addMoney(c){received.push(c);updateReceived();calculate()}
 function undoMoney(){received.pop();updateReceived();calculate()}
 function updateReceived(){const t=received.reduce((a,b)=>a+b,0);const el=document.getElementById("paidDisplay");if(el)el.textContent=moneyText(t)}
-function setAllTip(){const rp=parseFloat(document.getElementById("price").value.replace(',','.'))||0;const p=Math.round(rp*100);const paid=received.reduce((a,b)=>a+b,0);if(paid>p&&p>0){document.getElementById("tip").value=((paid-p)/100).toFixed(2);calculate()}}
+function setAllTip(){
+  const rp=parseFloat(document.getElementById("price").value.replace(',','.'))||0;
+  const p=Math.round(rp*100);
+  const paid=received.reduce((a,b)=>a+b,0);
+  if(paid>p&&p>0){
+    propinasDelCambio = {};
+    document.getElementById("tip").value=((paid-p)/100).toFixed(2);
+    calculate();
+  }
+}
 function mostrarPrecio(){const inp=document.getElementById("price");if(!inp)return;const raw=parseFloat(inp.value.replace(',','.'))||0;if(raw<=0){alert("Escribe primero el precio del viaje.");return}precioActual=Math.round(raw*100);const el=document.getElementById("precioGrande");if(el)el.textContent=moneyText(precioActual);const p=document.getElementById("precioPantalla");if(p)p.style.display="flex";iniciarAlternanciaPrecio()}
 function iniciarAlternanciaPrecio(){detenerAlternanciaPrecio();const t=document.getElementById("precioTitulo");if(!t)return;let en=false;t.textContent="A PAGAR";precioInterval=setInterval(()=>{en=!en;t.textContent=en?"TO PAY":"A PAGAR"},3000)}
 function detenerAlternanciaPrecio(){if(precioInterval){clearInterval(precioInterval);precioInterval=null}}
@@ -153,14 +163,21 @@ function calculate(){
   changeTotal.textContent=h;
   changeGrid.innerHTML="";
 
-  // Render de piezas clickeables
+  // Título sección devolver
+  const tituloDevolver=document.createElement("div");
+  tituloDevolver.style.cssText="grid-column:1/-1;font-size:11px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:6px;text-align:left";
+  tituloDevolver.textContent="👆 TOCA UNA PIEZA PARA QUEDÁRTELA DE PROPINA";
+  changeGrid.appendChild(tituloDevolver);
+
+  // Piezas del cambio (clickables)
   used.forEach((n,i)=>{
     if(n>0){
       const d=denominations[i];
       const it=document.createElement("div");
       it.className="cash-item";
       it.style.cursor="pointer";
-      it.title="Toca para quedarte con esta pieza como propina";
+      it.style.transition="transform 0.1s";
+      it.style.border="1px solid #334155";
       it.onclick=()=>quedarmeConPiezaDelCambio(d.c);
       const bd=document.createElement("div");
       bd.className="badge";
@@ -174,17 +191,74 @@ function calculate(){
     }
   });
 
-  // Aviso debajo
-  const aviso=document.createElement("div");
-  aviso.style.cssText="grid-column:1/-1;text-align:center;font-size:11px;color:#64748b;margin-top:10px;font-weight:700;letter-spacing:0.3px";
-  aviso.textContent="👆 Toca una pieza para quedártela como propina";
-  changeGrid.appendChild(aviso);
+  // Sección propinas marcadas
+  const propsKeys = Object.keys(propinasDelCambio).filter(k => propinasDelCambio[k] > 0);
+  if(propsKeys.length > 0){
+    const separador=document.createElement("div");
+    separador.style.cssText="grid-column:1/-1;height:1px;background:#334155;margin:14px 0 6px";
+    changeGrid.appendChild(separador);
+
+    const tituloProp=document.createElement("div");
+    tituloProp.style.cssText="grid-column:1/-1;font-size:11px;color:#fbbf24;font-weight:800;letter-spacing:0.5px;margin-bottom:6px;text-align:left";
+    let totalProp = 0;
+    propsKeys.forEach(k => { totalProp += parseInt(k) * propinasDelCambio[k]; });
+    tituloProp.textContent="💶 TE QUEDAS CON · " + moneyText(totalProp);
+    changeGrid.appendChild(tituloProp);
+
+    propsKeys.sort((a,b)=>parseInt(b)-parseInt(a)).forEach(k => {
+      const c = parseInt(k);
+      const n = propinasDelCambio[c];
+      const d = denominations.find(x => x.c === c);
+      if(!d) return;
+      const it = document.createElement("div");
+      it.className = "cash-item";
+      it.style.cssText = "position:relative;background:#78350f;border:1px solid #f59e0b";
+      const bd = document.createElement("div");
+      bd.className = "badge";
+      bd.style.background = "#f59e0b";
+      bd.style.color = "#000";
+      bd.textContent = "x" + n;
+      const gr = document.createElement("div");
+      gr.className = (d.type === "bill" ? "bill-graphic " : "coin-graphic ") + d.class;
+      gr.textContent = d.short;
+      const x = document.createElement("div");
+      x.textContent = "✕";
+      x.style.cssText = "position:absolute;top:-8px;left:-8px;background:#ef4444;color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;cursor:pointer;border:2px solid #1e293b";
+      x.onclick = (e) => { e.stopPropagation(); quitarPiezaPropina(c); };
+      it.appendChild(x);
+      it.appendChild(bd);
+      it.appendChild(gr);
+      changeGrid.appendChild(it);
+    });
+  }
 
   resultDiv.style.display="block";
 }
 
-function confirmTransaction(){if(!pendingTransaction){alert("Introduce un precio y el dinero recibido.");return}for(let i=0;i<stock.length;i++)stock[i]+=pendingTransaction.incoming[i]-pendingTransaction.used[i];if(pendingTransaction.tip>0){totalTips+=pendingTransaction.tip;saveTips()}statsOps.operations++;for(let i=0;i<denominations.length;i++){statsOps.received[i]+=pendingTransaction.incoming[i]||0;statsOps.spent[i]+=pendingTransaction.used[i]||0}saveStats();saveStock();renderStockList();received=[];pendingTransaction=null;document.getElementById("price").value="";document.getElementById("tip").value="";document.getElementById("changeResult").style.display="none";updateReceived();alert("¡Operación guardada!")}
-
+function confirmTransaction(){
+  if(!pendingTransaction){
+    alert("Introduce un precio y el dinero recibido.");
+    return;
+  }
+  for(let i=0;i<stock.length;i++)stock[i]+=pendingTransaction.incoming[i]-pendingTransaction.used[i];
+  if(pendingTransaction.tip>0){totalTips+=pendingTransaction.tip;saveTips()}
+  statsOps.operations++;
+  for(let i=0;i<denominations.length;i++){
+    statsOps.received[i]+=pendingTransaction.incoming[i]||0;
+    statsOps.spent[i]+=pendingTransaction.used[i]||0;
+  }
+  saveStats();
+  saveStock();
+  renderStockList();
+  received=[];
+  pendingTransaction=null;
+  propinasDelCambio = {};
+  document.getElementById("price").value="";
+  document.getElementById("tip").value="";
+  document.getElementById("changeResult").style.display="none";
+  updateReceived();
+  alert("¡Operación guardada!");
+}
 function renderRecomendaciones(){const box=document.getElementById("recomendacionesBox");if(!box)return;if(statsOps.operations<10){box.innerHTML="";return}const ops=statsOps.operations;const falt=[],sob=[];denominations.forEach((d,i)=>{const aR=statsOps.received[i]/ops,aS=statsOps.spent[i]/ops;if(aS>0&&statsOps.spent[i]>statsOps.received[i]+2){const r=stock[i]/aS;if(r<30)falt.push({d,falta:Math.max(1,Math.ceil(aS*30)-stock[i])})}if(aR>aS*2&&statsOps.received[i]>8&&stock[i]>8)sob.push({d,exceso:statsOps.received[i]-statsOps.spent[i]})});if(!falt.length&&!sob.length){box.innerHTML="";return}let html="<div style='background:#0f172a;border:1px solid #475569;border-radius:10px;padding:12px;margin-top:14px'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>🤖 SUGERENCIAS · últimas "+ops+" operaciones</div>";if(falt.length){html+="<div style='font-size:11px;color:#fbbf24;font-weight:700;margin-bottom:4px'>⚠️ SE TE AGOTAN</div>";falt.forEach(x=>{html+="<div style='display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff'><span>"+x.d.n+"</span><span style='color:#fbbf24;font-weight:700'>pedir +"+x.falta+"</span></div>"})}if(sob.length){html+="<div style='font-size:11px;color:#4ade80;font-weight:700;margin:10px 0 4px'>💚 ACUMULAS DE MÁS</div>";sob.forEach(x=>{html+="<div style='display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff'><span>"+x.d.n+"</span><span style='color:#4ade80;font-weight:700'>+"+x.exceso+" de más</span></div>"})}html+="</div>";box.innerHTML=html}
 
 function renderStockList(){
@@ -1525,12 +1599,22 @@ function verDetalleDeposito(idx){
 }
 
 function quedarmeConPiezaDelCambio(c){
+  propinasDelCambio[c] = (propinasDelCambio[c]||0) + 1;
   const inp = document.getElementById("tip");
   const actual = Math.round((parseFloat(inp.value.replace(',','.'))||0) * 100);
-  const nuevo = actual + c;
+  inp.value = ((actual + c)/100).toFixed(2);
+  calculate();
+}
+
+function quitarPiezaPropina(c){
+  if(!propinasDelCambio[c]) return;
+  propinasDelCambio[c]--;
+  if(propinasDelCambio[c] <= 0) delete propinasDelCambio[c];
+  const inp = document.getElementById("tip");
+  const actual = Math.round((parseFloat(inp.value.replace(',','.'))||0) * 100);
+  const nuevo = Math.max(0, actual - c);
   inp.value = (nuevo/100).toFixed(2);
   calculate();
-  mostrarToast("✅ +" + moneyText(c) + " a propina");
 }
 
 init();

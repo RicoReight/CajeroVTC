@@ -186,28 +186,24 @@ function calculate(){
 
   const titulo=document.createElement("div");
   titulo.style.cssText="grid-column:1/-1;font-size:11px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:6px;text-align:left";
-  titulo.textContent = sumaPiezas>0 ? "👇 TOCA LAS PIEZAS ÁMBAR PARA DEVOLVERLAS AL CAMBIO" : "👇 TOCA UNA PIEZA PARA QUEDÁRTELA";
+  titulo.textContent = sumaPiezas>0 ? "👇 AJUSTA CUÁNTAS TE QUEDAS DE CADA TIPO" : "👇 TOCA PARA ELEGIR CUÁNTAS TE QUEDAS";
   changeGrid.appendChild(titulo);
 
-  // Agrupado por denominación
   used.forEach((n,i)=>{
     if(n<=0) return;
     const d=denominations[i];
     const c=d.c;
     const marcadas = propinasDelCambio[c]||0;
-    const todasMarcadas = marcadas === n;
 
     const it=document.createElement("div");
     it.className="cash-item";
-    it.style.cssText="cursor:pointer;position:relative;border:2px solid "+(marcadas>0?"#f59e0b":"#334155")+";background:"+(marcadas>0?"#78350f":"transparent");
+    it.style.cssText="position:relative;border:2px solid "+(marcadas>0?"#f59e0b":"#334155")+";background:"+(marcadas>0?"#78350f":"transparent")+";padding:10px 6px;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:78px";
 
-    // Badge con total
     const bd=document.createElement("div");
     bd.className="badge";
     if(marcadas>0){ bd.style.background="#f59e0b"; bd.style.color="#000"; }
     bd.textContent="x"+n;
 
-    // Icono
     const gr=document.createElement("div");
     gr.className=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
     gr.textContent=d.short;
@@ -215,15 +211,36 @@ function calculate(){
     it.appendChild(bd);
     it.appendChild(gr);
 
-    // Contador de marcadas
-    if(marcadas>0){
-      const cnt=document.createElement("div");
-      cnt.style.cssText="margin-top:6px;font-size:12px;font-weight:900;color:"+(todasMarcadas?"#4ade80":"#fbbf24")+";letter-spacing:0.5px";
-      cnt.textContent = todasMarcadas ? "✓ todas" : (marcadas+"/"+n);
-      it.appendChild(cnt);
-    }
+    // Control − / contador / +
+    const ctrl=document.createElement("div");
+    ctrl.style.cssText="display:flex;align-items:center;gap:4px;margin-top:2px";
 
-    it.onclick=()=>togglePiezaDelCambio(c, n);
+    const bm=document.createElement("button");
+    bm.type="button";
+    bm.textContent="−";
+    bm.style.cssText="width:26px;height:26px;padding:0;background:#334155;color:#fff;border:none;border-radius:6px;font-size:16px;font-weight:900;cursor:pointer";
+    if(marcadas<=0){ bm.style.opacity="0.35"; bm.style.cursor="not-allowed"; }
+    bm.onclick=(e)=>{ e.stopPropagation(); bajarMarca(c); };
+
+    const cnt=document.createElement("div");
+    cnt.textContent=marcadas;
+    cnt.style.cssText="width:24px;text-align:center;font-size:16px;font-weight:900;color:"+(marcadas>0?"#fbbf24":"#475569");
+
+    const bp=document.createElement("button");
+    bp.type="button";
+    bp.textContent="+";
+    bp.style.cssText="width:26px;height:26px;padding:0;background:#334155;color:#fff;border:none;border-radius:6px;font-size:16px;font-weight:900;cursor:pointer";
+    if(marcadas>=n){ bp.style.opacity="0.35"; bp.style.cursor="not-allowed"; }
+    bp.onclick=(e)=>{ e.stopPropagation(); subirMarca(c, n); };
+
+    ctrl.appendChild(bm);
+    ctrl.appendChild(cnt);
+    ctrl.appendChild(bp);
+    it.appendChild(ctrl);
+
+    // Al tocar la ficha entera también sube (más rápido)
+    it.onclick=()=>{ if(marcadas<n) subirMarca(c,n); };
+
     changeGrid.appendChild(it);
   });
 
@@ -1598,14 +1615,23 @@ function verDetalleDeposito(idx){
   m.addEventListener("click", e => { if(e.target === m) m.remove(); });
 }
 
-function togglePiezaDelCambio(c, totalDisponible){
+function subirMarca(c, max){
   const actual = propinasDelCambio[c]||0;
-  if(actual >= totalDisponible){
-    // Ya están todas marcadas → reset a 0
-    delete propinasDelCambio[c];
-  } else {
-    propinasDelCambio[c] = actual + 1;
-  }
+  if(actual >= max) return;
+  propinasDelCambio[c] = actual + 1;
+  calculate();
+}
+
+function bajarMarca(c){
+  const actual = propinasDelCambio[c]||0;
+  if(actual <= 0) return;
+  propinasDelCambio[c] = actual - 1;
+  if(propinasDelCambio[c] <= 0) delete propinasDelCambio[c];
+  calculate();
+}
+
+function resetMarcas(){
+  propinasDelCambio = {};
   calculate();
 }
 

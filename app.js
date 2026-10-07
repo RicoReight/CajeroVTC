@@ -163,13 +163,12 @@ function calculate(){
   changeTotal.textContent=h;
   changeGrid.innerHTML="";
 
-  // Título sección devolver
+  // --- Sección 1: piezas del cambio ---
   const tituloDevolver=document.createElement("div");
   tituloDevolver.style.cssText="grid-column:1/-1;font-size:11px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:6px;text-align:left";
   tituloDevolver.textContent="👆 TOCA UNA PIEZA PARA QUEDÁRTELA DE PROPINA";
   changeGrid.appendChild(tituloDevolver);
 
-  // Piezas del cambio (clickables)
   used.forEach((n,i)=>{
     if(n>0){
       const d=denominations[i];
@@ -191,7 +190,7 @@ function calculate(){
     }
   });
 
-  // Sección propinas marcadas
+  // --- Sección 2: piezas que el usuario se queda como propina ---
   const propsKeys = Object.keys(propinasDelCambio).filter(k => propinasDelCambio[k] > 0);
   if(propsKeys.length > 0){
     const separador=document.createElement("div");
@@ -202,7 +201,7 @@ function calculate(){
     tituloProp.style.cssText="grid-column:1/-1;font-size:11px;color:#fbbf24;font-weight:800;letter-spacing:0.5px;margin-bottom:6px;text-align:left";
     let totalProp = 0;
     propsKeys.forEach(k => { totalProp += parseInt(k) * propinasDelCambio[k]; });
-    tituloProp.textContent="💶 TE QUEDAS CON · " + moneyText(totalProp);
+    tituloProp.textContent="💶 TE QUEDAS CON · " + moneyText(totalProp) + "  (toca para devolver)";
     changeGrid.appendChild(tituloProp);
 
     propsKeys.sort((a,b)=>parseInt(b)-parseInt(a)).forEach(k => {
@@ -212,7 +211,9 @@ function calculate(){
       if(!d) return;
       const it = document.createElement("div");
       it.className = "cash-item";
-      it.style.cssText = "position:relative;background:#78350f;border:1px solid #f59e0b";
+      it.style.cssText = "position:relative;background:#78350f;border:2px solid #f59e0b;cursor:pointer";
+      it.title = "Toca para devolver esta pieza al cambio";
+      it.onclick = () => quitarPiezaPropina(c);
       const bd = document.createElement("div");
       bd.className = "badge";
       bd.style.background = "#f59e0b";
@@ -221,11 +222,6 @@ function calculate(){
       const gr = document.createElement("div");
       gr.className = (d.type === "bill" ? "bill-graphic " : "coin-graphic ") + d.class;
       gr.textContent = d.short;
-      const x = document.createElement("div");
-      x.textContent = "✕";
-      x.style.cssText = "position:absolute;top:-8px;left:-8px;background:#ef4444;color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;cursor:pointer;border:2px solid #1e293b";
-      x.onclick = (e) => { e.stopPropagation(); quitarPiezaPropina(c); };
-      it.appendChild(x);
       it.appendChild(bd);
       it.appendChild(gr);
       changeGrid.appendChild(it);

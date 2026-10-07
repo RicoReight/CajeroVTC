@@ -17,6 +17,7 @@ let diaReset=loadDiaReset(),ultimoResetPropinas=loadUltimoResetPropinas(),statsO
 let modoEdicion = safeStorage.get("uberCambioModoEdicion") === "1";
 let received=[],pendingTransaction=null,stockInputs=[],reservaInputs=[],summaryTimer=null,precioInterval=null,precioActual=0;
 let propinasDelCambio = {};
+let tipManual = 0;
 let cambioState={aEntregar:{},aRecibir:{},modo:null,orden:[],ordenRecibir:[],sinDatos:false};
 let reponerState={viajes:20,colchon:3,marcados:{},modo:"auto",manualAdd:{},importeManual:0};
 let movimientoState={tipo:"entrada",motivo:"propina",piezas:{}};
@@ -98,6 +99,7 @@ function setAllTip(){
   const paid=received.reduce((a,b)=>a+b,0);
   if(paid>p&&p>0){
     propinasDelCambio = {};
+    tipManual = paid-p;
     document.getElementById("tip").value=((paid-p)/100).toFixed(2);
     calculate();
   }
@@ -113,12 +115,20 @@ function calculate(){
   const rp=parseFloat(document.getElementById("price").value.replace(',','.'))||0;
   const price=Math.round(rp*100);
   const paid=received.reduce((a,b)=>a+b,0);
-  const rt=parseFloat(document.getElementById("tip").value.replace(',','.'))||0;
-  const tip=Math.round(rt*100);
   const resultDiv=document.getElementById("changeResult");
   const changeTotal=document.getElementById("changeTotal");
   const changeGrid=document.getElementById("changeGrid");
   pendingTransaction=null;
+
+  // sincronizar tipManual con el input (si el usuario editó a mano)
+  const inputTip = Math.round((parseFloat(document.getElementById("tip").value.replace(',','.'))||0)*100);
+  const sumaPiezas = Object.keys(propinasDelCambio).reduce((s,k)=>s+parseInt(k)*propinasDelCambio[k],0);
+  if(inputTip !== tipManual + sumaPiezas){
+    // el usuario editó el input a mano
+    tipManual = Math.max(0, inputTip - sumaPiezas);
+  }
+
+  const tip = tipManual;
   if(price<=0||paid===0){resultDiv.style.display="none";return}
   const totalCharge=price+tip;
   if(paid<totalCharge){
@@ -156,81 +166,88 @@ function calculate(){
     resultDiv.style.display="block";
     return;
   }
-  pendingTransaction={incoming,used,tip,tocaReserva};
 
-  let h="DEVOLVER: "+moneyText(targetChange);
+  // Calcular qué se devuelve finalmente (restar las piezas que el usuario se queda)
+  const usedFinal = used.map((n,i)=>{
+    const quitar = propinasDelCambio[denominations[i].c]||0;
+    return Math.max(0, n-quitar);
+  });
+
+  // Calcular la propina total (manual + piezas)
+  const propinaTotal = tip + sumaPiezas;
+
+  // Construir pending transaction (usamos used, que es el cambio completo, pero le restamos al confirmar)
+  pendingTransaction={incoming,used:usedFinal,tip:propinaTotal,tocaReserva};
+
+  let h="CAMBIO: "+moneyText(targetChange);
   if(tocaReserva)h+=" ⚠️ (toca reserva mínima)";
+  if(propinaTotal>0) h+="  ·  💶 Propina: "+moneyText(propinaTotal);
   changeTotal.textContent=h;
   changeGrid.innerHTML="";
 
-  // --- Sección 1: piezas del cambio ---
-  const tituloDevolver=document.createElement("div");
-  tituloDevolver.style.cssText="grid-column:1/-1;font-size:11px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:6px;text-align:left";
-  tituloDevolver.textContent="👆 TOCA UNA PIEZA PARA QUEDÁRTELA DE PROPINA";
-  changeGrid.appendChild(tituloDevolver);
+  // Título devolver
+  const titulo=document.createElement("div");
+  titulo.style.cssText="grid-column:1/-1;font-size:11px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:6px;text-align:left";
+  titulo.textContent = sumaPiezas>0 ? "👇 TOCA PARA DEVOLVER AL CAMBIO" : "👇 TOCA UNA PIEZA PARA QUEDÁRTELA";
+  changeGrid.appendChild(titulo);
 
+  // Piezas: mostrar todas, marcar las que el usuario se queda
   used.forEach((n,i)=>{
     if(n>0){
       const d=denominations[i];
-      const it=document.createElement("div");
-      it.className="cash-item";
-      it.style.cursor="pointer";
-      it.style.transition="transform 0.1s";
-      it.style.border="1px solid #334155";
-      it.onclick=()=>quedarmeConPiezaDelCambio(d.c);
-      const bd=document.createElement("div");
-      bd.className="badge";
-      bd.textContent="x"+n;
-      const gr=document.createElement("div");
-      gr.className=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
-      gr.textContent=d.short;
-      it.appendChild(bd);
-      it.appendChild(gr);
-      changeGrid.appendChild(it);
+      const c=d.c;
+      const marcadas = propinasDelCambio[c]||0;
+      const normales = n - marcadas;
+
+      // Primero las normales
+      for(let k=0;k<normales;k++){
+        const it=document.createElement("div");
+        it.className="cash-item";
+        it.style.cursor="pointer";
+        it.style.border="1px solid #334155";
+        it.onclick=()=>quedarmeConPiezaDelCambio(c, n);
+        const bd=document.createElement("div");
+        bd.className="badge";
+        bd.textContent="x1";
+        const gr=document.createElement("div");
+        gr.className=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
+        gr.textContent=d.short;
+        it.appendChild(bd);
+        it.appendChild(gr);
+        changeGrid.appendChild(it);
+      }
+
+      // Luego las marcadas
+      for(let k=0;k<marcadas;k++){
+        const it=document.createElement("div");
+        it.className="cash-item";
+        it.style.cssText="cursor:pointer;background:#78350f;border:2px solid #f59e0b";
+        it.title="Toca para devolver al cambio";
+        it.onclick=()=>quitarPiezaPropina(c);
+        const bd=document.createElement("div");
+        bd.className="badge";
+        bd.style.background="#f59e0b";
+        bd.style.color="#000";
+        bd.textContent="x1";
+        const gr=document.createElement("div");
+        gr.className=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
+        gr.textContent=d.short;
+        it.appendChild(bd);
+        it.appendChild(gr);
+        changeGrid.appendChild(it);
+      }
     }
   });
 
-  // --- Sección 2: piezas que el usuario se queda como propina ---
-  const propsKeys = Object.keys(propinasDelCambio).filter(k => propinasDelCambio[k] > 0);
-  if(propsKeys.length > 0){
-    const separador=document.createElement("div");
-    separador.style.cssText="grid-column:1/-1;height:1px;background:#334155;margin:14px 0 6px";
-    changeGrid.appendChild(separador);
-
-    const tituloProp=document.createElement("div");
-    tituloProp.style.cssText="grid-column:1/-1;font-size:11px;color:#fbbf24;font-weight:800;letter-spacing:0.5px;margin-bottom:6px;text-align:left";
-    let totalProp = 0;
-    propsKeys.forEach(k => { totalProp += parseInt(k) * propinasDelCambio[k]; });
-    tituloProp.textContent="💶 TE QUEDAS CON · " + moneyText(totalProp) + "  (toca para devolver)";
-    changeGrid.appendChild(tituloProp);
-
-    propsKeys.sort((a,b)=>parseInt(b)-parseInt(a)).forEach(k => {
-      const c = parseInt(k);
-      const n = propinasDelCambio[c];
-      const d = denominations.find(x => x.c === c);
-      if(!d) return;
-      const it = document.createElement("div");
-      it.className = "cash-item";
-      it.style.cssText = "position:relative;background:#78350f;border:2px solid #f59e0b;cursor:pointer";
-      it.title = "Toca para devolver esta pieza al cambio";
-      it.onclick = () => quitarPiezaPropina(c);
-      const bd = document.createElement("div");
-      bd.className = "badge";
-      bd.style.background = "#f59e0b";
-      bd.style.color = "#000";
-      bd.textContent = "x" + n;
-      const gr = document.createElement("div");
-      gr.className = (d.type === "bill" ? "bill-graphic " : "coin-graphic ") + d.class;
-      gr.textContent = d.short;
-      it.appendChild(bd);
-      it.appendChild(gr);
-      changeGrid.appendChild(it);
-    });
-  }
+  // Resumen final
+  const resumen=document.createElement("div");
+  resumen.style.cssText="grid-column:1/-1;margin-top:14px;padding:10px;background:#0f172a;border-radius:8px;text-align:center;font-size:13px;color:#94a3b8;font-weight:700";
+  const devolver = usedFinal.reduce((s,n,i)=>s+n*denominations[i].c,0);
+  resumen.innerHTML = "Devuelves al cliente: <b style='color:#4ade80;font-size:15px'>"+moneyText(devolver)+"</b>";
+  changeGrid.appendChild(resumen);
 
   resultDiv.style.display="block";
 }
-
 function confirmTransaction(){
   if(!pendingTransaction){
     alert("Introduce un precio y el dinero recibido.");
@@ -249,6 +266,7 @@ function confirmTransaction(){
   received=[];
   pendingTransaction=null;
   propinasDelCambio = {};
+  tipManual = 0;
   document.getElementById("price").value="";
   document.getElementById("tip").value="";
   document.getElementById("changeResult").style.display="none";
@@ -1594,23 +1612,26 @@ function verDetalleDeposito(idx){
   m.addEventListener("click", e => { if(e.target === m) m.remove(); });
 }
 
-function quedarmeConPiezaDelCambio(c){
-  propinasDelCambio[c] = (propinasDelCambio[c]||0) + 1;
-  const inp = document.getElementById("tip");
-  const actual = Math.round((parseFloat(inp.value.replace(',','.'))||0) * 100);
-  inp.value = ((actual + c)/100).toFixed(2);
+function quedarmeConPiezaDelCambio(c, maxDisponible){
+  const actual = propinasDelCambio[c]||0;
+  if(actual >= maxDisponible) return;
+  propinasDelCambio[c] = actual + 1;
+  sincronizarTipInput();
   calculate();
 }
 
 function quitarPiezaPropina(c){
   if(!propinasDelCambio[c]) return;
   propinasDelCambio[c]--;
-  if(propinasDelCambio[c] <= 0) delete propinasDelCambio[c];
-  const inp = document.getElementById("tip");
-  const actual = Math.round((parseFloat(inp.value.replace(',','.'))||0) * 100);
-  const nuevo = Math.max(0, actual - c);
-  inp.value = (nuevo/100).toFixed(2);
+  if(propinasDelCambio[c]<=0) delete propinasDelCambio[c];
+  sincronizarTipInput();
   calculate();
+}
+
+function sincronizarTipInput(){
+  const sumaPiezas = Object.keys(propinasDelCambio).reduce((s,k)=>s+parseInt(k)*propinasDelCambio[k],0);
+  const total = tipManual + sumaPiezas;
+  document.getElementById("tip").value = (total/100).toFixed(2);
 }
 
 init();

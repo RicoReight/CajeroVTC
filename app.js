@@ -99,7 +99,89 @@ function cerrarPrecio(){detenerAlternanciaPrecio();const p=document.getElementBy
 
 function findSmartChange(target,avail){let best=null,minScore=Infinity;function bt(i,rest,used,score){if(rest===0){if(score<minScore){minScore=score;best=[...used]}return}if(i>=denominations.length||rest<0||score>=minScore)return;const v=denominations[i].c;const mx=Math.min(avail[i],Math.floor(rest/v));for(let n=mx;n>=0;n--){used[i]=n;const pen=(denominations[i].type==="coin"&&v<=200)?n*2:n;bt(i+1,rest-n*v,used,score+pen);used[i]=0}}bt(0,target,new Array(denominations.length).fill(0),0);return best}
 
-function calculate(){const rp=parseFloat(document.getElementById("price").value.replace(',','.'))||0;const price=Math.round(rp*100);const paid=received.reduce((a,b)=>a+b,0);const rt=parseFloat(document.getElementById("tip").value.replace(',','.'))||0;const tip=Math.round(rt*100);const resultDiv=document.getElementById("changeResult");const changeTotal=document.getElementById("changeTotal");const changeGrid=document.getElementById("changeGrid");pendingTransaction=null;if(price<=0||paid===0){resultDiv.style.display="none";return}const totalCharge=price+tip;if(paid<totalCharge){changeTotal.textContent="FALTAN "+moneyText(totalCharge-paid);changeGrid.innerHTML="";resultDiv.style.display="block";return}const incoming=new Array(denominations.length).fill(0);received.forEach(c=>{const i=denominations.findIndex(d=>d.c===c);if(i>=0)incoming[i]++});const available=stock.map((n,i)=>n+incoming[i]);const targetChange=paid-totalCharge;if(targetChange===0){pendingTransaction={incoming,used:new Array(denominations.length).fill(0),tip,tocaReserva:false};changeTotal.textContent=tip>0?"PAGO EXACTO (Propina: "+moneyText(tip)+")":"PAGO EXACTO. SIN CAMBIO.";changeGrid.innerHTML="";resultDiv.style.display="block";return}const disp=available.map((n,i)=>Math.max(0,n-(reservaMinima[denominations[i].c]||0)));let used=findSmartChange(targetChange,disp);let tocaReserva=false;if(!used){used=findSmartChange(targetChange,available);tocaReserva=!!used}if(!used){changeTotal.textContent="SIN CAMBIO ÓPTIMO PARA DEVOLVER "+moneyText(targetChange);changeGrid.innerHTML="";resultDiv.style.display="block";return}pendingTransaction={incoming,used,tip,tocaReserva};let h="DEVOLVER: "+moneyText(targetChange);if(tocaReserva)h+=" ⚠️ (toca reserva mínima)";changeTotal.textContent=h;changeGrid.innerHTML="";used.forEach((n,i)=>{if(n>0){const d=denominations[i];const it=document.createElement("div");it.className="cash-item";const bd=document.createElement("div");bd.className="badge";bd.textContent="x"+n;const gr=document.createElement("div");gr.className=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;gr.textContent=d.short;it.appendChild(bd);it.appendChild(gr);changeGrid.appendChild(it)}});resultDiv.style.display="block"}
+function calculate(){
+  const rp=parseFloat(document.getElementById("price").value.replace(',','.'))||0;
+  const price=Math.round(rp*100);
+  const paid=received.reduce((a,b)=>a+b,0);
+  const rt=parseFloat(document.getElementById("tip").value.replace(',','.'))||0;
+  const tip=Math.round(rt*100);
+  const resultDiv=document.getElementById("changeResult");
+  const changeTotal=document.getElementById("changeTotal");
+  const changeGrid=document.getElementById("changeGrid");
+  pendingTransaction=null;
+  if(price<=0||paid===0){resultDiv.style.display="none";return}
+  const totalCharge=price+tip;
+  if(paid<totalCharge){
+    changeTotal.textContent="FALTAN "+moneyText(totalCharge-paid);
+    changeGrid.innerHTML="";
+    resultDiv.style.display="block";
+    return;
+  }
+  const incoming=new Array(denominations.length).fill(0);
+  received.forEach(c=>{
+    const i=denominations.findIndex(d=>d.c===c);
+    if(i>=0)incoming[i]++;
+  });
+  const available=stock.map((n,i)=>n+incoming[i]);
+  const targetChange=paid-totalCharge;
+
+  if(targetChange===0){
+    pendingTransaction={incoming,used:new Array(denominations.length).fill(0),tip,tocaReserva:false};
+    changeTotal.textContent=tip>0?"PAGO EXACTO (Propina: "+moneyText(tip)+")":"PAGO EXACTO. SIN CAMBIO.";
+    changeGrid.innerHTML="";
+    resultDiv.style.display="block";
+    return;
+  }
+
+  const disp=available.map((n,i)=>Math.max(0,n-(reservaMinima[denominations[i].c]||0)));
+  let used=findSmartChange(targetChange,disp);
+  let tocaReserva=false;
+  if(!used){
+    used=findSmartChange(targetChange,available);
+    tocaReserva=!!used;
+  }
+  if(!used){
+    changeTotal.textContent="SIN CAMBIO ÓPTIMO PARA DEVOLVER "+moneyText(targetChange);
+    changeGrid.innerHTML="";
+    resultDiv.style.display="block";
+    return;
+  }
+  pendingTransaction={incoming,used,tip,tocaReserva};
+
+  let h="DEVOLVER: "+moneyText(targetChange);
+  if(tocaReserva)h+=" ⚠️ (toca reserva mínima)";
+  changeTotal.textContent=h;
+  changeGrid.innerHTML="";
+
+  // Render de piezas clickeables
+  used.forEach((n,i)=>{
+    if(n>0){
+      const d=denominations[i];
+      const it=document.createElement("div");
+      it.className="cash-item";
+      it.style.cursor="pointer";
+      it.title="Toca para quedarte con esta pieza como propina";
+      it.onclick=()=>quedarmeConPiezaDelCambio(d.c);
+      const bd=document.createElement("div");
+      bd.className="badge";
+      bd.textContent="x"+n;
+      const gr=document.createElement("div");
+      gr.className=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
+      gr.textContent=d.short;
+      it.appendChild(bd);
+      it.appendChild(gr);
+      changeGrid.appendChild(it);
+    }
+  });
+
+  // Aviso debajo
+  const aviso=document.createElement("div");
+  aviso.style.cssText="grid-column:1/-1;text-align:center;font-size:11px;color:#64748b;margin-top:10px;font-weight:700;letter-spacing:0.3px";
+  aviso.textContent="👆 Toca una pieza para quedártela como propina";
+  changeGrid.appendChild(aviso);
+
+  resultDiv.style.display="block";
+}
 
 function confirmTransaction(){if(!pendingTransaction){alert("Introduce un precio y el dinero recibido.");return}for(let i=0;i<stock.length;i++)stock[i]+=pendingTransaction.incoming[i]-pendingTransaction.used[i];if(pendingTransaction.tip>0){totalTips+=pendingTransaction.tip;saveTips()}statsOps.operations++;for(let i=0;i<denominations.length;i++){statsOps.received[i]+=pendingTransaction.incoming[i]||0;statsOps.spent[i]+=pendingTransaction.used[i]||0}saveStats();saveStock();renderStockList();received=[];pendingTransaction=null;document.getElementById("price").value="";document.getElementById("tip").value="";document.getElementById("changeResult").style.display="none";updateReceived();alert("¡Operación guardada!")}
 
@@ -1440,6 +1522,15 @@ function verDetalleDeposito(idx){
 
   document.getElementById("modalDetalleOk").onclick = () => m.remove();
   m.addEventListener("click", e => { if(e.target === m) m.remove(); });
+}
+
+function quedarmeConPiezaDelCambio(c){
+  const inp = document.getElementById("tip");
+  const actual = Math.round((parseFloat(inp.value.replace(',','.'))||0) * 100);
+  const nuevo = actual + c;
+  inp.value = (nuevo/100).toFixed(2);
+  calculate();
+  mostrarToast("✅ +" + moneyText(c) + " a propina");
 }
 
 init();

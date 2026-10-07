@@ -169,6 +169,7 @@ function calculate(){
     return;
   }
 
+  // Piezas que se devuelven al cliente (las no marcadas)
   const usedFinal = used.map((n,i)=>{
     const marc = propinasDelCambio[denominations[i].c] || 0;
     return Math.max(0, n - marc);
@@ -184,24 +185,27 @@ function calculate(){
   changeTotal.textContent=h;
   changeGrid.innerHTML="";
 
-  const titulo=document.createElement("div");
-  titulo.style.cssText="grid-column:1/-1;font-size:11px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:6px;text-align:left";
-  titulo.textContent = sumaPiezas>0 ? "👇 AJUSTA CUÁNTAS TE QUEDAS DE CADA TIPO" : "👇 TOCA PARA ELEGIR CUÁNTAS TE QUEDAS";
-  changeGrid.appendChild(titulo);
+  // ===== ZONA 1: PIEZAS A DEVOLVER =====
+  const tituloDevolver=document.createElement("div");
+  tituloDevolver.style.cssText="grid-column:1/-1;font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:6px;text-align:left";
+  tituloDevolver.textContent="💵 DEVUELVES AL CLIENTE · "+moneyText(devolverTotal);
+  changeGrid.appendChild(tituloDevolver);
 
-  used.forEach((n,i)=>{
+  let anyDevolver = false;
+  usedFinal.forEach((n,i)=>{
     if(n<=0) return;
+    anyDevolver = true;
     const d=denominations[i];
     const c=d.c;
-    const marcadas = propinasDelCambio[c]||0;
 
     const it=document.createElement("div");
     it.className="cash-item";
-    it.style.cssText="position:relative;border:2px solid "+(marcadas>0?"#f59e0b":"#334155")+";background:"+(marcadas>0?"#78350f":"transparent")+";padding:10px 6px;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:78px";
+    it.style.cssText="cursor:pointer;border:1px solid #334155";
+    it.title="Toca para quedártela como propina";
+    it.onclick=()=>subirMarca(c, used[i]);
 
     const bd=document.createElement("div");
     bd.className="badge";
-    if(marcadas>0){ bd.style.background="#f59e0b"; bd.style.color="#000"; }
     bd.textContent="x"+n;
 
     const gr=document.createElement("div");
@@ -210,44 +214,58 @@ function calculate(){
 
     it.appendChild(bd);
     it.appendChild(gr);
-
-    // Control − / contador / +
-    const ctrl=document.createElement("div");
-    ctrl.style.cssText="display:flex;align-items:center;gap:4px;margin-top:2px";
-
-    const bm=document.createElement("button");
-    bm.type="button";
-    bm.textContent="−";
-    bm.style.cssText="width:26px;height:26px;padding:0;background:#334155;color:#fff;border:none;border-radius:6px;font-size:16px;font-weight:900;cursor:pointer";
-    if(marcadas<=0){ bm.style.opacity="0.35"; bm.style.cursor="not-allowed"; }
-    bm.onclick=(e)=>{ e.stopPropagation(); bajarMarca(c); };
-
-    const cnt=document.createElement("div");
-    cnt.textContent=marcadas;
-    cnt.style.cssText="width:24px;text-align:center;font-size:16px;font-weight:900;color:"+(marcadas>0?"#fbbf24":"#475569");
-
-    const bp=document.createElement("button");
-    bp.type="button";
-    bp.textContent="+";
-    bp.style.cssText="width:26px;height:26px;padding:0;background:#334155;color:#fff;border:none;border-radius:6px;font-size:16px;font-weight:900;cursor:pointer";
-    if(marcadas>=n){ bp.style.opacity="0.35"; bp.style.cursor="not-allowed"; }
-    bp.onclick=(e)=>{ e.stopPropagation(); subirMarca(c, n); };
-
-    ctrl.appendChild(bm);
-    ctrl.appendChild(cnt);
-    ctrl.appendChild(bp);
-    it.appendChild(ctrl);
-
-    // Al tocar la ficha entera también sube (más rápido)
-    it.onclick=()=>{ if(marcadas<n) subirMarca(c,n); };
-
     changeGrid.appendChild(it);
   });
 
-  const resumen=document.createElement("div");
-  resumen.style.cssText="grid-column:1/-1;margin-top:14px;padding:10px;background:#0f172a;border-radius:8px;text-align:center;font-size:13px;color:#94a3b8;font-weight:700";
-  resumen.innerHTML="Devuelves al cliente: <b style='color:#4ade80;font-size:15px'>"+moneyText(devolverTotal)+"</b>";
-  changeGrid.appendChild(resumen);
+  if(!anyDevolver){
+    const vacio=document.createElement("div");
+    vacio.style.cssText="grid-column:1/-1;text-align:center;color:#64748b;font-size:12px;font-style:italic;padding:8px 0";
+    vacio.textContent="No devuelves nada en efectivo (todo va a propina)";
+    changeGrid.appendChild(vacio);
+  }
+
+  // ===== ZONA 2: TE QUEDAS CON =====
+  const propsKeys = Object.keys(propinasDelCambio).filter(k => propinasDelCambio[k] > 0);
+  if(propsKeys.length > 0){
+    const sep=document.createElement("div");
+    sep.style.cssText="grid-column:1/-1;height:1px;background:#334155;margin:14px 0 6px";
+    changeGrid.appendChild(sep);
+
+    let totalProps = 0;
+    propsKeys.forEach(k => { totalProps += parseInt(k) * propinasDelCambio[k]; });
+
+    const tituloProp=document.createElement("div");
+    tituloProp.style.cssText="grid-column:1/-1;font-size:11px;color:#fbbf24;font-weight:800;letter-spacing:0.5px;margin-bottom:6px;text-align:left";
+    tituloProp.textContent="💶 TE QUEDAS CON · "+moneyText(totalProps);
+    changeGrid.appendChild(tituloProp);
+
+    propsKeys.sort((a,b)=>parseInt(b)-parseInt(a)).forEach(k=>{
+      const c=parseInt(k);
+      const n=propinasDelCambio[c];
+      const d=denominations.find(x=>x.c===c);
+      if(!d) return;
+
+      const it=document.createElement("div");
+      it.className="cash-item";
+      it.style.cssText="cursor:pointer;background:#78350f;border:2px solid #f59e0b";
+      it.title="Toca para devolverlo al cambio";
+      it.onclick=()=>bajarMarca(c);
+
+      const bd=document.createElement("div");
+      bd.className="badge";
+      bd.style.background="#f59e0b";
+      bd.style.color="#000";
+      bd.textContent="x"+n;
+
+      const gr=document.createElement("div");
+      gr.className=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
+      gr.textContent=d.short;
+
+      it.appendChild(bd);
+      it.appendChild(gr);
+      changeGrid.appendChild(it);
+    });
+  }
 
   resultDiv.style.display="block";
 }
@@ -1615,9 +1633,9 @@ function verDetalleDeposito(idx){
   m.addEventListener("click", e => { if(e.target === m) m.remove(); });
 }
 
-function subirMarca(c, max){
+function subirMarca(c, maxTotal){
   const actual = propinasDelCambio[c]||0;
-  if(actual >= max) return;
+  if(actual >= maxTotal) return;
   propinasDelCambio[c] = actual + 1;
   calculate();
 }

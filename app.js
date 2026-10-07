@@ -99,8 +99,8 @@ function setAllTip(){
   const paid=received.reduce((a,b)=>a+b,0);
   if(paid>p&&p>0){
     propinasDelCambio = {};
-    tipManual = paid-p;
-    document.getElementById("tip").value=((paid-p)/100).toFixed(2);
+    tipManual = paid - p;
+    document.getElementById("tip").value = (tipManual/100).toFixed(2);
     calculate();
   }
 }
@@ -115,28 +115,27 @@ function calculate(){
   const rp=parseFloat(document.getElementById("price").value.replace(',','.'))||0;
   const price=Math.round(rp*100);
   const paid=received.reduce((a,b)=>a+b,0);
+
+  // El input SIEMPRE refleja la propina manual
+  const inputTip = Math.round((parseFloat(document.getElementById("tip").value.replace(',','.'))||0)*100);
+  tipManual = inputTip;
+
   const resultDiv=document.getElementById("changeResult");
   const changeTotal=document.getElementById("changeTotal");
   const changeGrid=document.getElementById("changeGrid");
   pendingTransaction=null;
 
-  // sincronizar tipManual con el input (si el usuario editó a mano)
-  const inputTip = Math.round((parseFloat(document.getElementById("tip").value.replace(',','.'))||0)*100);
-  const sumaPiezas = Object.keys(propinasDelCambio).reduce((s,k)=>s+parseInt(k)*propinasDelCambio[k],0);
-  if(inputTip !== tipManual + sumaPiezas){
-    // el usuario editó el input a mano
-    tipManual = Math.max(0, inputTip - sumaPiezas);
-  }
-
-  const tip = tipManual;
   if(price<=0||paid===0){resultDiv.style.display="none";return}
-  const totalCharge=price+tip;
-  if(paid<totalCharge){
+
+  // Cambio calculado SOLO con la propina manual (nunca con las piezas marcadas)
+  const totalCharge = price + tipManual;
+  if(paid < totalCharge){
     changeTotal.textContent="FALTAN "+moneyText(totalCharge-paid);
     changeGrid.innerHTML="";
     resultDiv.style.display="block";
     return;
   }
+
   const incoming=new Array(denominations.length).fill(0);
   received.forEach(c=>{
     const i=denominations.findIndex(d=>d.c===c);
@@ -145,9 +144,14 @@ function calculate(){
   const available=stock.map((n,i)=>n+incoming[i]);
   const targetChange=paid-totalCharge;
 
+  const sumaPiezas = Object.keys(propinasDelCambio).reduce((s,k)=>s+parseInt(k)*propinasDelCambio[k],0);
+  const propinaTotal = tipManual + sumaPiezas;
+
   if(targetChange===0){
-    pendingTransaction={incoming,used:new Array(denominations.length).fill(0),tip,tocaReserva:false};
-    changeTotal.textContent=tip>0?"PAGO EXACTO (Propina: "+moneyText(tip)+")":"PAGO EXACTO. SIN CAMBIO.";
+    pendingTransaction={incoming,used:new Array(denominations.length).fill(0),tip:propinaTotal,tocaReserva:false};
+    changeTotal.textContent = propinaTotal>0
+      ? "PAGO EXACTO · 💶 Propina: "+moneyText(propinaTotal)
+      : "PAGO EXACTO. SIN CAMBIO.";
     changeGrid.innerHTML="";
     resultDiv.style.display="block";
     return;
@@ -167,16 +171,14 @@ function calculate(){
     return;
   }
 
-  // Calcular qué se devuelve finalmente (restar las piezas que el usuario se queda)
+  // usedFinal = cambio original - piezas que se queda el usuario
   const usedFinal = used.map((n,i)=>{
-    const quitar = propinasDelCambio[denominations[i].c]||0;
-    return Math.max(0, n-quitar);
+    const marc = propinasDelCambio[denominations[i].c] || 0;
+    return Math.max(0, n - marc);
   });
 
-  // Calcular la propina total (manual + piezas)
-  const propinaTotal = tip + sumaPiezas;
+  const devolverTotal = usedFinal.reduce((s,n,i)=>s+n*denominations[i].c,0);
 
-  // Construir pending transaction (usamos used, que es el cambio completo, pero le restamos al confirmar)
   pendingTransaction={incoming,used:usedFinal,tip:propinaTotal,tocaReserva};
 
   let h="CAMBIO: "+moneyText(targetChange);
@@ -185,13 +187,13 @@ function calculate(){
   changeTotal.textContent=h;
   changeGrid.innerHTML="";
 
-  // Título devolver
+  // Título
   const titulo=document.createElement("div");
   titulo.style.cssText="grid-column:1/-1;font-size:11px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:6px;text-align:left";
-  titulo.textContent = sumaPiezas>0 ? "👇 TOCA PARA DEVOLVER AL CAMBIO" : "👇 TOCA UNA PIEZA PARA QUEDÁRTELA";
+  titulo.textContent = sumaPiezas>0 ? "👇 TOCA LAS PIEZAS ÁMBAR PARA DEVOLVERLAS AL CAMBIO" : "👇 TOCA UNA PIEZA PARA QUEDÁRTELA";
   changeGrid.appendChild(titulo);
 
-  // Piezas: mostrar todas, marcar las que el usuario se queda
+  // Render de cada pieza del cambio original
   used.forEach((n,i)=>{
     if(n>0){
       const d=denominations[i];
@@ -199,7 +201,7 @@ function calculate(){
       const marcadas = propinasDelCambio[c]||0;
       const normales = n - marcadas;
 
-      // Primero las normales
+      // Piezas normales (van al cambio)
       for(let k=0;k<normales;k++){
         const it=document.createElement("div");
         it.className="cash-item";
@@ -217,12 +219,11 @@ function calculate(){
         changeGrid.appendChild(it);
       }
 
-      // Luego las marcadas
+      // Piezas marcadas (te las quedas)
       for(let k=0;k<marcadas;k++){
         const it=document.createElement("div");
         it.className="cash-item";
         it.style.cssText="cursor:pointer;background:#78350f;border:2px solid #f59e0b";
-        it.title="Toca para devolver al cambio";
         it.onclick=()=>quitarPiezaPropina(c);
         const bd=document.createElement("div");
         bd.className="badge";
@@ -239,11 +240,10 @@ function calculate(){
     }
   });
 
-  // Resumen final
+  // Resumen
   const resumen=document.createElement("div");
   resumen.style.cssText="grid-column:1/-1;margin-top:14px;padding:10px;background:#0f172a;border-radius:8px;text-align:center;font-size:13px;color:#94a3b8;font-weight:700";
-  const devolver = usedFinal.reduce((s,n,i)=>s+n*denominations[i].c,0);
-  resumen.innerHTML = "Devuelves al cliente: <b style='color:#4ade80;font-size:15px'>"+moneyText(devolver)+"</b>";
+  resumen.innerHTML="Devuelves al cliente: <b style='color:#4ade80;font-size:15px'>"+moneyText(devolverTotal)+"</b>";
   changeGrid.appendChild(resumen);
 
   resultDiv.style.display="block";
@@ -1616,7 +1616,6 @@ function quedarmeConPiezaDelCambio(c, maxDisponible){
   const actual = propinasDelCambio[c]||0;
   if(actual >= maxDisponible) return;
   propinasDelCambio[c] = actual + 1;
-  sincronizarTipInput();
   calculate();
 }
 
@@ -1624,7 +1623,6 @@ function quitarPiezaPropina(c){
   if(!propinasDelCambio[c]) return;
   propinasDelCambio[c]--;
   if(propinasDelCambio[c]<=0) delete propinasDelCambio[c];
-  sincronizarTipInput();
   calculate();
 }
 

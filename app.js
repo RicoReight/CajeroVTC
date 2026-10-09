@@ -1658,6 +1658,40 @@ function sincronizarTipInput(){
   document.getElementById("tip").value = (total/100).toFixed(2);
 }
 
+/* ==================== RECIBIR IMAGEN COMPARTIDA ==================== */
+window.recibirImagenCompartida = async function(){
+  try {
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.Plugins || !Cap.Plugins.Filesystem){
+      console.warn('Plugin Filesystem no disponible');
+      return;
+    }
+    const Fs = Cap.Plugins.Filesystem;
+    const Directory = Cap.Plugins.Filesystem.Directory;
+
+    const res = await Fs.readFile({
+      path: 'shared_image.png',
+      directory: Directory.Data
+    });
+
+    const byteString = atob(res.data);
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for(let i=0;i<byteString.length;i++) ia[i]=byteString.charCodeAt(i);
+    const blob = new Blob([ab], { type: 'image/png' });
+
+    procesarImagenPrecio(blob);
+
+    await Fs.deleteFile({
+      path: 'shared_image.png',
+      directory: Directory.Data
+    }).catch(()=>{});
+  } catch(e){
+    console.warn('Error leyendo imagen compartida:', e);
+  }
+};
+/* ==================== FIN RECIBIR IMAGEN ==================== */
+
 // Control de barras del sistema (Android)
 setTimeout(async () => {
   try {

@@ -169,7 +169,6 @@ function calculate(){
     return;
   }
 
-  // usedFinal = cambio original menos las piezas marcadas
   const usedFinal = used.map((n,i)=>{
     const marc = propinasDelCambio[denominations[i].c] || 0;
     return Math.max(0, n - marc);
@@ -185,7 +184,6 @@ function calculate(){
   changeTotal.textContent=h;
   changeGrid.innerHTML="";
 
-  // ===== ZONA 1: PIEZAS A DEVOLVER =====
   const tituloDevolver=document.createElement("div");
   tituloDevolver.style.cssText="grid-column:1/-1;font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:6px;text-align:left";
   tituloDevolver.textContent="💵 DEVUELVES AL CLIENTE · "+moneyText(devolverTotal);
@@ -227,7 +225,6 @@ function calculate(){
     changeGrid.appendChild(vacio);
   }
 
-  // ===== ZONA 2: TE QUEDAS CON =====
   const propsKeys = Object.keys(propinasDelCambio).filter(k => propinasDelCambio[k] > 0);
   if(propsKeys.length > 0){
     const sep=document.createElement("div");
@@ -744,7 +741,6 @@ function añadirDepositoManual(){
   });
   const tienePiezas = sumaPiezas>0 && sumaPiezas===imp;
 
-  // Construir array usados (solo billetes, índices 0-4)
   const usados = [0,0,0,0,0];
   if(tienePiezas){
     piezas.forEach(p=>{
@@ -800,7 +796,6 @@ function renderMovimientoPantalla(){
   const st=movimientoState;
   let html="";
 
-  // Tipo Entrada / Salida
   html+="<div class='card' style='margin:0 0 12px 0'>";
   html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>TIPO DE MOVIMIENTO</div>";
   html+="<div style='display:flex;gap:8px'>";
@@ -808,7 +803,6 @@ function renderMovimientoPantalla(){
   html+="<button type='button' onclick='setTipoMovimiento(\"salida\")' style='flex:1;padding:16px;border-radius:10px;border:2px solid "+(st.tipo==="salida"?"#ef4444":"#475569")+";background:"+(st.tipo==="salida"?"linear-gradient(135deg,#7f1d1d,#991b1b)":"#1e293b")+";color:"+(st.tipo==="salida"?"#fca5a5":"#94a3b8")+";font-weight:900;cursor:pointer;font-size:16px;letter-spacing:0.5px;box-shadow:"+(st.tipo==="salida"?"0 0 0 3px rgba(239,68,68,0.25)":"none")+"'>📤 SALIDA</button>";
   html+="</div></div>";
 
-  // Motivo
   html+="<div class='card' style='margin:0 0 12px 0'>";
   html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>MOTIVO</div>";
 
@@ -831,7 +825,6 @@ function renderMovimientoPantalla(){
   }
   html+="</div>";
 
-  // Explicación
   let expl="", colorExp="#94a3b8", bgExp="#1e293b", titulo="";
   if(st.motivo==="propina"){ titulo="💶 Propina"; expl="Sube stock y suma a propinas."; colorExp="#a7f3d0"; bgExp="#064e3b"; }
   else if(st.motivo==="encontrado"){ titulo="🔍 Encontrado"; expl="Sube stock. NO suma a propinas."; colorExp="#ddd6fe"; bgExp="#4c1d95"; }
@@ -840,10 +833,8 @@ function renderMovimientoPantalla(){
   else if(st.motivo==="limpieza"){ titulo="🧽 Limpieza"; expl="Gasto de limpieza del coche. Resta stock."; colorExp="#bae6fd"; bgExp="#075985"; }
   html+="<div style='font-size:14px;color:"+colorExp+";padding:12px 14px;background:"+bgExp+";border-radius:8px;margin-bottom:14px;line-height:1.4;font-weight:800;letter-spacing:0.3px'>"+titulo+"<div style='font-size:12px;font-weight:600;color:"+colorExp+";opacity:0.85;margin-top:4px;line-height:1.35'>"+expl+"</div></div>";
 
-  // Piezas — tarjetas grandes
   html+="<div class='card' style='margin:0 0 12px 0'>";
   html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>PIEZAS · TOCA PARA AÑADIR</div>";
-
   html+="<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:8px'>";
 
   denominations.forEach(d=>{
@@ -869,7 +860,6 @@ function renderMovimientoPantalla(){
       if(n >= maxRemove) bloquearMas = true;
     }
 
-    // Color de fondo
     let bgCard = "#283548";
     let borderCard = "#475569";
     if(n > 0){
@@ -888,7 +878,6 @@ function renderMovimientoPantalla(){
 
     html+="<div "+onclick+" style='"+cardStyle+"'>";
 
-    // Fila superior: badge cantidad y botón −
     if(n > 0){
       html+="<div style='width:100%;display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;padding:0 2px'>";
       html+="<div style='min-width:26px;height:26px;padding:0 8px;border-radius:13px;background:#a78bfa;color:#0f172a;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #0f172a'>"+n+"</div>";
@@ -898,11 +887,8 @@ function renderMovimientoPantalla(){
       html+="<div style='height:4px'></div>";
     }
 
-    // Icono
     html+="<div class='"+gc+"' style='font-size:13px;flex-shrink:0'>"+d.short+"</div>";
-    // Nombre
     html+="<div style='font-size:14px;font-weight:900;color:#fff;letter-spacing:0.3px'>"+d.n+"</div>";
-    // Info
     html+="<div style='font-size:10px;color:#94a3b8;font-weight:700;line-height:1.2'>tienes "+stockAct+(limiteInfo?" · "+limiteInfo:"")+"</div>";
 
     html+="</div>";
@@ -910,7 +896,6 @@ function renderMovimientoPantalla(){
 
   html+="</div></div>";
 
-  // Total
   let total=0;
   denominations.forEach(d=>{ total += (st.piezas[d.c]||0) * d.c; });
   html+="<div class='card' style='margin:0 0 12px 0;text-align:center;background:#1e293b;border:1px solid #475569'>";
@@ -994,7 +979,6 @@ function confirmarMovimiento(){
   });
   saveStats();
 
-  // Solo la propina real sube el acumulador de propinas
   if(motivo==="propina"){
     totalTips += total;
     saveTips();
@@ -1057,7 +1041,6 @@ function renderDiagnostico(){
     html+="</div>";
   }
 
-  // Movimientos manuales
   let totalIn=0, totalOut=0;
   denominations.forEach((d,i)=>{
     totalIn += (statsOps.manualIn[i]||0) * d.c;
@@ -1145,16 +1128,161 @@ function actualizarCambioInicio(){
 function deshacerCambioEntregar(){if(!cambioState.orden)cambioState.orden=[];const last=cambioState.orden.pop();if(last==null)return;if(cambioState.aEntregar[last]>0){cambioState.aEntregar[last]--;if(cambioState.aEntregar[last]<=0)delete cambioState.aEntregar[last]}actualizarCambioInicio()}
 function resetCambioEntregar(){cambioState.aEntregar={};cambioState.orden=[];actualizarCambioInicio()}
 
-function calcularCambio(){let tot=0;Object.keys(cambioState.aEntregar).forEach(c=>{tot+=parseInt(c)*cambioState.aEntregar[c]});if(tot<=0){alert("Selecciona algún billete.");return}let err=false;Object.keys(cambioState.aEntregar).forEach(k=>{const c=parseInt(k);const i=denominations.findIndex(d=>d.c===c);if(i>=0&&stock[i]<cambioState.aEntregar[c])err=true});if(err){alert("No tienes tantas piezas de ese tipo.");return}const minE=Math.min(...Object.keys(cambioState.aEntregar).map(x=>parseInt(x)));if(statsOps.operations<10){cambioState.modo="manual";cambioState.sinDatos=true;cambioState.aRecibir={};cambioState.ordenRecibir=[];renderCambioManual(tot,minE);return}cambioState.modo="auto";cambioState.sinDatos=false;cambioState.aRecibir=calcularCambioAutomatico(tot,minE);renderCambioResultado(tot)}
+function calcularCambio(){
+  let tot=0;
+  Object.keys(cambioState.aEntregar).forEach(c=>{tot+=parseInt(c)*cambioState.aEntregar[c]});
+  if(tot<=0){alert("Selecciona alguna pieza.");return}
+  let err=false;
+  Object.keys(cambioState.aEntregar).forEach(k=>{
+    const c=parseInt(k);
+    const i=denominations.findIndex(d=>d.c===c);
+    if(i>=0 && stock[i] < cambioState.aEntregar[c]) err=true;
+  });
+  if(err){alert("No tienes tantas piezas de ese tipo.");return}
 
-function renderCambioManual(total,minEnt){const cont=document.getElementById("cambioContenido");if(!cont)return;const minE=minEnt!=null?minEnt:Math.min(...Object.keys(cambioState.aEntregar).map(x=>parseInt(x)));const opc=denominations.filter(d=>d.c<minE);let html="";if(cambioState.sinDatos){html+="<div class='card' style='margin:0 0 12px 0;background:#1e3a8a;border:1px solid #3b82f6'><div style='font-size:13px;color:#bfdbfe;font-weight:800;margin-bottom:6px'>🧠 Aún no tengo datos suficientes</div><div style='font-size:12px;color:#93c5fd;line-height:1.5'>Necesito al menos <b>10 operaciones</b> para sugerirte. De momento elige a mano.<br><br>Llevas <b>"+statsOps.operations+"</b> operaciones.</div></div>"}html+="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>✍️ ELIGE A MANO</div><div style='font-size:12px;color:#64748b;margin-bottom:10px'>Marca las piezas que quieres recibir. La suma debe ser "+moneyText(total)+".</div><div id='cambioManBotones' style='display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px'></div></div><div class='card' style='margin:0 0 12px 0'><div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:6px'><span style='font-size:13px;color:#94a3b8'>Suma actual:</span><span id='cambioManSuma' style='font-size:18px;font-weight:900;color:#38bdf8'>0,00 €</span></div><div style='display:flex;justify-content:space-between;align-items:center'><span style='font-size:13px;color:#94a3b8'>Objetivo:</span><span style='font-size:18px;font-weight:900;color:#4ade80'>"+moneyText(total)+"</span></div><div id='cambioManEstado' style='text-align:center;font-size:13px;font-weight:700;margin-top:10px'></div></div><button type='button' onclick='confirmarCambio("+total+")' id='cambioManBtn' style='width:100%;background:#059669;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>✅ Confirmar cambio</button><div style='display:flex;gap:8px;margin-bottom:8px'><button type='button' onclick='deshacerCambioRecibir("+total+")' style='flex:1;background:#78350f;color:#fbbf24;border:1px solid #b45309;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>↩ Deshacer</button><button type='button' onclick='resetCambioManual("+total+")' style='flex:1;background:#7f1d1d;color:#fff;border:1px solid #b91c1c;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>🗑️ Limpiar</button></div><button type='button' onclick='cerrarCambioPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button>";cont.innerHTML=html;const bot=document.getElementById("cambioManBotones");opc.forEach(d=>{const idx=denominations.findIndex(x=>x.c===d.c);const sa=stock[idx]||0;const wrap=document.createElement("div");wrap.style.cssText="position:relative";const b=document.createElement("button");b.type="button";b.innerHTML="<div style='font-size:13px;font-weight:800'>"+d.n+"</div><div style='font-size:10px;color:#94a3b8;font-weight:600;margin-top:2px'>tienes "+sa+"</div>";b.style.cssText="width:100%;background:#283548;border:1px solid #475569;color:#fff;padding:8px 4px;border-radius:10px;cursor:pointer";b.onclick=()=>{cambioState.aRecibir[d.c]=(cambioState.aRecibir[d.c]||0)+1;if(!cambioState.ordenRecibir)cambioState.ordenRecibir=[];cambioState.ordenRecibir.push(d.c);actualizarCambioManual(total)};const bd=document.createElement("div");bd.id="cambioManBadge"+d.c;bd.style.cssText="position:absolute;top:-6px;right:-6px;background:#38bdf8;color:#0f172a;font-size:11px;font-weight:900;padding:2px 6px;border-radius:10px;display:none";wrap.appendChild(b);wrap.appendChild(bd);bot.appendChild(wrap)});actualizarCambioManual(total)}
+  const piezasEntregadas = Object.keys(cambioState.aEntregar)
+    .map(k=>parseInt(k))
+    .filter(c=>cambioState.aEntregar[c]>0);
+  const soloMonedas = piezasEntregadas.every(c => c <= 200);
+  const minE = piezasEntregadas.length ? Math.min(...piezasEntregadas) : 99999;
+
+  if(statsOps.operations<10){
+    cambioState.modo="manual";
+    cambioState.sinDatos=true;
+    cambioState.aRecibir={};
+    cambioState.ordenRecibir=[];
+    renderCambioManual(tot, minE, soloMonedas);
+    return;
+  }
+  cambioState.modo="auto";
+  cambioState.sinDatos=false;
+  cambioState.aRecibir=calcularCambioAutomatico(tot, soloMonedas, minE);
+  renderCambioResultado(tot);
+}
+
+function renderCambioManual(total,minEnt){
+  const cont=document.getElementById("cambioContenido");
+  if(!cont)return;
+  const minE=minEnt!=null?minEnt:Math.min(...Object.keys(cambioState.aEntregar).map(x=>parseInt(x)));
+
+  const piezasEntregadas = Object.keys(cambioState.aEntregar).map(k=>parseInt(k)).filter(c=>cambioState.aEntregar[c]>0);
+  const soloMonedas = piezasEntregadas.length > 0 && piezasEntregadas.every(c => c <= 200);
+  const opc = soloMonedas ? denominations.slice() : denominations.filter(d => d.c < minE);
+
+  let html="";
+  if(cambioState.sinDatos){
+    html+="<div class='card' style='margin:0 0 12px 0;background:#1e3a8a;border:1px solid #3b82f6'><div style='font-size:13px;color:#bfdbfe;font-weight:800;margin-bottom:6px'>🧠 Aún no tengo datos suficientes</div><div style='font-size:12px;color:#93c5fd;line-height:1.5'>Necesito al menos <b>10 operaciones</b> para sugerirte. De momento elige a mano.<br><br>Llevas <b>"+statsOps.operations+"</b> operaciones.</div></div>";
+  }
+  html+="<div class='card' style='margin:0 0 12px 0'>";
+  html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>✍️ ELIGE A MANO</div>";
+  html+="<div style='font-size:12px;color:#64748b;margin-bottom:10px'>Marca las piezas que quieres recibir. La suma debe ser "+moneyText(total)+".</div>";
+  if(soloMonedas){
+    html+="<div style='font-size:11px;color:#fbbf24;font-weight:700;margin-bottom:10px;padding:6px 10px;background:#78350f;border-radius:8px'>💡 Entregas monedas: puedes pedir cualquier pieza, incluso un billete más grande.</div>";
+  }
+  html+="<div id='cambioManBotones' style='display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px'></div></div>";
+  html+="<div class='card' style='margin:0 0 12px 0'><div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:6px'><span style='font-size:13px;color:#94a3b8'>Suma actual:</span><span id='cambioManSuma' style='font-size:18px;font-weight:900;color:#38bdf8'>0,00 €</span></div><div style='display:flex;justify-content:space-between;align-items:center'><span style='font-size:13px;color:#94a3b8'>Objetivo:</span><span style='font-size:18px;font-weight:900;color:#4ade80'>"+moneyText(total)+"</span></div><div id='cambioManEstado' style='text-align:center;font-size:13px;font-weight:700;margin-top:10px'></div></div>";
+  html+="<button type='button' onclick='confirmarCambio("+total+")' id='cambioManBtn' style='width:100%;background:#059669;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>✅ Confirmar cambio</button>";
+  html+="<div style='display:flex;gap:8px;margin-bottom:8px'><button type='button' onclick='deshacerCambioRecibir("+total+")' style='flex:1;background:#78350f;color:#fbbf24;border:1px solid #b45309;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>↩ Deshacer</button><button type='button' onclick='resetCambioManual("+total+")' style='flex:1;background:#7f1d1d;color:#fff;border:1px solid #b91c1c;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>🗑️ Limpiar</button></div>";
+  html+="<button type='button' onclick='cerrarCambioPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button>";
+  cont.innerHTML=html;
+  const bot=document.getElementById("cambioManBotones");
+  opc.forEach(d=>{
+    const idx=denominations.findIndex(x=>x.c===d.c);
+    const sa=stock[idx]||0;
+    const wrap=document.createElement("div");
+    wrap.style.cssText="position:relative";
+    const b=document.createElement("button");
+    b.type="button";
+    b.innerHTML="<div style='font-size:13px;font-weight:800'>"+d.n+"</div><div style='font-size:10px;color:#94a3b8;font-weight:600;margin-top:2px'>tienes "+sa+"</div>";
+    b.style.cssText="width:100%;background:#283548;border:1px solid #475569;color:#fff;padding:8px 4px;border-radius:10px;cursor:pointer";
+    b.onclick=()=>{
+      cambioState.aRecibir[d.c]=(cambioState.aRecibir[d.c]||0)+1;
+      if(!cambioState.ordenRecibir)cambioState.ordenRecibir=[];
+      cambioState.ordenRecibir.push(d.c);
+      actualizarCambioManual(total);
+    };
+    const bd=document.createElement("div");
+    bd.id="cambioManBadge"+d.c;
+    bd.style.cssText="position:absolute;top:-6px;right:-6px;background:#38bdf8;color:#0f172a;font-size:11px;font-weight:900;padding:2px 6px;border-radius:10px;display:none";
+    wrap.appendChild(b);
+    wrap.appendChild(bd);
+    bot.appendChild(wrap);
+  });
+  actualizarCambioManual(total);
+}
 function resetCambioManual(total){cambioState.aRecibir={};cambioState.ordenRecibir=[];renderCambioManual(total)}
 function deshacerCambioRecibir(total){if(!cambioState.ordenRecibir)cambioState.ordenRecibir=[];const last=cambioState.ordenRecibir.pop();if(last==null)return;if(cambioState.aRecibir[last]>0){cambioState.aRecibir[last]--;if(cambioState.aRecibir[last]<=0)delete cambioState.aRecibir[last]}actualizarCambioManual(total)}
 function actualizarCambioManual(total){let s=0;denominations.forEach(d=>{const n=cambioState.aRecibir[d.c]||0;s+=d.c*n;const bd=document.getElementById("cambioManBadge"+d.c);if(bd){if(n>0){bd.textContent="x"+n;bd.style.display="block"}else bd.style.display="none"}});const el=document.getElementById("cambioManSuma");if(el)el.textContent=moneyText(s);const est=document.getElementById("cambioManEstado");const btn=document.getElementById("cambioManBtn");if(est&&btn){if(s===total){est.innerHTML="<span style='color:#4ade80'>✅ Cuadra perfectamente</span>";btn.style.opacity="1";btn.style.pointerEvents="auto"}else if(s<total){est.innerHTML="<span style='color:#fbbf24'>⚠️ Te faltan "+moneyText(total-s)+"</span>";btn.style.opacity="0.5";btn.style.pointerEvents="none"}else{est.innerHTML="<span style='color:#ef4444'>⚠️ Te pasas por "+moneyText(s-total)+"</span>";btn.style.opacity="0.5";btn.style.pointerEvents="none"}}}
 
 function confirmarCambio(total){let s=0;denominations.forEach(d=>{s+=d.c*(cambioState.aRecibir[d.c]||0)});if(s!==total){alert("La suma no cuadra.");return}if(!confirm("¿Confirmar el cambio?"))return;Object.keys(cambioState.aEntregar).forEach(k=>{const c=parseInt(k);const n=cambioState.aEntregar[c];const i=denominations.findIndex(d=>d.c===c);if(i>=0&&n>0){stock[i]=Math.max(0,stock[i]-n);statsOps.cambioNeto[i]-=n}});denominations.forEach(d=>{const n=cambioState.aRecibir[d.c]||0;if(n>0){const i=denominations.findIndex(x=>x.c===d.c);if(i>=0){stock[i]=Math.max(0,stock[i]+n);statsOps.cambioNeto[i]+=n}}});saveStats();const cm=loadCambios();cm.push({fecha:new Date().toISOString(),aEntregar:Object.assign({},cambioState.aEntregar),aRecibir:Object.assign({},cambioState.aRecibir),total});saveCambios(cm);saveStock();renderStockList();updateCashSummary();alert("✅ Cambio confirmado.");cerrarCambioPantalla()}
 
-function calcularCambioAutomatico(total,bmp){const cand=denominations.filter(d=>d.c<bmp);const tope={};denominations.forEach((d,i)=>{const sa=stock[i]||0;let t=(topesRecibir[d.c]!=null)?topesRecibir[d.c]:5;if(sa>=30)t=0;else if(sa>=20)t=Math.min(t,1);else if(sa>=10)t=Math.min(t,2);else if(sa<=3)t=Math.min(t+3,12);else if(sa<=6)t=Math.min(t+1,10);tope[d.c]=t});let r=total;const prop={};const grupos=[cand.filter(d=>d.c>=1000).sort((a,b)=>b.c-a.c),cand.filter(d=>d.c>=100&&d.c<1000).sort((a,b)=>b.c-a.c),cand.filter(d=>d.c>=10&&d.c<100).sort((a,b)=>b.c-a.c),cand.filter(d=>d.c<10).sort((a,b)=>b.c-a.c)];grupos.forEach(g=>{g.forEach(d=>{if(r<=0)return;const t=tope[d.c]||0;if(t<=0)return;const c=Math.min(Math.floor(r/d.c),t);if(c>0){prop[d.c]=(prop[d.c]||0)+c;r-=c*d.c}})});if(r>0){const desc=cand.slice().sort((a,b)=>b.c-a.c);for(const d of desc){if(r<=0)break;const i=denominations.findIndex(x=>x.c===d.c);if(stock[i]>40)continue;const c=Math.floor(r/d.c);if(c>0){prop[d.c]=(prop[d.c]||0)+c;r-=c*d.c}}}return prop}
+function calcularCambioAutomatico(total, juntar, minE){
+  let cand;
+  if(juntar){
+    cand = [...denominations].sort((a,b)=>b.c-a.c);
+  } else {
+    cand = denominations.filter(d => d.c < minE).sort((a,b)=>b.c-a.c);
+  }
+
+  if(juntar){
+    for(const d of cand){
+      if(d.c === total){
+        const i = denominations.findIndex(x=>x.c===d.c);
+        if((stock[i]||0) > 0){
+          return { [d.c]: 1 };
+        }
+      }
+    }
+  }
+
+  const tope = {};
+  denominations.forEach((d,i)=>{
+    const sa = stock[i] || 0;
+    let t = (topesRecibir[d.c]!=null) ? topesRecibir[d.c] : 5;
+
+    if(juntar){
+      t = Math.max(0, sa);
+    } else {
+      if(sa>=30) t=0;
+      else if(sa>=20) t=Math.min(t,1);
+      else if(sa>=10) t=Math.min(t,2);
+      else if(sa<=3) t=Math.min(t+3,12);
+      else if(sa<=6) t=Math.min(t+1,10);
+    }
+    tope[d.c] = t;
+  });
+
+  let r = total;
+  const prop = {};
+
+  cand.forEach(d=>{
+    if(r <= 0) return;
+    const i = denominations.findIndex(x=>x.c===d.c);
+    const t = tope[d.c] || 0;
+    if(t <= 0) return;
+    const c = Math.min(Math.floor(r/d.c), t);
+    if(c > 0){
+      prop[d.c] = (prop[d.c]||0) + c;
+      r -= c*d.c;
+    }
+  });
+
+  if(r > 0 && !juntar){
+    const desc = cand.slice();
+    for(const d of desc){
+      if(r <= 0) break;
+      const i = denominations.findIndex(x=>x.c===d.c);
+      if(stock[i] > 40) continue;
+      const c = Math.floor(r/d.c);
+      if(c > 0){
+        prop[d.c] = (prop[d.c]||0) + c;
+        r -= c*d.c;
+      }
+    }
+  }
+
+  return prop;
+}
 
 function renderCambioResultado(total){const cont=document.getElementById("cambioContenido");if(!cont)return;let html="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:12px'>🤖 PROPUESTA BASADA EN TUS HÁBITOS</div><div style='font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>ENTREGAS AL BANCO</div><div class='change-grid'>";Object.keys(cambioState.aEntregar).forEach(k=>{const c=parseInt(k);const n=cambioState.aEntregar[c];if(n>0){const d=denominations.find(x=>x.c===c);if(d)html+="<div class='cash-item'><div class='badge'>x"+n+"</div><div class='bill-graphic "+d.class+"'>"+d.short+"</div></div>"}});html+="</div><div style='font-size:12px;color:#38bdf8;font-weight:800;letter-spacing:0.5px;margin:16px 0 8px;padding-top:14px;border-top:1px solid #334155'>PIDE QUE TE DEVUELVAN</div><div class='change-grid'>";const ord=Object.keys(cambioState.aRecibir).map(k=>parseInt(k)).filter(c=>cambioState.aRecibir[c]>0).sort((a,b)=>b-a);ord.forEach(c=>{const n=cambioState.aRecibir[c];const d=denominations.find(x=>x.c===c);if(d){const cl=d.type==="bill"?"bill-graphic ":"coin-graphic ";html+="<div class='cash-item'><div class='badge'>x"+n+"</div><div class='"+cl+d.class+"'>"+d.short+"</div></div>"}});html+="</div><div style='display:flex;justify-content:space-between;padding:14px 0 0;margin-top:14px;border-top:1px solid #334155;font-size:16px;color:#fff'><span style='font-weight:800'>Total:</span><span style='font-weight:900;color:#4ade80'>"+moneyText(total)+"</span></div></div><button type='button' onclick='confirmarCambio("+total+")' style='width:100%;background:#059669;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>✅ Confirmar cambio</button><button type='button' onclick='pasarAModoManual("+total+")' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>✍️ Ajustar a mano</button><button type='button' onclick='cerrarCambioPantalla()' style='width:100%;background:#1e293b;color:#94a3b8;border:1px solid #475569;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button>";cont.innerHTML=html}
 
@@ -1166,6 +1294,42 @@ function configuracionRecomendada(){const ops=statsOps.operations;let v=20;if(op
 
 function calcularFaltantes(v,c){const ops=statsOps.operations;const fal=[],obj={};denominations.forEach((d,i)=>{const sa=stock[i]||0;const t=(topesRecibir[d.c]||0);const limSup=Math.max(1,Math.floor(t*FACTOR_LLENADO));let o;if(ops>=5){const gm=statsOps.spent[i]/ops;o=Math.ceil(gm*v)+c}else{const ba=ARRANQUE[d.c]||0;o=Math.ceil(ba*(v/20))+c}o=Math.min(o,limSup);obj[d.c]=o;const falta=Math.max(0,o-sa);if(falta>0)fal.push({d,index:i,falta})});const total=fal.reduce((s,x)=>s+x.falta*x.d.c,0);return{faltantes:fal,total}}
 
+/* ==================== INTERCAMBIOS RECOMENDADOS ==================== */
+function calcularIntercambiosRecomendados(){
+  const ops = statsOps.operations;
+  if(ops < 10) return { sobran: [], totalSobra: 0 };
+
+  const sobran = [];
+  let totalSobra = 0;
+
+  denominations.forEach((d, i) => {
+    const sa = stock[i] || 0;
+    const t = topesRecibir[d.c] || 0;
+    const objetivo = Math.floor(t * FACTOR_LLENADO);
+    const aR = statsOps.received[i] / ops;
+    const aS = statsOps.spent[i] / ops;
+
+    if (objetivo < 5) return;
+    if (sa <= objetivo) return;
+
+    const ratio = aS > 0 ? (aR / aS) : (aR > 0 ? 99 : 0);
+    if (ratio < 1.2 && sa < objetivo * 1.3) return;
+
+    const cantidad = sa - objetivo;
+    sobran.push({
+      d, index: i, cantidad,
+      stock: sa, objetivo,
+      ratioRecibeGasta: ratio
+    });
+    totalSobra += cantidad * d.c;
+  });
+
+  sobran.sort((a, b) => (b.cantidad * b.d.c) - (a.cantidad * a.d.c));
+
+  return { sobran, totalSobra };
+}
+/* ==================== FIN INTERCAMBIOS ==================== */
+
 function abrirReponerPantalla(){const d=document.getElementById("drawer"),o=document.getElementById("overlay");if(d)d.classList.remove("active");if(o)o.classList.remove("active");const p=document.getElementById("reponerPantalla");if(p)p.style.display="block";reponerState.manualInicializado=false;reponerState.manualAdd={};reponerState.importeManual=0;renderReponerInicio()}
 function cerrarReponerPantalla(){const p=document.getElementById("reponerPantalla");if(p)p.style.display="none"}
 function abrirReponerDesdeDeposito(){cerrarCierrePantalla();abrirReponerPantalla()}
@@ -1174,7 +1338,73 @@ function renderReponerInicio(){const cont=document.getElementById("reponerConten
 
 function cambiarModoReponer(modo){reponerState.modo=modo;if(modo==="manual"){if(Object.keys(reponerState.manualAdd).length===0)denominations.forEach(d=>{reponerState.manualAdd[d.c]=0});if(reponerState.importeManual>0)setTimeout(()=>onCambioImporteManual(),0)}renderReponerInicio()}
 
-function actualizarReponerPropuesta(){const zona=document.getElementById("reponerDinamico"),btn=document.getElementById("reponerBtnConfirmar");if(!zona)return;const rec=configuracionRecomendada();const {faltantes,total}=calcularFaltantes(rec.viajes,rec.colchon);if(!faltantes.length){zona.innerHTML="<div class='card' style='margin:0 0 12px 0;text-align:center'><div style='font-size:48px;margin-bottom:12px'>✅</div><div style='font-size:16px;color:#4ade80;font-weight:800;margin-bottom:8px'>Caja suficiente</div><div style='font-size:13px;color:#94a3b8;line-height:1.6'>Con tu gasto actual tienes cambio suficiente. No necesitas ir al banco.</div></div>";if(btn)btn.style.display="none";return}if(btn)btn.style.display="block";let html="<div class='card' style='margin:0 0 12px 0;text-align:center;background:#1e3a8a;border:1px solid #3b82f6'><div style='font-size:12px;color:#bfdbfe;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>🏦 SACA DEL BANCO</div><div id='reponerTotal' style='font-size:38px;font-weight:900;color:#fff'>"+moneyText(total)+"</div><div style='font-size:12px;color:#bfdbfe;margin-top:6px'>Pulsa cada pieza para marcarla/desmarcarla</div></div><div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>📋 DESGLOSE A PEDIR</div>";const b=faltantes.filter(x=>x.d.type==="bill").sort((a,b)=>b.d.c-a.d.c);const m=faltantes.filter(x=>x.d.type==="coin").sort((a,b)=>b.d.c-a.d.c);const rowF=x=>{const d=x.d,c=d.c;const marc=reponerState.marcados[c]!==false;const imp=x.falta*c;const gc=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;return"<label style='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155;cursor:pointer'><input type='checkbox' data-c='"+c+"' "+(marc?"checked":"")+" onchange='toggleMarcadoReponer(this)' style='width:22px;height:22px;cursor:pointer;flex-shrink:0'><div class='"+gc+"' style='flex-shrink:0'>"+d.short+"</div><div style='flex:1;min-width:0'><div class='reponerFila' style='font-size:15px;font-weight:800;color:"+(marc?"#fff":"#475569")+"'>"+x.falta+" × "+d.n+"</div><div style='font-size:12px;color:#94a3b8'>"+moneyText(imp)+"</div></div></label>"};if(b.length){html+="<div style='font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin:6px 0 4px'>💵 BILLETES</div>";b.forEach(x=>{html+=rowF(x)})}if(m.length){html+="<div style='font-size:11px;color:#facc15;font-weight:800;letter-spacing:0.5px;margin:12px 0 4px'>🪙 MONEDAS</div>";m.forEach(x=>{html+=rowF(x)})}html+="</div>";zona.innerHTML=html}
+function actualizarReponerPropuesta(){
+  const zona=document.getElementById("reponerDinamico"),btn=document.getElementById("reponerBtnConfirmar");
+  if(!zona)return;
+  const rec=configuracionRecomendada();
+  const {faltantes,total}=calcularFaltantes(rec.viajes,rec.colchon);
+  const {sobran,totalSobra}=calcularIntercambiosRecomendados();
+
+  let html="";
+
+  if(!faltantes.length){
+    html+="<div class='card' style='margin:0 0 12px 0;text-align:center'><div style='font-size:48px;margin-bottom:12px'>✅</div><div style='font-size:16px;color:#4ade80;font-weight:800;margin-bottom:8px'>Caja suficiente</div><div style='font-size:13px;color:#94a3b8;line-height:1.6'>Con tu gasto actual tienes cambio suficiente. No necesitas ir al banco.</div></div>";
+    if(btn)btn.style.display="none";
+  } else {
+    if(btn)btn.style.display="block";
+    html+="<div class='card' style='margin:0 0 12px 0;text-align:center;background:#1e3a8a;border:1px solid #3b82f6'>";
+    html+="<div style='font-size:12px;color:#bfdbfe;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>🏦 SACA DEL BANCO</div>";
+    html+="<div id='reponerTotal' style='font-size:38px;font-weight:900;color:#fff'>"+moneyText(total)+"</div>";
+    html+="<div style='font-size:12px;color:#bfdbfe;margin-top:6px'>Pulsa cada pieza para marcarla/desmarcarla</div>";
+    html+="</div>";
+    html+="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>📋 DESGLOSE A PEDIR</div>";
+
+    const b=faltantes.filter(x=>x.d.type==="bill").sort((a,b)=>b.d.c-a.d.c);
+    const m=faltantes.filter(x=>x.d.type==="coin").sort((a,b)=>b.d.c-a.d.c);
+    const rowF=x=>{
+      const d=x.d,c=d.c;
+      const marc=reponerState.marcados[c]!==false;
+      const imp=x.falta*c;
+      const gc=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
+      return"<label style='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155;cursor:pointer'><input type='checkbox' data-c='"+c+"' "+(marc?"checked":"")+" onchange='toggleMarcadoReponer(this)' style='width:22px;height:22px;cursor:pointer;flex-shrink:0'><div class='"+gc+"' style='flex-shrink:0'>"+d.short+"</div><div style='flex:1;min-width:0'><div class='reponerFila' style='font-size:15px;font-weight:800;color:"+(marc?"#fff":"#475569")+"'>"+x.falta+" × "+d.n+"</div><div style='font-size:12px;color:#94a3b8'>"+moneyText(imp)+"</div></div></label>";
+    };
+    if(b.length){html+="<div style='font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin:6px 0 4px'>💵 BILLETES</div>";b.forEach(x=>{html+=rowF(x)})}
+    if(m.length){html+="<div style='font-size:11px;color:#facc15;font-weight:800;letter-spacing:0.5px;margin:12px 0 4px'>🪙 MONEDAS</div>";m.forEach(x=>{html+=rowF(x)})}
+    html+="</div>";
+  }
+
+  if(sobran.length > 0){
+    html+="<div class='card' style='margin:0 0 12px 0;background:#1e293b;border:1px solid #7c3aed'>";
+    html+="<div style='font-size:12px;color:#c4b5fd;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>🔄 TE ACONSEJO CAMBIAR</div>";
+    html+="<div style='font-size:12px;color:#94a3b8;margin-bottom:10px;line-height:1.4'>Estas piezas las <b style='color:#c4b5fd'>acumulas porque las gastas poco</b>. Llévalas a <b>Cambiar billete o monedas</b> para conseguir otras más útiles.</div>";
+
+    sobran.slice(0, 8).forEach(x => {
+      const gc = (x.d.type==="bill"?"bill-graphic ":"coin-graphic ")+x.d.class;
+      html += "<div style='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155'>";
+      html += "<div class='"+gc+"' style='flex-shrink:0;font-size:12px'>"+x.d.short+"</div>";
+      html += "<div style='flex:1;min-width:0'>";
+      html += "<div style='font-size:14px;color:#fff;font-weight:800'>"+x.cantidad+" × "+x.d.n+"</div>";
+      html += "<div style='font-size:11px;color:#94a3b8;margin-top:2px'>Tienes "+x.stock+" · objetivo "+x.objetivo+"</div>";
+      html += "</div>";
+      html += "<div style='font-size:13px;font-weight:900;color:#c4b5fd'>"+moneyText(x.cantidad * x.d.c)+"</div>";
+      html += "</div>";
+    });
+
+    if(sobran.length > 8){
+      html += "<div style='text-align:center;font-size:11px;color:#64748b;margin-top:8px'>...y "+(sobran.length-8)+" más</div>";
+    }
+
+    html += "<div style='margin-top:12px;padding:10px;background:#4c1d95;border-radius:8px;text-align:center'>";
+    html += "<div style='font-size:12px;color:#c4b5fd;font-weight:800'>TOTAL A CAMBIAR</div>";
+    html += "<div style='font-size:22px;font-weight:900;color:#fff;margin-top:4px'>"+moneyText(totalSobra)+"</div>";
+    html += "</div>";
+
+    html += "<button type='button' onclick='cerrarReponerPantalla();abrirCambioPantalla()' style='width:100%;margin-top:12px;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer'>🔀 IR A CAMBIAR BILLETE O MONEDAS</button>";
+    html += "</div>";
+  }
+
+  zona.innerHTML = html;
+}
 
 function toggleMarcadoReponer(cb){const c=parseInt(cb.dataset.c);reponerState.marcados[c]=cb.checked;const rec=configuracionRecomendada();const {faltantes}=calcularFaltantes(rec.viajes,rec.colchon);let nt=0;faltantes.forEach(x=>{if(reponerState.marcados[x.d.c]!==false)nt+=x.falta*x.d.c});const el=document.getElementById("reponerTotal");if(el)el.textContent=moneyText(nt);const div=cb.parentElement.querySelector(".reponerFila");if(div)div.style.color=cb.checked?"#fff":"#475569"}
 
@@ -1218,23 +1448,14 @@ function actualizarReponerManual(){
       const subtotalColor = subtotal > 0 ? "#4ade80" : "#475569";
 
       html += "<div style='display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #1e293b'>";
-
-      // Icono grande
       html += "<div class='"+gc+"' style='flex-shrink:0;font-size:14px'>"+d.short+"</div>";
-
-      // Nombre
       html += "<div style='flex:1;min-width:0;font-size:15px;color:#fff;font-weight:800'>"+d.n+alerta+"</div>";
-
-      // Controles
       html += "<div style='display:flex;align-items:center;gap:6px;flex-shrink:0'>";
       html += "<button type='button' onclick='ajustarManualReponer("+d.c+",-1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:pointer'>−</button>";
       html += "<div style='width:44px;text-align:center;font-size:22px;font-weight:900;color:"+numColor+"'>"+add+"</div>";
       html += "<button type='button' onclick='ajustarManualReponer("+d.c+",1)' style='width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:20px;font-weight:800;cursor:pointer'>+</button>";
       html += "</div>";
-
-      // Subtotal
       html += "<div style='width:76px;text-align:right;font-size:14px;font-weight:900;color:"+subtotalColor+";flex-shrink:0'>"+moneyText(subtotal)+"</div>";
-
       html += "</div>";
     });
   });
@@ -1330,7 +1551,8 @@ function ajustarManualReponer(cents,delta){
 
   reponerState.manualAdd[cents] = Math.max(0, add + delta);
   actualizarReponerManual();
-}function resetManualReponer(){denominations.forEach(d=>{reponerState.manualAdd[d.c]=0});reponerState.importeManual=0;const inp=document.getElementById("reponerImporteManual");if(inp)inp.value="";actualizarReponerManual()}
+}
+function resetManualReponer(){denominations.forEach(d=>{reponerState.manualAdd[d.c]=0});reponerState.importeManual=0;const inp=document.getElementById("reponerImporteManual");if(inp)inp.value="";actualizarReponerManual()}
 
 function confirmarReponer(){
   let añadir=[];
@@ -1759,36 +1981,28 @@ window.recibirImagenCompartida = async function(){
   } catch(e){
     console.warn('Error leyendo imagen compartida:', e);
   } finally {
-    // Bloqueo de 3 segundos para evitar repetir el procesamiento
     setTimeout(() => { __procesandoCompartida = false; }, 3000);
   }
 };
 /* ==================== FIN RECIBIR IMAGEN ==================== */
 
-// Control de barras del sistema (Android)
 setTimeout(async () => {
   try {
     if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AndroidSystemBars) {
       const ASB = window.Capacitor.Plugins.AndroidSystemBars;
       const info = await ASB.initialize();
 
-      // Estilo general: DARK (iconos blancos)
       await ASB.setSystemBarsStyle({
         style: 'DARK',
         color: '#0f172a'
       });
 
-      // Ahora hacemos la barra de abajo TRANSPARENTE
-      // Probamos varios métodos según la versión del plugin:
       if (typeof ASB.setNavigationBarColor === 'function') {
         await ASB.setNavigationBarColor({ color: '#00000000' });
       } else if (typeof ASB.setNavigationBar === 'function') {
         await ASB.setNavigationBar({ color: '#00000000' });
       } else if (typeof ASB.setSystemBarsColor === 'function') {
         await ASB.setSystemBarsColor({ statusBarColor: '#0f172a', navigationBarColor: '#00000000' });
-      } else {
-        // Si ninguno existe, mostramos qué métodos tiene para depurar
-        console.log('Métodos disponibles en ASB:', Object.keys(ASB));
       }
 
       if (info.isAndroid35Plus) {

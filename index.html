@@ -99,7 +99,7 @@
     <div class="tip-total-box" id="totalTipDisplay">💶 Propinas: 0,00 €</div>
 
     <button type="button" onclick="abrirCambioPantalla()"
-      style="width:100%;margin-top:10px;background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:10px;padding:12px;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px">🔀 CAMBIAR BILLETE</button>
+      style="width:100%;margin-top:10px;background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:10px;padding:12px;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px">🔀 CAMBIAR BILLETE O MONEDAS</button>
 
     <button type="button" onclick="abrirReponerPantalla()"
       style="width:100%;background:#16a34a;color:#fff;border:1px solid #059669;border-radius:10px;padding:12px;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px">🏦 REPONER CAJA</button>
@@ -172,6 +172,7 @@
 
     <div id="depositoManualBox" style="display:none;margin-top:12px" class="card">
       <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">📝 REGISTRAR DEPÓSITO MANUAL</div>
+
       <label style="font-size:13px;color:#94a3b8;font-weight:700">Fecha</label>
       <div style="display:flex;gap:6px;margin:6px 0 4px">
         <input id="depManualFecha" type="date" style="flex:1;font-size:16px;padding:10px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;outline:none;min-width:0">
@@ -244,7 +245,7 @@
     <div class="card" style="margin:0 0 12px 0">
       <div style="background:#0f172a;border:1px solid #475569;border-radius:10px;padding:12px;margin-bottom:12px;font-size:13px;color:#94a3b8;line-height:1.5">
         📈 <b style="color:#38bdf8">MÁXIMO A RECIBIR EN CAMBIO</b><br>
-        Cuántas piezas de cada tipo te puede sugerir la app como máximo al usar <b>🔀 Cambiar billete</b> y <b>🏦 Reponer caja</b>. Si tienes 30 o más de una, no te la propondrá.
+        Cuántas piezas de cada tipo te puede sugerir la app como máximo al usar <b>🔀 Cambiar billete o monedas</b> y <b>🏦 Reponer caja</b>. Si tienes 30 o más de una, no te la propondrá.
       </div>
       <div id="topesList"></div>
       <button type="button" class="btn-reset-stock" onclick="resetTopes()" style="margin-top:12px">↺ RESTAURAR MÁXIMOS</button>
@@ -256,7 +257,7 @@
   <div style="max-width:600px;margin:0 auto;">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
       <button type="button" onclick="cerrarCambioPantalla()" style="background:#334155;color:#fff;border:none;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px">← Volver</button>
-      <h2 style="margin:0;font-size:18px;color:#38bdf8">🔀 Cambiar billete</h2>
+      <h2 style="margin:0;font-size:18px;color:#38bdf8">🔀 Cambiar billete o monedas</h2>
     </div>
     <div id="cambioContenido"></div>
   </div>

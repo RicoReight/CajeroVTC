@@ -1667,16 +1667,17 @@ window.recibirImagenCompartida = async function(){
       return;
     }
     const Fs = Cap.Plugins.Filesystem;
-    const Directory = Cap.Plugins.Filesystem.Directory;
+
+    // En Capacitor 6+, los valores del enum son strings. Los usamos directos.
+    const dirs = [
+      {name:'Data', val:'DATA'},
+      {name:'Documents', val:'DOCUMENTS'},
+      {name:'Cache', val:'CACHE'},
+      {name:'External', val:'EXTERNAL'}
+    ];
 
     let res = null;
     let dirUsado = null;
-    const dirs = [
-      {name:'Data', val:Directory.Data},
-      {name:'Documents', val:Directory.Documents},
-      {name:'Cache', val:Directory.Cache},
-      {name:'External', val:Directory.External}
-    ];
     for(const dir of dirs){
       try {
         res = await Fs.readFile({ path: 'shared_image.png', directory: dir.val });
@@ -1684,11 +1685,11 @@ window.recibirImagenCompartida = async function(){
         alert('✅ Imagen encontrada en: ' + dir.name + ' (' + res.data.length + ' chars)');
         break;
       } catch(e){
-        // siguiente
+        // siguiente directorio
       }
     }
     if(!res){
-      alert('❌ shared_image.png no encontrado en ningún directorio');
+      alert('❌ shared_image.png no encontrado');
       return;
     }
 
@@ -1697,7 +1698,7 @@ window.recibirImagenCompartida = async function(){
     const ia = new Uint8Array(ab);
     for(let i=0;i<byteString.length;i++) ia[i]=byteString.charCodeAt(i);
     const blob = new Blob([ab], { type: 'image/png' });
-    alert('📦 Blob creado: ' + blob.size + ' bytes. Lanzando OCR…');
+    alert('📦 Blob: ' + blob.size + ' bytes. Lanzando OCR…');
 
     procesarImagenPrecio(blob);
 

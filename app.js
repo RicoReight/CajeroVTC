@@ -1664,15 +1664,26 @@ setTimeout(async () => {
     if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AndroidSystemBars) {
       const ASB = window.Capacitor.Plugins.AndroidSystemBars;
       const info = await ASB.initialize();
-      console.log('Android API:', info.apiLevel, 'Edge-to-edge:', info.supportsEdgeToEdge);
 
-      // Forzar estilo DARK (iconos blancos) en AMBAS barras
+      // Estilo general: DARK (iconos blancos)
       await ASB.setSystemBarsStyle({
         style: 'DARK',
         color: '#0f172a'
       });
 
-      // Si es Android 15+ (API 35+), activar overlay
+      // Ahora hacemos la barra de abajo TRANSPARENTE
+      // Probamos varios métodos según la versión del plugin:
+      if (typeof ASB.setNavigationBarColor === 'function') {
+        await ASB.setNavigationBarColor({ color: '#00000000' });
+      } else if (typeof ASB.setNavigationBar === 'function') {
+        await ASB.setNavigationBar({ color: '#00000000' });
+      } else if (typeof ASB.setSystemBarsColor === 'function') {
+        await ASB.setSystemBarsColor({ statusBarColor: '#0f172a', navigationBarColor: '#00000000' });
+      } else {
+        // Si ninguno existe, mostramos qué métodos tiene para depurar
+        console.log('Métodos disponibles en ASB:', Object.keys(ASB));
+      }
+
       if (info.isAndroid35Plus) {
         await ASB.setOverlay({ overlay: true });
       }

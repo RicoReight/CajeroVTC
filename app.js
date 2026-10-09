@@ -1660,6 +1660,7 @@ function sincronizarTipInput(){
 
 /* ==================== RECIBIR IMAGEN COMPARTIDA ==================== */
 window.recibirImagenCompartida = async function(){
+  console.log('📥 recibirImagenCompartida invocada');
   try {
     const Cap = window.Capacitor;
     if(!Cap || !Cap.Plugins || !Cap.Plugins.Filesystem){
@@ -1669,23 +1670,36 @@ window.recibirImagenCompartida = async function(){
     const Fs = Cap.Plugins.Filesystem;
     const Directory = Cap.Plugins.Filesystem.Directory;
 
-    const res = await Fs.readFile({
-      path: 'shared_image.png',
-      directory: Directory.Data
-    });
+    // Buscar el archivo en varios directorios por si acaso
+    let res = null;
+    let dirUsado = null;
+    const dirs = [Directory.Data, Directory.Documents, Directory.Cache, Directory.External];
+    for(const dir of dirs){
+      try {
+        res = await Fs.readFile({ path: 'shared_image.png', directory: dir });
+        dirUsado = dir;
+        console.log('✅ Imagen encontrada en:', dir);
+        break;
+      } catch(e){}
+    }
+    if(!res){
+      console.warn('❌ shared_image.png no encontrado en ningún directorio');
+      return;
+    }
 
     const byteString = atob(res.data);
     const ab = new ArrayBuffer(byteString.length);
     const ia = new Uint8Array(ab);
     for(let i=0;i<byteString.length;i++) ia[i]=byteString.charCodeAt(i);
     const blob = new Blob([ab], { type: 'image/png' });
+    console.log('📦 Blob de', blob.size, 'bytes');
 
     procesarImagenPrecio(blob);
 
-    await Fs.deleteFile({
-      path: 'shared_image.png',
-      directory: Directory.Data
-    }).catch(()=>{});
+    // Borrar tras un pequeño delay
+    setTimeout(()=>{
+      Fs.deleteFile({ path: 'shared_image.png', directory: dirUsado }).catch(()=>{});
+    }, 3000);
   } catch(e){
     console.warn('Error leyendo imagen compartida:', e);
   }

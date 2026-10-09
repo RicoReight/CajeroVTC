@@ -1660,30 +1660,35 @@ function sincronizarTipInput(){
 
 /* ==================== RECIBIR IMAGEN COMPARTIDA ==================== */
 window.recibirImagenCompartida = async function(){
-  console.log('📥 recibirImagenCompartida invocada');
   try {
     const Cap = window.Capacitor;
     if(!Cap || !Cap.Plugins || !Cap.Plugins.Filesystem){
-      console.warn('Plugin Filesystem no disponible');
+      alert('❌ Plugin Filesystem no disponible');
       return;
     }
     const Fs = Cap.Plugins.Filesystem;
     const Directory = Cap.Plugins.Filesystem.Directory;
 
-    // Buscar el archivo en varios directorios por si acaso
     let res = null;
     let dirUsado = null;
-    const dirs = [Directory.Data, Directory.Documents, Directory.Cache, Directory.External];
+    const dirs = [
+      {name:'Data', val:Directory.Data},
+      {name:'Documents', val:Directory.Documents},
+      {name:'Cache', val:Directory.Cache},
+      {name:'External', val:Directory.External}
+    ];
     for(const dir of dirs){
       try {
-        res = await Fs.readFile({ path: 'shared_image.png', directory: dir });
-        dirUsado = dir;
-        console.log('✅ Imagen encontrada en:', dir);
+        res = await Fs.readFile({ path: 'shared_image.png', directory: dir.val });
+        dirUsado = dir.val;
+        alert('✅ Imagen encontrada en: ' + dir.name + ' (' + res.data.length + ' chars)');
         break;
-      } catch(e){}
+      } catch(e){
+        // siguiente
+      }
     }
     if(!res){
-      console.warn('❌ shared_image.png no encontrado en ningún directorio');
+      alert('❌ shared_image.png no encontrado en ningún directorio');
       return;
     }
 
@@ -1692,16 +1697,15 @@ window.recibirImagenCompartida = async function(){
     const ia = new Uint8Array(ab);
     for(let i=0;i<byteString.length;i++) ia[i]=byteString.charCodeAt(i);
     const blob = new Blob([ab], { type: 'image/png' });
-    console.log('📦 Blob de', blob.size, 'bytes');
+    alert('📦 Blob creado: ' + blob.size + ' bytes. Lanzando OCR…');
 
     procesarImagenPrecio(blob);
 
-    // Borrar tras un pequeño delay
     setTimeout(()=>{
       Fs.deleteFile({ path: 'shared_image.png', directory: dirUsado }).catch(()=>{});
     }, 3000);
   } catch(e){
-    console.warn('Error leyendo imagen compartida:', e);
+    alert('❌ Error leyendo imagen: ' + e.message);
   }
 };
 /* ==================== FIN RECIBIR IMAGEN ==================== */

@@ -1217,13 +1217,22 @@ function actualizarCambioManual(total){let s=0;denominations.forEach(d=>{const n
 function confirmarCambio(total){let s=0;denominations.forEach(d=>{s+=d.c*(cambioState.aRecibir[d.c]||0)});if(s!==total){alert("La suma no cuadra.");return}if(!confirm("¿Confirmar el cambio?"))return;Object.keys(cambioState.aEntregar).forEach(k=>{const c=parseInt(k);const n=cambioState.aEntregar[c];const i=denominations.findIndex(d=>d.c===c);if(i>=0&&n>0){stock[i]=Math.max(0,stock[i]-n);statsOps.cambioNeto[i]-=n}});denominations.forEach(d=>{const n=cambioState.aRecibir[d.c]||0;if(n>0){const i=denominations.findIndex(x=>x.c===d.c);if(i>=0){stock[i]=Math.max(0,stock[i]+n);statsOps.cambioNeto[i]+=n}}});saveStats();const cm=loadCambios();cm.push({fecha:new Date().toISOString(),aEntregar:Object.assign({},cambioState.aEntregar),aRecibir:Object.assign({},cambioState.aRecibir),total});saveCambios(cm);saveStock();renderStockList();updateCashSummary();alert("✅ Cambio confirmado.");cerrarCambioPantalla()}
 
 function calcularCambioAutomatico(total, juntar, minE){
+  // Denominaciones que el usuario YA está entregando → no tiene sentido devolvérselas
+  const entregando = {};
+  Object.keys(cambioState.aEntregar).forEach(k=>{
+    if(cambioState.aEntregar[k]>0) entregando[parseInt(k)] = true;
+  });
+
   let cand;
   if(juntar){
-    cand = [...denominations].sort((a,b)=>b.c-a.c);
+    // Juntar: cualquier pieza que NO estés entregando (billetes y monedas mayores)
+    cand = denominations.filter(d => !entregando[d.c]).sort((a,b)=>b.c-a.c);
   } else {
+    // Cambio clásico: solo piezas menores que la más pequeña entregada
     cand = denominations.filter(d => d.c < minE).sort((a,b)=>b.c-a.c);
   }
 
+  // Atajo: si juntamos y hay una pieza exacta del total que NO estés entregando, es la mejor
   if(juntar){
     for(const d of cand){
       if(d.c === total){
@@ -1284,8 +1293,62 @@ function calcularCambioAutomatico(total, juntar, minE){
   return prop;
 }
 
-function renderCambioResultado(total){const cont=document.getElementById("cambioContenido");if(!cont)return;let html="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:12px'>🤖 PROPUESTA BASADA EN TUS HÁBITOS</div><div style='font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>ENTREGAS AL BANCO</div><div class='change-grid'>";Object.keys(cambioState.aEntregar).forEach(k=>{const c=parseInt(k);const n=cambioState.aEntregar[c];if(n>0){const d=denominations.find(x=>x.c===c);if(d)html+="<div class='cash-item'><div class='badge'>x"+n+"</div><div class='bill-graphic "+d.class+"'>"+d.short+"</div></div>"}});html+="</div><div style='font-size:12px;color:#38bdf8;font-weight:800;letter-spacing:0.5px;margin:16px 0 8px;padding-top:14px;border-top:1px solid #334155'>PIDE QUE TE DEVUELVAN</div><div class='change-grid'>";const ord=Object.keys(cambioState.aRecibir).map(k=>parseInt(k)).filter(c=>cambioState.aRecibir[c]>0).sort((a,b)=>b-a);ord.forEach(c=>{const n=cambioState.aRecibir[c];const d=denominations.find(x=>x.c===c);if(d){const cl=d.type==="bill"?"bill-graphic ":"coin-graphic ";html+="<div class='cash-item'><div class='badge'>x"+n+"</div><div class='"+cl+d.class+"'>"+d.short+"</div></div>"}});html+="</div><div style='display:flex;justify-content:space-between;padding:14px 0 0;margin-top:14px;border-top:1px solid #334155;font-size:16px;color:#fff'><span style='font-weight:800'>Total:</span><span style='font-weight:900;color:#4ade80'>"+moneyText(total)+"</span></div></div><button type='button' onclick='confirmarCambio("+total+")' style='width:100%;background:#059669;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>✅ Confirmar cambio</button><button type='button' onclick='pasarAModoManual("+total+")' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>✍️ Ajustar a mano</button><button type='button' onclick='cerrarCambioPantalla()' style='width:100%;background:#1e293b;color:#94a3b8;border:1px solid #475569;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button>";cont.innerHTML=html}
+function renderCambioResultado(total){
+  const cont=document.getElementById("cambioContenido");
+  if(!cont)return;
 
+  // ¿Hay algo que devolver?
+  const ord = Object.keys(cambioState.aRecibir)
+    .map(k=>parseInt(k))
+    .filter(c=>cambioState.aRecibir[c]>0)
+    .sort((a,b)=>b-a);
+
+  // Si NO hay nada que devolver, aviso
+  if(ord.length === 0){
+    const esJuntar = (total <= 200) || Object.keys(cambioState.aEntregar).every(k=>parseInt(k)<=200);
+    let msg;
+    if(esJuntar){
+      msg = "🤔 No hay ninguna pieza mayor que <b>"+moneyText(total)+"</b> que puedas pedir.<br><br><span style='color:#94a3b8;font-size:13px'>Puedes juntar más monedas para conseguir un billete o una pieza más grande.</span>";
+    } else {
+      msg = "🤔 No hay piezas disponibles para dar cambio de <b>"+moneyText(total)+"</b>.<br><br><span style='color:#94a3b8;font-size:13px'>Revisa el inventario o repón caja.</span>";
+    }
+    let html = "<div class='card' style='margin:0 0 12px 0;text-align:center'>";
+    html += "<div style='font-size:44px;margin-bottom:10px'>🤔</div>";
+    html += "<div style='font-size:14px;color:#fbbf24;line-height:1.6;font-weight:700'>"+msg+"</div>";
+    html += "</div>";
+    html += "<button type='button' onclick='cerrarCambioPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer'>✖ Cerrar</button>";
+    cont.innerHTML = html;
+    return;
+  }
+
+  // Hay algo que devolver → render normal
+  let html="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:12px'>🤖 PROPUESTA BASADA EN TUS HÁBITOS</div><div style='font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>ENTREGAS AL BANCO</div><div class='change-grid'>";
+  Object.keys(cambioState.aEntregar).forEach(k=>{
+    const c=parseInt(k);
+    const n=cambioState.aEntregar[c];
+    if(n>0){
+      const d=denominations.find(x=>x.c===c);
+      if(d){
+        const cl = d.type==="bill" ? "bill-graphic " : "coin-graphic ";
+        html+="<div class='cash-item'><div class='badge'>x"+n+"</div><div class='"+cl+d.class+"'>"+d.short+"</div></div>";
+      }
+    }
+  });
+  html+="</div><div style='font-size:12px;color:#38bdf8;font-weight:800;letter-spacing:0.5px;margin:16px 0 8px;padding-top:14px;border-top:1px solid #334155'>PIDE QUE TE DEVUELVAN</div><div class='change-grid'>";
+  ord.forEach(c=>{
+    const n=cambioState.aRecibir[c];
+    const d=denominations.find(x=>x.c===c);
+    if(d){
+      const cl=d.type==="bill"?"bill-graphic ":"coin-graphic ";
+      html+="<div class='cash-item'><div class='badge'>x"+n+"</div><div class='"+cl+d.class+"'>"+d.short+"</div></div>";
+    }
+  });
+  html+="</div><div style='display:flex;justify-content:space-between;padding:14px 0 0;margin-top:14px;border-top:1px solid #334155;font-size:16px;color:#fff'><span style='font-weight:800'>Total:</span><span style='font-weight:900;color:#4ade80'>"+moneyText(total)+"</span></div></div>";
+  html+="<button type='button' onclick='confirmarCambio("+total+")' style='width:100%;background:#059669;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>✅ Confirmar cambio</button>";
+  html+="<button type='button' onclick='pasarAModoManual("+total+")' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>✍️ Ajustar a mano</button>";
+  html+="<button type='button' onclick='cerrarCambioPantalla()' style='width:100%;background:#1e293b;color:#94a3b8;border:1px solid #475569;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button>";
+  cont.innerHTML=html;
+}
 function pasarAModoManual(total){cambioState.modo="manual";cambioState.sinDatos=false;cambioState.aRecibir={};cambioState.ordenRecibir=[];renderCambioManual(total)}
 
 function renderCambioHistorial(){const box=document.getElementById("cambioHistorial");if(!box)return;const cm=loadCambios();if(!cm.length){box.innerHTML="";return}let html="<div class='card' style='margin:0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>📜 HISTORIAL DE CAMBIOS</div>";cm.slice(-15).reverse().forEach(c=>{const d=new Date(c.fecha);const f=d.toLocaleDateString("es-ES")+" · "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});const ent=Object.keys(c.aEntregar).map(k=>{const ce=parseInt(k),n=c.aEntregar[k];const p=denominations.find(x=>x.c===ce);const nom=p?p.short:(ce/100)+"€";return n+"×"+nom}).join(" + ");const rec=Object.keys(c.aRecibir).map(k=>{const ce=parseInt(k),n=c.aRecibir[k];const p=denominations.find(x=>x.c===ce);const nom=p?p.short:(ce/100)+"€";return n+"×"+nom}).join(" + ");html+="<div style='padding:10px 0;border-bottom:1px solid #334155'><div style='font-size:12px;color:#94a3b8;margin-bottom:4px'>📝 "+f+"</div><div style='font-size:13px;color:#fff'><b>Cambio de "+moneyText(c.total)+"</b></div><div style='font-size:12px;color:#4ade80;margin-top:2px'>→ "+ent+"</div><div style='font-size:12px;color:#38bdf8;margin-top:2px'>← "+rec+"</div></div>"});html+="</div>";box.innerHTML=html}

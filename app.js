@@ -1659,7 +1659,11 @@ function sincronizarTipInput(){
 }
 
 /* ==================== RECIBIR IMAGEN COMPARTIDA ==================== */
+let __procesandoCompartida = false;
+
 window.recibirImagenCompartida = async function(){
+  if(__procesandoCompartida) return;
+  __procesandoCompartida = true;
   try {
     const Cap = window.Capacitor;
     if(!Cap || !Cap.Plugins || !Cap.Plugins.Filesystem){
@@ -1667,7 +1671,6 @@ window.recibirImagenCompartida = async function(){
       return;
     }
     const Fs = Cap.Plugins.Filesystem;
-
     const dirs = ['DATA', 'DOCUMENTS', 'CACHE', 'EXTERNAL'];
 
     let res = null;
@@ -1697,6 +1700,9 @@ window.recibirImagenCompartida = async function(){
     }, 3000);
   } catch(e){
     console.warn('Error leyendo imagen compartida:', e);
+  } finally {
+    // Bloqueo de 3 segundos para evitar repetir el procesamiento
+    setTimeout(() => { __procesandoCompartida = false; }, 3000);
   }
 };
 /* ==================== FIN RECIBIR IMAGEN ==================== */

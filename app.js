@@ -1217,7 +1217,7 @@ function actualizarCambioManual(total){let s=0;denominations.forEach(d=>{const n
 function confirmarCambio(total){let s=0;denominations.forEach(d=>{s+=d.c*(cambioState.aRecibir[d.c]||0)});if(s!==total){alert("La suma no cuadra.");return}if(!confirm("¿Confirmar el cambio?"))return;Object.keys(cambioState.aEntregar).forEach(k=>{const c=parseInt(k);const n=cambioState.aEntregar[c];const i=denominations.findIndex(d=>d.c===c);if(i>=0&&n>0){stock[i]=Math.max(0,stock[i]-n);statsOps.cambioNeto[i]-=n}});denominations.forEach(d=>{const n=cambioState.aRecibir[d.c]||0;if(n>0){const i=denominations.findIndex(x=>x.c===d.c);if(i>=0){stock[i]=Math.max(0,stock[i]+n);statsOps.cambioNeto[i]+=n}}});saveStats();const cm=loadCambios();cm.push({fecha:new Date().toISOString(),aEntregar:Object.assign({},cambioState.aEntregar),aRecibir:Object.assign({},cambioState.aRecibir),total});saveCambios(cm);saveStock();renderStockList();updateCashSummary();alert("✅ Cambio confirmado.");cerrarCambioPantalla()}
 
 function calcularCambioAutomatico(total, juntar, minE){
-  // Denominaciones que el usuario YA está entregando → no tiene sentido devolvérselas
+  // Piezas que el usuario ya está entregando (no tiene sentido devolvérselas)
   const entregando = {};
   Object.keys(cambioState.aEntregar).forEach(k=>{
     if(cambioState.aEntregar[k]>0) entregando[parseInt(k)] = true;
@@ -1225,41 +1225,25 @@ function calcularCambioAutomatico(total, juntar, minE){
 
   let cand;
   if(juntar){
-    // Juntar: cualquier pieza que NO estés entregando (billetes y monedas mayores)
     cand = denominations.filter(d => !entregando[d.c]).sort((a,b)=>b.c-a.c);
   } else {
-    // Cambio clásico: solo piezas menores que la más pequeña entregada
     cand = denominations.filter(d => d.c < minE).sort((a,b)=>b.c-a.c);
   }
 
-  // Atajo: si juntamos y hay una pieza exacta del total que NO estés entregando, es la mejor
+  // Atajo: si juntamos y hay una pieza exacta del total, pero con hueco hasta el tope
   if(juntar){
     for(const d of cand){
       if(d.c === total){
         const i = denominations.findIndex(x=>x.c===d.c);
-        if((stock[i]||0) > 0){
+        const sa = stock[i] || 0;
+        const tope = topesRecibir[d.c] || 0;
+        const espacio = tope > 0 ? Math.max(0, tope - sa) : sa;
+        if(espacio >= 1){
           return { [d.c]: 1 };
         }
       }
     }
   }
-
-  const tope = {};
-  denominations.forEach((d,i)=>{
-    const sa = stock[i] || 0;
-    let t = (topesRecibir[d.c]!=null) ? topesRecibir[d.c] : 5;
-
-    if(juntar){
-      t = Math.max(0, sa);
-    } else {
-      if(sa>=30) t=0;
-      else if(sa>=20) t=Math.min(t,1);
-      else if(sa>=10) t=Math.min(t,2);
-      else if(sa<=3) t=Math.min(t+3,12);
-      else if(sa<=6) t=Math.min(t+1,10);
-    }
-    tope[d.c] = t;
-  });
 
   let r = total;
   const prop = {};
@@ -1267,8 +1251,29 @@ function calcularCambioAutomatico(total, juntar, minE){
   cand.forEach(d=>{
     if(r <= 0) return;
     const i = denominations.findIndex(x=>x.c===d.c);
-    const t = tope[d.c] || 0;
+    const sa = stock[i] || 0;
+    const tope = topesRecibir[d.c] || 0;
+
+    // Espacio hasta el tope (no pasarse)
+    const espacio = tope > 0 ? Math.max(0, tope - sa) : sa;
+
+    let t;
+    if(juntar){
+      // Modo juntar: solo limitamos por hueco hasta tope
+      t = espacio;
+    } else {
+      // Modo clásico: mantenemos la heurística + cap por tope
+      let tt = (tope > 0) ? tope : 5;
+      if(sa>=30) tt=0;
+      else if(sa>=20) tt=Math.min(tt,1);
+      else if(sa>=10) tt=Math.min(tt,2);
+      else if(sa<=3) tt=Math.min(tt+3,12);
+      else if(sa<=6) tt=Math.min(tt+1,10);
+      t = Math.min(tt, espacio);
+    }
+
     if(t <= 0) return;
+
     const c = Math.min(Math.floor(r/d.c), t);
     if(c > 0){
       prop[d.c] = (prop[d.c]||0) + c;
@@ -1276,13 +1281,17 @@ function calcularCambioAutomatico(total, juntar, minE){
     }
   });
 
+  // Sobrante → piezas pequeñas, pero también sin pasarse del tope
   if(r > 0 && !juntar){
     const desc = cand.slice();
     for(const d of desc){
       if(r <= 0) break;
       const i = denominations.findIndex(x=>x.c===d.c);
-      if(stock[i] > 40) continue;
-      const c = Math.floor(r/d.c);
+      const sa = stock[i] || 0;
+      const tope = topesRecibir[d.c] || 0;
+      const espacio = tope > 0 ? Math.max(0, tope - sa) : sa;
+      if(espacio <= 0) continue;
+      const c = Math.min(Math.floor(r/d.c), espacio);
       if(c > 0){
         prop[d.c] = (prop[d.c]||0) + c;
         r -= c*d.c;
@@ -1292,7 +1301,6 @@ function calcularCambioAutomatico(total, juntar, minE){
 
   return prop;
 }
-
 function renderCambioResultado(total){
   const cont=document.getElementById("cambioContenido");
   if(!cont)return;

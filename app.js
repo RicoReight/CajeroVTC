@@ -1081,13 +1081,71 @@ function cerrarLimitePantalla(){const p=document.getElementById("limitePantalla"
 function abrirCambioPantalla(){const d=document.getElementById("drawer"),o=document.getElementById("overlay");if(d)d.classList.remove("active");if(o)o.classList.remove("active");const p=document.getElementById("cambioPantalla");if(p)p.style.display="block";cambioState={aEntregar:{},aRecibir:{},modo:null,orden:[],ordenRecibir:[],sinDatos:false};renderCambioInicio()}
 function cerrarCambioPantalla(){const p=document.getElementById("cambioPantalla");if(p)p.style.display="none"}
 
-function renderCambioInicio(){const cont=document.getElementById("cambioContenido");if(!cont)return;let html="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>¿QUÉ VAS A CAMBIAR?</div><div style='font-size:12px;color:#64748b;margin-bottom:10px'>Pulsa los billetes que entregarás. Debajo verás cuántos tienes.</div><div id='cambioBotones' style='display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px'></div><div style='display:flex;justify-content:space-between;align-items:center;padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px'><span style='font-size:13px;color:#94a3b8;font-weight:700'>Total a cambiar:</span><span id='cambioTotal' style='font-size:18px;font-weight:900;color:#38bdf8'>0,00 €</span></div><button type='button' onclick='calcularCambio()' style='width:100%;background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>🔀 Continuar</button><div style='display:flex;gap:8px;margin-bottom:8px'><button type='button' onclick='deshacerCambioEntregar()' style='flex:1;background:#78350f;color:#fbbf24;border:1px solid #b45309;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>↩ Deshacer</button><button type='button' onclick='resetCambioEntregar()' style='flex:1;background:#7f1d1d;color:#fff;border:1px solid #b91c1c;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>🗑️ Limpiar</button></div><button type='button' onclick='cerrarCambioPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button></div><div id='cambioHistorial'></div>";cont.innerHTML=html;const bot=document.getElementById("cambioBotones");[10000,5000,2000,1000,500].forEach(c=>{const idx=denominations.findIndex(x=>x.c===c);const sa=stock[idx]||0;const wrap=document.createElement("div");wrap.style.cssText="position:relative";const b=document.createElement("button");b.type="button";b.innerHTML="<div style='font-size:14px;font-weight:800'>"+(c/100)+" €</div><div style='font-size:10px;color:#94a3b8;font-weight:600;margin-top:2px'>tienes "+sa+"</div>";b.style.cssText="width:100%;background:#283548;border:1px solid #475569;color:#fff;padding:10px 4px;border-radius:10px;cursor:pointer";b.onclick=()=>{cambioState.aEntregar[c]=(cambioState.aEntregar[c]||0)+1;cambioState.orden.push(c);actualizarCambioInicio()};const bd=document.createElement("div");bd.id="cambioBadge"+c;bd.style.cssText="position:absolute;top:-6px;right:-6px;background:#38bdf8;color:#0f172a;font-size:11px;font-weight:900;padding:2px 6px;border-radius:10px;display:none";wrap.appendChild(b);wrap.appendChild(bd);bot.appendChild(wrap)});actualizarCambioInicio();renderCambioHistorial()}
+function renderCambioInicio(){
+  const cont=document.getElementById("cambioContenido");
+  if(!cont)return;
+  let html="<div class='card' style='margin:0 0 12px 0'>";
+  html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>¿QUÉ VAS A CAMBIAR?</div>";
+  html+="<div style='font-size:12px;color:#64748b;margin-bottom:10px'>Pulsa las piezas que entregarás. Debajo verás cuántas tienes.</div>";
+  html+="<div style='font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>💵 BILLETES</div>";
+  html+="<div id='cambioBotonesBilletes' style='display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px'></div>";
+  html+="<div style='font-size:11px;color:#facc15;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>🪙 MONEDAS</div>";
+  html+="<div id='cambioBotonesMonedas' style='display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px'></div>";
+  html+="<div style='display:flex;justify-content:space-between;align-items:center;padding:10px;background:#1e293b;border-radius:8px;margin-bottom:12px'><span style='font-size:13px;color:#94a3b8;font-weight:700'>Total a cambiar:</span><span id='cambioTotal' style='font-size:18px;font-weight:900;color:#38bdf8'>0,00 €</span></div>";
+  html+="<button type='button' onclick='calcularCambio()' style='width:100%;background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>🔀 Continuar</button>";
+  html+="<div style='display:flex;gap:8px;margin-bottom:8px'><button type='button' onclick='deshacerCambioEntregar()' style='flex:1;background:#78350f;color:#fbbf24;border:1px solid #b45309;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>↩ Deshacer</button><button type='button' onclick='resetCambioEntregar()' style='flex:1;background:#7f1d1d;color:#fff;border:1px solid #b91c1c;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>🗑️ Limpiar</button></div>";
+  html+="<button type='button' onclick='cerrarCambioPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button></div>";
+  html+="<div id='cambioHistorial'></div>";
+  cont.innerHTML=html;
 
-function actualizarCambioInicio(){let tot=0;[10000,5000,2000,1000,500].forEach(c=>{const n=cambioState.aEntregar[c]||0;tot+=c*n;const bd=document.getElementById("cambioBadge"+c);if(bd){if(n>0){bd.textContent="x"+n;bd.style.display="block"}else bd.style.display="none"}});const el=document.getElementById("cambioTotal");if(el)el.textContent=moneyText(tot)}
+  renderCambioBotones('cambioBotonesBilletes', [10000,5000,2000,1000,500]);
+  renderCambioBotones('cambioBotonesMonedas', [200,100,50,20,10,5,2,1]);
+
+  actualizarCambioInicio();
+  renderCambioHistorial();
+}
+
+function renderCambioBotones(containerId, valores){
+  const bot=document.getElementById(containerId);
+  if(!bot)return;
+  valores.forEach(c=>{
+    const idx=denominations.findIndex(x=>x.c===c);
+    if(idx<0)return;
+    const d=denominations[idx];
+    const sa=stock[idx]||0;
+    const wrap=document.createElement("div");
+    wrap.style.cssText="position:relative";
+    const b=document.createElement("button");
+    b.type="button";
+    b.innerHTML="<div style='font-size:14px;font-weight:800'>"+(c/100)+" €</div><div style='font-size:10px;color:#94a3b8;font-weight:600;margin-top:2px'>tienes "+sa+"</div>";
+    b.style.cssText="width:100%;background:#283548;border:1px solid #475569;color:#fff;padding:10px 4px;border-radius:10px;cursor:pointer";
+    b.onclick=()=>{cambioState.aEntregar[c]=(cambioState.aEntregar[c]||0)+1;cambioState.orden.push(c);actualizarCambioInicio()};
+    const bd=document.createElement("div");
+    bd.id="cambioBadge"+c;
+    bd.style.cssText="position:absolute;top:-6px;right:-6px;background:#38bdf8;color:#0f172a;font-size:11px;font-weight:900;padding:2px 6px;border-radius:10px;display:none";
+    wrap.appendChild(b);
+    wrap.appendChild(bd);
+    bot.appendChild(wrap);
+  });
+}
+function actualizarCambioInicio(){
+  let tot=0;
+  denominations.forEach(d=>{
+    const n=cambioState.aEntregar[d.c]||0;
+    tot+=d.c*n;
+    const bd=document.getElementById("cambioBadge"+d.c);
+    if(bd){
+      if(n>0){bd.textContent="x"+n;bd.style.display="block"}
+      else bd.style.display="none";
+    }
+  });
+  const el=document.getElementById("cambioTotal");
+  if(el)el.textContent=moneyText(tot);
+}
 function deshacerCambioEntregar(){if(!cambioState.orden)cambioState.orden=[];const last=cambioState.orden.pop();if(last==null)return;if(cambioState.aEntregar[last]>0){cambioState.aEntregar[last]--;if(cambioState.aEntregar[last]<=0)delete cambioState.aEntregar[last]}actualizarCambioInicio()}
 function resetCambioEntregar(){cambioState.aEntregar={};cambioState.orden=[];actualizarCambioInicio()}
 
-function calcularCambio(){let tot=0;Object.keys(cambioState.aEntregar).forEach(c=>{tot+=parseInt(c)*cambioState.aEntregar[c]});if(tot<=0){alert("Selecciona algún billete.");return}let err=false;Object.keys(cambioState.aEntregar).forEach(k=>{const c=parseInt(k);const i=denominations.findIndex(d=>d.c===c);if(i>=0&&stock[i]<cambioState.aEntregar[c])err=true});if(err){alert("No tienes tantos billetes de ese tipo.");return}const minE=Math.min(...Object.keys(cambioState.aEntregar).map(x=>parseInt(x)));if(statsOps.operations<10){cambioState.modo="manual";cambioState.sinDatos=true;cambioState.aRecibir={};cambioState.ordenRecibir=[];renderCambioManual(tot,minE);return}cambioState.modo="auto";cambioState.sinDatos=false;cambioState.aRecibir=calcularCambioAutomatico(tot,minE);renderCambioResultado(tot)}
+function calcularCambio(){let tot=0;Object.keys(cambioState.aEntregar).forEach(c=>{tot+=parseInt(c)*cambioState.aEntregar[c]});if(tot<=0){alert("Selecciona algún billete.");return}let err=false;Object.keys(cambioState.aEntregar).forEach(k=>{const c=parseInt(k);const i=denominations.findIndex(d=>d.c===c);if(i>=0&&stock[i]<cambioState.aEntregar[c])err=true});if(err){alert("No tienes tantas piezas de ese tipo.");return}const minE=Math.min(...Object.keys(cambioState.aEntregar).map(x=>parseInt(x)));if(statsOps.operations<10){cambioState.modo="manual";cambioState.sinDatos=true;cambioState.aRecibir={};cambioState.ordenRecibir=[];renderCambioManual(tot,minE);return}cambioState.modo="auto";cambioState.sinDatos=false;cambioState.aRecibir=calcularCambioAutomatico(tot,minE);renderCambioResultado(tot)}
 
 function renderCambioManual(total,minEnt){const cont=document.getElementById("cambioContenido");if(!cont)return;const minE=minEnt!=null?minEnt:Math.min(...Object.keys(cambioState.aEntregar).map(x=>parseInt(x)));const opc=denominations.filter(d=>d.c<minE);let html="";if(cambioState.sinDatos){html+="<div class='card' style='margin:0 0 12px 0;background:#1e3a8a;border:1px solid #3b82f6'><div style='font-size:13px;color:#bfdbfe;font-weight:800;margin-bottom:6px'>🧠 Aún no tengo datos suficientes</div><div style='font-size:12px;color:#93c5fd;line-height:1.5'>Necesito al menos <b>10 operaciones</b> para sugerirte. De momento elige a mano.<br><br>Llevas <b>"+statsOps.operations+"</b> operaciones.</div></div>"}html+="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>✍️ ELIGE A MANO</div><div style='font-size:12px;color:#64748b;margin-bottom:10px'>Marca las piezas que quieres recibir. La suma debe ser "+moneyText(total)+".</div><div id='cambioManBotones' style='display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px'></div></div><div class='card' style='margin:0 0 12px 0'><div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:6px'><span style='font-size:13px;color:#94a3b8'>Suma actual:</span><span id='cambioManSuma' style='font-size:18px;font-weight:900;color:#38bdf8'>0,00 €</span></div><div style='display:flex;justify-content:space-between;align-items:center'><span style='font-size:13px;color:#94a3b8'>Objetivo:</span><span style='font-size:18px;font-weight:900;color:#4ade80'>"+moneyText(total)+"</span></div><div id='cambioManEstado' style='text-align:center;font-size:13px;font-weight:700;margin-top:10px'></div></div><button type='button' onclick='confirmarCambio("+total+")' id='cambioManBtn' style='width:100%;background:#059669;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px'>✅ Confirmar cambio</button><div style='display:flex;gap:8px;margin-bottom:8px'><button type='button' onclick='deshacerCambioRecibir("+total+")' style='flex:1;background:#78350f;color:#fbbf24;border:1px solid #b45309;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>↩ Deshacer</button><button type='button' onclick='resetCambioManual("+total+")' style='flex:1;background:#7f1d1d;color:#fff;border:1px solid #b91c1c;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>🗑️ Limpiar</button></div><button type='button' onclick='cerrarCambioPantalla()' style='width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer'>✖ Cancelar</button>";cont.innerHTML=html;const bot=document.getElementById("cambioManBotones");opc.forEach(d=>{const idx=denominations.findIndex(x=>x.c===d.c);const sa=stock[idx]||0;const wrap=document.createElement("div");wrap.style.cssText="position:relative";const b=document.createElement("button");b.type="button";b.innerHTML="<div style='font-size:13px;font-weight:800'>"+d.n+"</div><div style='font-size:10px;color:#94a3b8;font-weight:600;margin-top:2px'>tienes "+sa+"</div>";b.style.cssText="width:100%;background:#283548;border:1px solid #475569;color:#fff;padding:8px 4px;border-radius:10px;cursor:pointer";b.onclick=()=>{cambioState.aRecibir[d.c]=(cambioState.aRecibir[d.c]||0)+1;if(!cambioState.ordenRecibir)cambioState.ordenRecibir=[];cambioState.ordenRecibir.push(d.c);actualizarCambioManual(total)};const bd=document.createElement("div");bd.id="cambioManBadge"+d.c;bd.style.cssText="position:absolute;top:-6px;right:-6px;background:#38bdf8;color:#0f172a;font-size:11px;font-weight:900;padding:2px 6px;border-radius:10px;display:none";wrap.appendChild(b);wrap.appendChild(bd);bot.appendChild(wrap)});actualizarCambioManual(total)}
 function resetCambioManual(total){cambioState.aRecibir={};cambioState.ordenRecibir=[];renderCambioManual(total)}

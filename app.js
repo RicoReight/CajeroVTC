@@ -1663,33 +1663,24 @@ window.recibirImagenCompartida = async function(){
   try {
     const Cap = window.Capacitor;
     if(!Cap || !Cap.Plugins || !Cap.Plugins.Filesystem){
-      alert('❌ Plugin Filesystem no disponible');
+      console.warn('Plugin Filesystem no disponible');
       return;
     }
     const Fs = Cap.Plugins.Filesystem;
 
-    // En Capacitor 6+, los valores del enum son strings. Los usamos directos.
-    const dirs = [
-      {name:'Data', val:'DATA'},
-      {name:'Documents', val:'DOCUMENTS'},
-      {name:'Cache', val:'CACHE'},
-      {name:'External', val:'EXTERNAL'}
-    ];
+    const dirs = ['DATA', 'DOCUMENTS', 'CACHE', 'EXTERNAL'];
 
     let res = null;
     let dirUsado = null;
     for(const dir of dirs){
       try {
-        res = await Fs.readFile({ path: 'shared_image.png', directory: dir.val });
-        dirUsado = dir.val;
-        alert('✅ Imagen encontrada en: ' + dir.name + ' (' + res.data.length + ' chars)');
+        res = await Fs.readFile({ path: 'shared_image.png', directory: dir });
+        dirUsado = dir;
         break;
-      } catch(e){
-        // siguiente directorio
-      }
+      } catch(e){}
     }
     if(!res){
-      alert('❌ shared_image.png no encontrado');
+      console.warn('shared_image.png no encontrado');
       return;
     }
 
@@ -1698,7 +1689,6 @@ window.recibirImagenCompartida = async function(){
     const ia = new Uint8Array(ab);
     for(let i=0;i<byteString.length;i++) ia[i]=byteString.charCodeAt(i);
     const blob = new Blob([ab], { type: 'image/png' });
-    alert('📦 Blob: ' + blob.size + ' bytes. Lanzando OCR…');
 
     procesarImagenPrecio(blob);
 
@@ -1706,7 +1696,7 @@ window.recibirImagenCompartida = async function(){
       Fs.deleteFile({ path: 'shared_image.png', directory: dirUsado }).catch(()=>{});
     }, 3000);
   } catch(e){
-    alert('❌ Error leyendo imagen: ' + e.message);
+    console.warn('Error leyendo imagen compartida:', e);
   }
 };
 /* ==================== FIN RECIBIR IMAGEN ==================== */

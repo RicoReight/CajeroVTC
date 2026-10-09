@@ -1658,4 +1658,28 @@ function sincronizarTipInput(){
   document.getElementById("tip").value = (total/100).toFixed(2);
 }
 
+// Control de barras del sistema (Android)
+setTimeout(async () => {
+  try {
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AndroidSystemBars) {
+      const ASB = window.Capacitor.Plugins.AndroidSystemBars;
+      const info = await ASB.initialize();
+      console.log('Android API:', info.apiLevel, 'Edge-to-edge:', info.supportsEdgeToEdge);
+
+      // Forzar estilo DARK (iconos blancos) en AMBAS barras
+      await ASB.setSystemBarsStyle({
+        style: 'DARK',
+        color: '#0f172a'
+      });
+
+      // Si es Android 15+ (API 35+), activar overlay
+      if (info.isAndroid35Plus) {
+        await ASB.setOverlay({ overlay: true });
+      }
+    }
+  } catch(e) {
+    console.warn('Error configurando barras:', e);
+  }
+}, 500);
+
 init();

@@ -2401,27 +2401,28 @@ function probarCoordenadasManuales(){
 
 /* ==================== GEOLOCALIZACIÓN BACKGROUND ==================== */
 async function iniciarGeolocalizacion(){
+  alert("1️⃣ iniciarGeolocalizacion llamado");
   try {
     const Cap = window.Capacitor;
     if(!Cap || !Cap.Plugins || !Cap.Plugins.BackgroundGeolocation){
-      alert('❌ Plugin de geolocalización no instalado.\n\nAsegúrate de tener:\n@capacitor-community/background-geolocation\n\nY haber hecho:\nnpx cap sync android');
+      alert("❌ Plugin no instalado");
       return;
     }
     const BG = Cap.Plugins.BackgroundGeolocation;
 
     try {
       const permisos = await BG.requestPermissions({ permissions: ['location'] });
-      console.log('Permisos:', JSON.stringify(permisos));
+      alert("2️⃣ Permisos: " + JSON.stringify(permisos));
       if(permisos && permisos.location === 'denied'){
-        alert('❌ Permiso de ubicación denegado.\nActívalo en Ajustes → Apps → Permisos → Ubicación.');
+        alert("❌ Permiso denegado");
         return;
       }
     } catch(e){
-      console.warn('Error pidiendo permisos:', e);
+      alert("⚠️ Error permisos: " + e.message);
     }
 
-    // 1) Posición inicial INMEDIATA usando el plugin (funciona siempre en WebView)
-    mostrarToast('🔎 Buscando tu posición...');
+    // Posición inicial con el plugin
+    alert("3️⃣ Pidiendo posición inicial...");
     try {
       if(typeof BG.getCurrentPosition === "function"){
         const pos = await BG.getCurrentPosition({
@@ -2429,36 +2430,32 @@ async function iniciarGeolocalizacion(){
           timeout: 10000,
           maximumAge: 0
         });
-        if(pos && typeof pos.latitude === "number" && typeof pos.longitude === "number"){
+        alert("4️⃣ Pos recibida: " + JSON.stringify(pos));
+        if(pos && typeof pos.latitude === "number"){
           const acc = Math.round(pos.accuracy || 0);
-          console.log('📍 Posición inicial:', pos.latitude, pos.longitude, '±' + acc + 'm');
           actualizarMapaConPosicion(pos.latitude, pos.longitude, acc);
-          mostrarToast('📍 Posición capturada');
-        } else {
-          console.warn('getCurrentPosition devolvió datos vacíos:', pos);
-          mostrarToast('⚠️ No se pudo obtener posición inicial');
+          alert("5️⃣ actualizarMapaConPosicion ejecutado");
         }
       } else {
-        // Fallback: por si la versión del plugin no tiene getCurrentPosition
-        console.warn('BG.getCurrentPosition no existe, usando navigator.geolocation');
+        alert("⚠️ BG.getCurrentPosition no existe, usando navigator");
         navigator.geolocation.getCurrentPosition(
           (pos) => {
+            alert("4️⃣b Pos navigator: " + pos.coords.latitude + "," + pos.coords.longitude);
             actualizarMapaConPosicion(pos.coords.latitude, pos.coords.longitude, Math.round(pos.coords.accuracy||0));
-            mostrarToast('📍 Posición capturada');
+            alert("5️⃣b actualizar ejecutado");
           },
           (err) => {
-            console.warn('getCurrentPosition falló:', err);
-            mostrarToast('⚠️ No se pudo obtener posición inicial');
+            alert("❌ navigator error: " + err.message);
           },
           { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
       }
     } catch(e){
-      console.warn('Error en posición inicial:', e);
-      mostrarToast('⚠️ Error al pedir posición inicial');
+      alert("❌ Error posición inicial: " + e.message);
     }
 
-    // 2) Watcher de background para actualizaciones cada 30m
+    // Watcher
+    alert("6️⃣ Arrancando watcher...");
     if(geoWatcherId){
       try { await BG.removeWatcher({ id: geoWatcherId }); } catch(e){}
       geoWatcherId = null;
@@ -2466,16 +2463,12 @@ async function iniciarGeolocalizacion(){
 
     const onLocation = (location, error) => {
       if(error){
-        console.warn('Error geolocalización:', error);
-        mostrarToast('⚠️ Error ubicación: ' + (error.message || JSON.stringify(error)));
-        geoActivo = false;
-        actualizarEstadoGeo();
+        alert("❌ Error watcher: " + (error.message || JSON.stringify(error)));
         return;
       }
       if(!location) return;
-      console.log('📍 Posición watcher:', location.latitude, location.longitude, '±' + location.accuracy + 'm');
+      alert("7️⃣ Watcher pos: " + location.latitude + "," + location.longitude);
       actualizarMapaConPosicion(location.latitude, location.longitude, Math.round(location.accuracy));
-      mostrarToast('📍 ' + location.latitude.toFixed(5) + ', ' + location.longitude.toFixed(5));
     };
 
     geoWatcherId = await BG.addWatcher({
@@ -2486,13 +2479,11 @@ async function iniciarGeolocalizacion(){
       distanceFilter: 30
     }, onLocation);
 
-    console.log('✅ Watcher iniciado:', geoWatcherId);
+    alert("8️⃣ Watcher arrancado. ID: " + geoWatcherId);
     geoActivo = true;
     actualizarEstadoGeo();
-
   } catch(e){
-    console.error('Error iniciando geolocalización:', e);
-    alert('❌ Error: ' + (e.message || JSON.stringify(e)));
+    alert("❌ Error general: " + (e.message || JSON.stringify(e)));
     geoActivo = false;
     actualizarEstadoGeo();
   }

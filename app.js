@@ -2739,16 +2739,137 @@ async function detenerGeolocalizacion(){
   }
 }
 
+let listaSonidos = null;   // caché del manifest
+let audioActual = null;
+
 function abrirSonidosPantalla(){
   const d=document.getElementById("drawer"),o=document.getElementById("overlay");
   if(d)d.classList.remove("active");
   if(o)o.classList.remove("active");
   const p=document.getElementById("sonidosPantalla");
   if(p)p.style.display="block";
+  renderSonidosPanel();
 }
 function cerrarSonidosPantalla(){
   const p=document.getElementById("sonidosPantalla");
   if(p)p.style.display="none";
+  detenerAudioActual();
+}
+
+async function cargarListaSonidos(){
+  if(listaSonidos) return listaSonidos;
+  try {
+    const r = await fetch("audios/manifest.json");
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const arr = await r.json();
+    if(!Array.isArray(arr)) throw new Error("formato inválido");
+    listaSonidos = arr;
+    return listaSonidos;
+  } catch(e){
+    console.warn("No se pudo cargar audios/manifest.json:", e);
+    return null;
+  }
+}
+
+// Convierte "seatbelt_ENG.mp3" → "Seatbelt ENG"
+function formatearTitulo(nombreArchivo){
+  return nombreArchivo
+    .replace(/\.(mp3|wav|ogg|m4a)$/i, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(" ");
+}
+
+async function renderSonidosPanel(){
+  const cont = document.getElementById("sonidosContenido");
+  if(!cont) return;
+
+  cont.innerHTML = `<div style="text-align:center;color:#94a3b8;padding:20px">Cargando sonidos…</div>`;
+
+  const lista = await cargarListaSonidos();
+
+  if(!lista){
+    cont.innerHTML = `
+      <div class="card" style="background:#7f1d1d;border:1px solid #ef4444">
+        <div style="font-size:14px;color:#fecaca;font-weight:800;margin-bottom:6px">⚠️ No se encontró audios/manifest.json</div>
+        <div style="font-size:12px;color:#fca5a5;line-height:1.5">
+          Crea el archivo <b>audios/manifest.json</b> con la lista de tus mp3.<br>
+          Ejemplo: <code style="background:#0f172a;padding:2px 6px;border-radius:4px">["cinturones.mp3", "seatbelt_ENG.mp3"]</code>
+        </div>
+      </div>`;
+    return;
+  }
+
+  if(lista.length === 0){
+    cont.innerHTML = `<div class="card" style="text-align:center;color:#94a3b8;padding:30px">Sin sonidos configurados.<br>Añade archivos al <b>manifest.json</b>.</div>`;
+    return;
+  }
+
+  let html = `<div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px">🔊 TOCA PARA REPRODUCIR</div>`;
+
+  html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">`;
+
+  lista.forEach((nombre, idx) => {
+    const titulo = formatearTitulo(nombre);
+    const archivo = "audios/" + nombre;
+    html += `
+      <button type="button" data-idx="${idx}" onclick="reproducirAudio('${archivo.replace(/'/g, "\\'")}', this)"
+        style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+               background:linear-gradient(135deg,#1e293b,#0f172a);
+               border:2px solid #334155;border-radius:16px;
+               padding:22px 10px;min-height:130px;
+               color:#fff;font-size:15px;font-weight:800;cursor:pointer;
+               text-align:center;transition:all 0.15s">
+        <span style="font-size:42px;line-height:1">🎵</span>
+        <span style="word-break:break-word;line-height:1.25">${titulo}</span>
+      </button>
+    `;
+  });
+
+  html += `</div>`;
+
+  html += `
+    <div class="card" style="margin-top:16px;background:#0f172a;border:1px dashed #475569">
+      <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">💡 PARA AÑADIR UN SONIDO NUEVO</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.7">
+        1. Copia el archivo (por ejemplo <b>seatbelt_ENG.mp3</b>) en la carpeta <code style="background:#1e293b;padding:2px 6px;border-radius:4px">audios/</code><br>
+        2. Añade su nombre al <code style="background:#1e293b;padding:2px 6px;border-radius:4px">audios/manifest.json</code><br>
+        3. Vuelve a abrir esta pantalla y aparecerá el botón.
+      </div>
+    </div>
+  `;
+
+  cont.innerHTML = html;
+}
+
+function reproducirAudio(archivo, boton){
+  detenerAudioActual();
+
+  audioActual = new Audio(archivo);
+  audioActual.volume = 1.0;
+  audioActual.play().catch(e => {
+    alert("❌ No se pudo reproducir.\n\nComprueba que existe: " + archivo);
+    console.warn("Error reproduciendo:", e);
+  });
+
+  if(boton){
+    boton.style.borderColor = "#38bdf8";
+    boton.style.background = "linear-gradient(135deg,#1e40af,#1e3a8a)";
+    setTimeout(() => {
+      boton.style.borderColor = "#334155";
+      boton.style.background = "linear-gradient(135deg,#1e293b,#0f172a)";
+    }, 800);
+  }
+}
+
+function detenerAudioActual(){
+  if(audioActual){
+    try { audioActual.pause(); audioActual.currentTime = 0; } catch(e){}
+    audioActual = null;
+  }
 }
 /* ==================== FIN MAPA Y GEO ==================== */
 

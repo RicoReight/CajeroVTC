@@ -2165,9 +2165,7 @@ let capaZBE = null;
 let geoWatcherId = null;
 let geoActivo = false;
 let ultimaPosicion = null;
-let geoActivo = false;
-let ultimaPosicion = null;
-let zonaActual = null;   // ← añade esta línea
+let zonaActual = null;
 
 function actualizarEstadoGeo(){
   const badge = document.getElementById("geoEstadoBadge");

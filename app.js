@@ -2165,6 +2165,9 @@ let capaZBE = null;
 let geoWatcherId = null;
 let geoActivo = false;
 let ultimaPosicion = null;
+let geoActivo = false;
+let ultimaPosicion = null;
+let zonaActual = null;   // ← añade esta línea
 
 function actualizarEstadoGeo(){
   const badge = document.getElementById("geoEstadoBadge");
@@ -2496,9 +2499,45 @@ function detectarZona(lat, lon){
     return { codigo: "bcn", nombre: "🟢 Zona de trabajo", color: "#4ade80" };
   }
   if(puntoEnLineStrings(lat, lon, geoAMB)){
-    return { codigo: "amb", nombre: "🟡 Zona AMB (fuera de Barcelona)", color: "#fbbf24" };
+    return { codigo: "amb", nombre: "🟡 Zona AMB", color: "#fbbf24" };
   }
-  return { codigo: "fuera", nombre: "🔴 Fuera de zona AMB (interurbana)", color: "#ef4444" };
+  return { codigo: "fuera", nombre: "🔴 Fuera de zona AMB", color: "#ef4444" };
+}
+
+async function actualizarNotificacionZona(nuevaZona){
+  if(zonaActual === null){
+    zonaActual = nuevaZona.codigo;
+    return;
+  }
+  if(zonaActual === nuevaZona.codigo) return;
+
+  mostrarToast("Has cambiado a: " + nuevaZona.nombre);
+  zonaActual = nuevaZona.codigo;
+
+  const Cap = window.Capacitor;
+  if(!Cap || !Cap.Plugins || !Cap.Plugins.BackgroundGeolocation) return;
+  if(!geoWatcherId) return;
+  const BG = Cap.Plugins.BackgroundGeolocation;
+
+  try {
+    await BG.removeWatcher({ id: geoWatcherId });
+    geoWatcherId = null;
+
+    const onLocation = (location, error) => {
+      if(error || !location) return;
+      actualizarMapaConPosicion(location.latitude, location.longitude, Math.round(location.accuracy));
+    };
+
+    geoWatcherId = await BG.addWatcher({
+      backgroundMessage: nuevaZona.nombre,
+      backgroundTitle: 'Cambio VTC',
+      requestPermissions: false,
+      stale: false,
+      distanceFilter: 30
+    }, onLocation);
+  } catch(e){
+    console.warn('No se pudo actualizar la notificación:', e);
+  }
 }
 /* ==================== FIN DETECCIÓN DE ZONA ==================== */
 
@@ -2528,6 +2567,8 @@ function actualizarMapaConPosicion(lat, lon, acc){
     elZona.innerHTML = "Zona: " + zona.nombre + "<div style='font-size:11px;color:#94a3b8;margin-top:4px;font-weight:600'>" + lat.toFixed(5) + ", " + lon.toFixed(5) + " · ±" + (acc||0) + "m</div>";
     elZona.style.color = zona.color;
   }
+
+  actualizarNotificacionZona(zona);
 }
 
 function probarCoordenadasManuales(){
@@ -2553,7 +2594,6 @@ async function iniciarGeolocalizacion(){
     }
     const BG = Cap.Plugins.BackgroundGeolocation;
 
-    // Permisos
     try {
       const permisos = await BG.requestPermissions({ permissions: ['location'] });
       console.log('Permisos:', JSON.stringify(permisos));
@@ -2565,7 +2605,10 @@ async function iniciarGeolocalizacion(){
       console.warn('Error pidiendo permisos:', e);
     }
 
-    // 1) Posición inicial: intento con navigator.geolocation (best-effort)
+    // Reset zona al arrancar
+    zonaActual = null;
+
+    // Posición inicial con navigator.geolocation (best-effort)
     mostrarToast("🔎 Buscando tu posición...");
     if(navigator.geolocation){
       navigator.geolocation.getCurrentPosition(
@@ -2577,15 +2620,12 @@ async function iniciarGeolocalizacion(){
           actualizarMapaConPosicion(lat, lon, acc);
           mostrarToast("📍 Posición capturada");
         },
-        (err) => {
-          console.warn('navigator.geolocation falló:', err && err.message);
-          // Silencioso: el watcher dará la posición en cuanto arranque
-        },
+        (err) => { console.warn('navigator.geolocation falló:', err && err.message); },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
       );
     }
 
-    // 2) Watcher de background
+    // Parar watcher previo si existe
     if(geoWatcherId){
       try { await BG.removeWatcher({ id: geoWatcherId }); } catch(e){}
       geoWatcherId = null;
@@ -2603,8 +2643,8 @@ async function iniciarGeolocalizacion(){
     };
 
     geoWatcherId = await BG.addWatcher({
-      backgroundMessage: 'Rastreando zona...',
-      backgroundTitle: 'Cambio VTC · Zona',
+      backgroundMessage: 'Localizando zona...',
+      backgroundTitle: 'Cambio VTC',
       requestPermissions: false,
       stale: false,
       distanceFilter: 30

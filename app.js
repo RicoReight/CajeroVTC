@@ -2419,15 +2419,95 @@ function cerrarMapaPantalla(){
   if(p) p.style.display = "none";
 }
 
+/* ==================== DETECCIÓN DE ZONA ==================== */
+function contarCrucesRayo(lat, lon, coords){
+  let count = 0;
+  for(let i = 0; i < coords.length - 1; i++){
+    const x1 = coords[i][0],   y1 = coords[i][1];
+    const x2 = coords[i+1][0], y2 = coords[i+1][1];
+    const cruzaV = ((x1 > lon) !== (x2 > lon));
+    if(!cruzaV) continue;
+    const yInter = (y2 - y1) * (lon - x1) / (x2 - x1) + y1;
+    if(yInter > lat) count++;
+  }
+  return count;
+}
+
+function puntoEnLineStrings(lat, lon, geojson){
+  if(!geojson) return false;
+  const features = geojson.type === "FeatureCollection" ? geojson.features : [geojson];
+  let total = 0;
+  for(const f of features){
+    const g = f.geometry || f;
+    if(!g || !g.type) continue;
+    if(g.type === "LineString"){
+      total += contarCrucesRayo(lat, lon, g.coordinates);
+    } else if(g.type === "MultiLineString"){
+      for(const line of g.coordinates) total += contarCrucesRayo(lat, lon, line);
+    } else if(g.type === "Polygon"){
+      total += contarCrucesRayo(lat, lon, g.coordinates[0]);
+    } else if(g.type === "MultiPolygon"){
+      for(const poly of g.coordinates) total += contarCrucesRayo(lat, lon, poly[0]);
+    }
+  }
+  return (total % 2) === 1;
+}
+
+function enAnillo(lat, lon, ring){
+  let inside = false;
+  for(let i = 0, j = ring.length - 1; i < ring.length; j = i++){
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
+    const cruza = ((yi > lat) !== (yj > lat)) &&
+                  (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+    if(cruza) inside = !inside;
+  }
+  return inside;
+}
+
+function enPoligonoSimple(lat, lon, coords){
+  if(!coords || !coords.length) return false;
+  if(!enAnillo(lat, lon, coords[0])) return false;
+  for(let i = 1; i < coords.length; i++){
+    if(enAnillo(lat, lon, coords[i])) return false;
+  }
+  return true;
+}
+
+function puntoEnPoligono(lat, lon, geojson){
+  if(!geojson) return false;
+  const features = geojson.type === "FeatureCollection" ? geojson.features : [geojson];
+  for(const f of features){
+    const g = f.geometry || f;
+    if(!g || !g.type) continue;
+    if(g.type === "Polygon"){
+      if(enPoligonoSimple(lat, lon, g.coordinates)) return true;
+    } else if(g.type === "MultiPolygon"){
+      for(const poly of g.coordinates){
+        if(enPoligonoSimple(lat, lon, poly)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function detectarZona(lat, lon){
+  if(puntoEnPoligono(lat, lon, geoZBE)){
+    return { codigo: "bcn", nombre: "🟢 Zona de trabajo", color: "#4ade80" };
+  }
+  if(puntoEnLineStrings(lat, lon, geoAMB)){
+    return { codigo: "amb", nombre: "🟡 Zona AMB (fuera de Barcelona)", color: "#fbbf24" };
+  }
+  return { codigo: "fuera", nombre: "🔴 Fuera de zona AMB (interurbana)", color: "#ef4444" };
+}
 /* ==================== FIN DETECCIÓN DE ZONA ==================== */
 
-function actualizarMapaConPosicion(lat, lon, acc){
-  mostrarToast("🎯 Pos: " + lat.toFixed(4) + "," + lon.toFixed(4));
 
+function actualizarMapaConPosicion(lat, lon, acc){
   ultimaPosicion = { lat, lon };
 
   if(!mapaInstance){
-    mostrarToast("❌ mapaInstance es null");
+    console.warn("actualizarMapaConPosicion: mapaInstance es null");
     return;
   }
 
@@ -2436,30 +2516,17 @@ function actualizarMapaConPosicion(lat, lon, acc){
       radius: 8, color: "#fff", weight: 3,
       fillColor: "#38bdf8", fillOpacity: 1
     }).addTo(mapaInstance);
-    mostrarToast("✓ Marcador creado");
   } else {
     mapaMarker.setLatLng([lat, lon]);
-    mostrarToast("✓ Marcador movido");
   }
 
   mapaInstance.panTo([lat, lon]);
 
-  let zona;
-  try {
-    zona = detectarZona(lat, lon);
-    mostrarToast("✓ Zona: " + (zona ? zona.codigo : "null"));
-  } catch(e){
-    mostrarToast("❌ Error detectarZona: " + e.message);
-    return;
-  }
-
+  const zona = detectarZona(lat, lon);
   const elZona = document.getElementById("mapaZonaActual");
   if(elZona){
     elZona.innerHTML = "Zona: " + zona.nombre + "<div style='font-size:11px;color:#94a3b8;margin-top:4px;font-weight:600'>" + lat.toFixed(5) + ", " + lon.toFixed(5) + " · ±" + (acc||0) + "m</div>";
     elZona.style.color = zona.color;
-    mostrarToast("✅ Zona pintada en el DOM");
-  } else {
-    mostrarToast("❌ No existe #mapaZonaActual");
   }
 }
 
@@ -2481,40 +2548,41 @@ async function iniciarGeolocalizacion(){
   try {
     const Cap = window.Capacitor;
     if(!Cap || !Cap.Plugins || !Cap.Plugins.BackgroundGeolocation){
-      alert('❌ Plugin background no instalado');
+      alert('❌ Plugin de geolocalización no instalado');
       return;
     }
     const BG = Cap.Plugins.BackgroundGeolocation;
-    const Geo = Cap.Plugins.Geolocation;   // plugin oficial
 
     // Permisos
     try {
       const permisos = await BG.requestPermissions({ permissions: ['location'] });
       console.log('Permisos:', JSON.stringify(permisos));
+      if(permisos && permisos.location === 'denied'){
+        alert('❌ Permiso de ubicación denegado.\nActívalo en Ajustes → Apps → Permisos → Ubicación.');
+        return;
+      }
     } catch(e){
-      console.warn('Error permisos:', e);
+      console.warn('Error pidiendo permisos:', e);
     }
 
-    // 1) Posición inicial con el plugin OFICIAL (no cuelga)
-    if(Geo){
-      mostrarToast("🔎 Buscando tu posición...");
-      try {
-        const pos = await Geo.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
-        if(pos && pos.coords){
+    // 1) Posición inicial: intento con navigator.geolocation (best-effort)
+    mostrarToast("🔎 Buscando tu posición...");
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
           const lat = pos.coords.latitude;
           const lon = pos.coords.longitude;
           const acc = Math.round(pos.coords.accuracy || 0);
-          console.log('📍 Posición inicial:', lat, lon, acc);
+          console.log('📍 Posición inicial navigator:', lat, lon, acc);
           actualizarMapaConPosicion(lat, lon, acc);
           mostrarToast("📍 Posición capturada");
-        }
-      } catch(e){
-        console.warn('Geolocation.getCurrentPosition falló:', e);
-        mostrarToast("⚠️ No se pudo obtener posición inicial");
-      }
-    } else {
-      console.warn('Plugin Geolocation no disponible');
-      mostrarToast("⚠️ Plugin Geolocation no instalado");
+        },
+        (err) => {
+          console.warn('navigator.geolocation falló:', err && err.message);
+          // Silencioso: el watcher dará la posición en cuanto arranque
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
     }
 
     // 2) Watcher de background

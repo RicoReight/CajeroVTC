@@ -1946,7 +1946,45 @@ function mostrarToast(msg){
 }
 /* ==================== FIN OCR ==================== */
 
+async function lanzarNotificacionZona(texto){
+  try {
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
+    const LN = Cap.Plugins.LocalNotifications;
+
+    await LN.schedule({
+      notifications: [{
+        id: 1001,
+        title: 'Cambio de zona',
+        body: texto,
+        schedule: { at: new Date(Date.now() + 100) }
+      }]
+    });
+  } catch(e){
+    console.warn('Error lanzando notificación:', e);
+  }
+}
+
+async function solicitarPermisoNotificaciones(){
+  try {
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
+    const LN = Cap.Plugins.LocalNotifications;
+
+    const perm = await LN.checkPermissions();
+    if(perm.display !== 'granted'){
+      const req = await LN.requestPermissions();
+      console.log('Permiso notificaciones:', JSON.stringify(req));
+    }
+  } catch(e){
+    console.warn('Error pidiendo permiso notificaciones:', e);
+  }
+}
+
 function init(){
+  // Pedir permiso de notificaciones al arrancar
+  solicitarPermisoNotificaciones();
+
   // Auto-activar Eruda si estaba activado
   if(safeStorage.get("uberCambioDebug") === "1"){
     cargarEruda().catch(e => console.warn("Eruda no cargó:", e));
@@ -2504,21 +2542,19 @@ function detectarZona(lat, lon){
 }
 
 async function actualizarNotificacionZona(nuevaZona){
-  // Si no ha cambiado, no hacemos nada
   if(zonaActual === nuevaZona.codigo) return;
 
   const esPrimeraVez = (zonaActual === null);
   zonaActual = nuevaZona.codigo;
 
-  // Si aún no hay watcher, guardamos la zona para aplicarla luego
   if(!geoWatcherId){
     zonaPendiente = nuevaZona;
     return;
   }
 
-  // Toast solo si NO es la primera vez (para no molestar al arrancar)
   if(!esPrimeraVez){
     mostrarToast("Has cambiado a: " + nuevaZona.nombre);
+    lanzarNotificacionZona(nuevaZona.nombre);
   }
 
   await reiniciarWatcherConTexto(nuevaZona.nombre);

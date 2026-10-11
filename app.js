@@ -2345,23 +2345,46 @@ function cerrarMapaPantalla(){
 /* ==================== FIN DETECCIÓN DE ZONA ==================== */
 
 function actualizarMapaConPosicion(lat, lon, acc){
+  console.log("🎯 actualizarMapaConPosicion →", lat, lon, acc);
   ultimaPosicion = { lat, lon };
-  if(!mapaInstance) return;
+
+  if(!mapaInstance){
+    console.warn("❌ mapaInstance es null");
+    return;
+  }
+
   if(!mapaMarker){
     mapaMarker = L.circleMarker([lat, lon], {
       radius: 8, color: "#fff", weight: 3,
       fillColor: "#38bdf8", fillOpacity: 1
     }).addTo(mapaInstance);
+    console.log("✓ Marcador creado");
   } else {
     mapaMarker.setLatLng([lat, lon]);
+    console.log("✓ Marcador movido");
   }
-  mapaInstance.panTo([lat, lon]);
 
-  const zona = detectarZona(lat, lon);
+  mapaInstance.panTo([lat, lon]);
+  console.log("✓ Mapa centrado");
+
+  let zona;
+  try {
+    zona = detectarZona(lat, lon);
+    console.log("✓ detectarZona →", JSON.stringify(zona));
+  } catch(e){
+    console.error("❌ detectarZona lanzó excepción:", e);
+    return;
+  }
+
   const elZona = document.getElementById("mapaZonaActual");
+  console.log("✓ Elemento mapaZonaActual:", elZona);
+
   if(elZona){
     elZona.innerHTML = "Zona: " + zona.nombre + "<div style='font-size:11px;color:#94a3b8;margin-top:4px;font-weight:600'>" + lat.toFixed(5) + ", " + lon.toFixed(5) + " · ±" + (acc||0) + "m</div>";
     elZona.style.color = zona.color;
+    console.log("✅ Zona actualizada en el DOM");
+  } else {
+    console.error("❌ No se encontró el elemento mapaZonaActual en el DOM");
   }
 }
 

@@ -23,7 +23,9 @@
   <header>
     <h1 class="title">Calculadora de Cambio</h1>
     <div style="display:flex;gap:6px;flex-shrink:0">
-      <button class="btn-menu" onclick="abrirCierrePantalla()">💰 DEPOSITAR</button>
+      <button class="btn-menu" onclick="abrirMapaPantalla()" title="Mapa de zonas">🗺️</button>
+      <button class="btn-menu" onclick="abrirSonidosPantalla()" title="Sonidos">🔊</button>
+      <button class="btn-menu" onclick="abrirCierrePantalla()">💰</button>
       <button class="btn-menu" onclick="toggleMenu()">⚙️</button>
     </div>
   </header>
@@ -143,16 +145,6 @@
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid #334155">
       <button type="button" onclick="abrirDiagnostico()"
         style="width:100%;background:#0f172a;color:#38bdf8;border:1px solid #334155;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">🔍 VER DIAGNÓSTICO</button>
-
-      <button type="button" onclick="iniciarGeolocalizacion()"
-        style="width:100%;margin-top:8px;background:#0ea5e9;color:#fff;border:1px solid #0284c7;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">
-        📍 INICIAR GEOLOCALIZACIÓN
-      </button>
-
-      <button type="button" onclick="detenerGeolocalizacion()"
-        style="width:100%;margin-top:8px;background:#78350f;color:#fbbf24;border:1px solid #b45309;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">
-        ⏹️ DETENER GEOLOCALIZACIÓN
-      </button>
     </div>
 
     <div id="historialPanel" style="margin-top:16px"></div>
@@ -281,6 +273,28 @@
       <h2 style="margin:0;font-size:18px;color:#38bdf8">🏦 Reponer caja</h2>
     </div>
     <div id="reponerContenido"></div>
+  </div>
+</div>
+
+<div id="mapaPantalla" style="position:fixed;inset:0;background:#0f172a;z-index:500;display:none;overflow-y:auto;padding:14px;">
+  <div style="max-width:700px;margin:0 auto;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <button type="button" onclick="cerrarMapaPantalla()" style="background:#334155;color:#fff;border:none;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px">← Volver</button>
+      <h2 style="margin:0;font-size:18px;color:#38bdf8">🗺️ Mapa de zonas</h2>
+    </div>
+    <div id="mapaContenido"></div>
+  </div>
+</div>
+
+<div id="sonidosPantalla" style="position:fixed;inset:0;background:#0f172a;z-index:500;display:none;overflow-y:auto;padding:14px;">
+  <div style="max-width:600px;margin:0 auto;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <button type="button" onclick="cerrarSonidosPantalla()" style="background:#334155;color:#fff;border:none;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px">← Volver</button>
+      <h2 style="margin:0;font-size:18px;color:#38bdf8">🔊 Sonidos</h2>
+    </div>
+    <div style="padding:20px;text-align:center;color:#94a3b8;font-size:14px">
+      Próximamente
+    </div>
   </div>
 </div>
 

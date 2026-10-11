@@ -1860,30 +1860,17 @@ function cerrarOCRModal(){
   if(m) m.style.display = "none";
 }
 
-window.__toastQueue = [];
-let __toastTimer = null;
-
 function mostrarToast(msg){
   let t = document.getElementById("toastPrecio");
   if(!t){
     t = document.createElement("div");
     t.id = "toastPrecio";
-    t.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#059669;color:#fff;padding:12px 20px;border-radius:10px;font-weight:700;font-size:13px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:opacity 0.3s;opacity:0;pointer-events:none;max-width:90vw;white-space:pre-line;line-height:1.5;text-align:left";
+    t.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#059669;color:#fff;padding:12px 20px;border-radius:10px;font-weight:700;font-size:14px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:opacity 0.3s;opacity:0;pointer-events:none";
     document.body.appendChild(t);
   }
-
-  // Añadir al buffer
-  window.__toastQueue.push(msg);
-  if(window.__toastQueue.length > 8) window.__toastQueue.shift();
-
-  t.textContent = window.__toastQueue.join("\n");
+  t.textContent = msg;
   t.style.opacity = "1";
-
-  if(__toastTimer) clearTimeout(__toastTimer);
-  __toastTimer = setTimeout(() => {
-    t.style.opacity = "0";
-    window.__toastQueue = [];
-  }, 4000);
+  setTimeout(() => { t.style.opacity = "0"; }, 2200);
 }
 /* ==================== FIN OCR ==================== */
 

@@ -2803,49 +2803,91 @@ async function renderSonidosPanel(){
       <div class="card" style="background:#78350f;border:1px solid #b45309">
         <div style="font-size:14px;color:#fbbf24;font-weight:800;margin-bottom:6px">⚠️ No se pudo leer audios/manifest.json</div>
         <div style="font-size:12px;color:#fde68a;line-height:1.6">
-          Comprueba que tienes el archivo con este formato:<br>
-          <code style="background:#0f172a;padding:6px 8px;border-radius:4px;display:block;margin-top:8px;font-size:11px;white-space:pre">{ "seatbelt_ESP.mp3": "🪢 Ponte el cinturón" }</code>
+          Formato esperado:<br>
+          <code style="background:#0f172a;padding:6px 8px;border-radius:4px;display:block;margin-top:8px;font-size:11px;white-space:pre">{ "cinturones_ESP.mp3": "🪢 Ponte el cinturón" }</code>
         </div>
         <button type="button" onclick="renderSonidosPanel()" style="width:100%;margin-top:12px;background:#334155;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer">🔄 Reintentar</button>
       </div>`;
     return;
   }
 
-  const entradas = Object.entries(manifest);
+  // Detectar idioma por código en el nombre del archivo
+  const idiomas = [
+    { code: "ESP", titulo: "🇪🇸 Español" },
+    { code: "ENG", titulo: "🇬🇧 English" },
+    { code: "FRA", titulo: "🇫🇷 Français" },
+    { code: "ITA", titulo: "🇮🇹 Italiano" },
+    { code: "DEU", titulo: "🇩🇪 Deutsch" },
+    { code: "POR", titulo: "🇵🇹 Português" },
+    { code: "CAT", titulo: "🟡 Català" }
+  ];
 
-  if(entradas.length === 0){
-    cont.innerHTML = `<div class="card" style="text-align:center;color:#94a3b8;padding:30px">Sin audios configurados.<br><br><span style="font-size:12px">Añade entradas al <b>manifest.json</b>.</span></div>`;
+  function detectarIdioma(nombreArchivo){
+    const upper = nombreArchivo.toUpperCase();
+    for(const idi of idiomas){
+      if(upper.includes(idi.code)) return idi;
+    }
+    return { code: "OTROS", titulo: "🌐 Otros" };
+  }
+
+  // Agrupar por idioma (manteniendo el orden de la lista `idiomas`)
+  const grupos = {};
+  Object.entries(manifest).forEach(([archivo, titulo]) => {
+    const idi = detectarIdioma(archivo);
+    if(!grupos[idi.code]){
+      grupos[idi.code] = { titulo: idi.titulo, items: [] };
+    }
+    grupos[idi.code].items.push({ archivo, titulo });
+  });
+
+  // Ordenar grupos: primero los idiomas definidos, luego OTROS
+  const ordenFinal = [...idiomas.map(i => i.code), "OTROS"];
+  const gruposOrdenados = ordenFinal
+    .filter(c => grupos[c])
+    .map(c => ({ code: c, ...grupos[c] }));
+
+  if(gruposOrdenados.length === 0){
+    cont.innerHTML = `<div class="card" style="text-align:center;color:#94a3b8;padding:30px">Sin audios configurados.</div>`;
     return;
   }
 
-  let html = `<div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px">🔊 TOCA PARA REPRODUCIR</div>`;
-  html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">`;
-
-  entradas.forEach(([archivo, titulo]) => {
-    const url = "audios/" + archivo;
+  // Render
+  let html = "";
+  gruposOrdenados.forEach(grupo => {
     html += `
-      <button type="button" onclick="reproducirAudio('${url.replace(/'/g, "\\'")}', this)"
-        style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
-               background:linear-gradient(135deg,#1e293b,#0f172a);
-               border:2px solid #334155;border-radius:16px;
-               padding:22px 10px;min-height:130px;
-               color:#fff;font-size:15px;font-weight:800;cursor:pointer;
-               text-align:center;transition:all 0.15s">
-        <span style="font-size:42px;line-height:1">🎵</span>
-        <span style="word-break:break-word;line-height:1.25">${titulo}</span>
-      </button>
+      <div style="font-size:13px;color:#38bdf8;font-weight:900;letter-spacing:0.5px;
+                  margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid #334155">
+        ${grupo.titulo}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
     `;
-  });
 
-  html += `</div>`;
+    grupo.items.forEach(({ archivo, titulo }) => {
+      const url = "audios/" + archivo;
+      html += `
+        <button type="button" onclick="reproducirAudio('${url.replace(/'/g, "\\'")}', this)"
+          style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+                 background:linear-gradient(135deg,#1e293b,#0f172a);
+                 border:2px solid #334155;border-radius:16px;
+                 padding:22px 10px;min-height:130px;
+                 color:#fff;font-size:15px;font-weight:800;cursor:pointer;
+                 text-align:center;transition:all 0.15s">
+          <span style="font-size:42px;line-height:1">🎵</span>
+          <span style="word-break:break-word;line-height:1.25">${titulo}</span>
+        </button>
+      `;
+    });
+
+    html += `</div>`;
+  });
 
   html += `
     <div class="card" style="margin-top:16px;background:#0f172a;border:1px dashed #475569">
-      <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">💡 PARA AÑADIR UN AUDIO NUEVO</div>
-      <div style="font-size:12px;color:#94a3b8;line-height:1.7">
-        1. Copia el mp3 a la carpeta <code style="background:#1e293b;padding:2px 6px;border-radius:4px">audios/</code><br>
-        2. Añade una línea al <code style="background:#1e293b;padding:2px 6px;border-radius:4px">audios/manifest.json</code><br>
-        3. <code style="background:#1e293b;padding:2px 6px;border-radius:4px">npx cap sync android</code> y Run
+      <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">💡 CÓDIGOS DE IDIOMA</div>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.8">
+        Añade al final del nombre del archivo:<br>
+        <b>_ESP</b> · <b>_ENG</b> · <b>_FRA</b> · <b>_ITA</b> · <b>_DEU</b> · <b>_POR</b> · <b>_CAT</b><br><br>
+        Ejemplo: <code style="background:#1e293b;padding:2px 6px;border-radius:4px">cinturones_ENG.mp3</code> → va a la sección English
       </div>
     </div>
   `;

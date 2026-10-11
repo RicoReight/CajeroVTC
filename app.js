@@ -1217,7 +1217,6 @@ function actualizarCambioManual(total){let s=0;denominations.forEach(d=>{const n
 function confirmarCambio(total){let s=0;denominations.forEach(d=>{s+=d.c*(cambioState.aRecibir[d.c]||0)});if(s!==total){alert("La suma no cuadra.");return}if(!confirm("¿Confirmar el cambio?"))return;Object.keys(cambioState.aEntregar).forEach(k=>{const c=parseInt(k);const n=cambioState.aEntregar[c];const i=denominations.findIndex(d=>d.c===c);if(i>=0&&n>0){stock[i]=Math.max(0,stock[i]-n);statsOps.cambioNeto[i]-=n}});denominations.forEach(d=>{const n=cambioState.aRecibir[d.c]||0;if(n>0){const i=denominations.findIndex(x=>x.c===d.c);if(i>=0){stock[i]=Math.max(0,stock[i]+n);statsOps.cambioNeto[i]+=n}}});saveStats();const cm=loadCambios();cm.push({fecha:new Date().toISOString(),aEntregar:Object.assign({},cambioState.aEntregar),aRecibir:Object.assign({},cambioState.aRecibir),total});saveCambios(cm);saveStock();renderStockList();updateCashSummary();alert("✅ Cambio confirmado.");cerrarCambioPantalla()}
 
 function calcularCambioAutomatico(total, juntar, minE){
-  // Piezas que el usuario ya está entregando (no tiene sentido devolvérselas)
   const entregando = {};
   Object.keys(cambioState.aEntregar).forEach(k=>{
     if(cambioState.aEntregar[k]>0) entregando[parseInt(k)] = true;
@@ -1230,7 +1229,6 @@ function calcularCambioAutomatico(total, juntar, minE){
     cand = denominations.filter(d => d.c < minE).sort((a,b)=>b.c-a.c);
   }
 
-  // Atajo: si juntamos y hay una pieza exacta del total, pero con hueco hasta el tope
   if(juntar){
     for(const d of cand){
       if(d.c === total){
@@ -1254,15 +1252,12 @@ function calcularCambioAutomatico(total, juntar, minE){
     const sa = stock[i] || 0;
     const tope = topesRecibir[d.c] || 0;
 
-    // Espacio hasta el tope (no pasarse)
     const espacio = tope > 0 ? Math.max(0, tope - sa) : sa;
 
     let t;
     if(juntar){
-      // Modo juntar: solo limitamos por hueco hasta tope
       t = espacio;
     } else {
-      // Modo clásico: mantenemos la heurística + cap por tope
       let tt = (tope > 0) ? tope : 5;
       if(sa>=30) tt=0;
       else if(sa>=20) tt=Math.min(tt,1);
@@ -1281,7 +1276,6 @@ function calcularCambioAutomatico(total, juntar, minE){
     }
   });
 
-  // Sobrante → piezas pequeñas, pero también sin pasarse del tope
   if(r > 0 && !juntar){
     const desc = cand.slice();
     for(const d of desc){
@@ -1305,13 +1299,11 @@ function renderCambioResultado(total){
   const cont=document.getElementById("cambioContenido");
   if(!cont)return;
 
-  // ¿Hay algo que devolver?
   const ord = Object.keys(cambioState.aRecibir)
     .map(k=>parseInt(k))
     .filter(c=>cambioState.aRecibir[c]>0)
     .sort((a,b)=>b-a);
 
-  // Si NO hay nada que devolver, aviso
   if(ord.length === 0){
     const esJuntar = (total <= 200) || Object.keys(cambioState.aEntregar).every(k=>parseInt(k)<=200);
     let msg;
@@ -1329,7 +1321,6 @@ function renderCambioResultado(total){
     return;
   }
 
-  // Hay algo que devolver → render normal
   let html="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:12px'>🤖 PROPUESTA BASADA EN TUS HÁBITOS</div><div style='font-size:12px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>ENTREGAS AL BANCO</div><div class='change-grid'>";
   Object.keys(cambioState.aEntregar).forEach(k=>{
     const c=parseInt(k);
@@ -2096,14 +2087,6 @@ let capaAMB = null;
 let capaZBE = null;
 let geoWatcherId = null;
 
-/* Bounding box aproximado del AMB (a partir de AMB.json) */
-const AMB_BBOX = { minLat: 41.260, maxLat: 41.535, minLon: 1.846, maxLon: 2.297 };
-
-function enBBoxAMB(lat, lon){
-  return lat >= AMB_BBOX.minLat && lat <= AMB_BBOX.maxLat
-      && lon >= AMB_BBOX.minLon && lon <= AMB_BBOX.maxLon;
-}
-
 async function cargarLeaflet(){
   if(leafletLoaded) return;
   if(leafletLoading) return leafletLoading;
@@ -2112,13 +2095,11 @@ async function cargarLeaflet(){
       reject(new Error("Timeout: Leaflet no cargó en 10s"));
     }, 10000);
 
-    // CSS
     const css = document.createElement("link");
     css.rel = "stylesheet";
     css.href = "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css";
     document.head.appendChild(css);
 
-    // JS
     const s = document.createElement("script");
     s.src = "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js";
     s.onload = () => {
@@ -2185,7 +2166,6 @@ async function abrirMapaPantalla(){
 
   await cargarPoligonos(cont);
 
-  // HTML de la pantalla
   cont.innerHTML = `
     <div style="position:relative;margin-bottom:12px">
       <div id="mapa-leaflet" style="width:100%;height:60vh;min-height:380px;border-radius:10px;background:#1e293b"></div>
@@ -2258,27 +2238,60 @@ function cerrarMapaPantalla(){
   if(p) p.style.display = "none";
 }
 
+/* ==================== DETECCIÓN DE ZONA ==================== */
+/* AMB.json son LineStrings encadenados. Aplicamos ray casting:
+   si el rayo cruza un número IMPAR de segmentos → dentro. */
+function contarCrucesRayo(lat, lon, coords){
+  let count = 0;
+  for(let i = 0; i < coords.length - 1; i++){
+    const x1 = coords[i][0],   y1 = coords[i][1];
+    const x2 = coords[i+1][0], y2 = coords[i+1][1];
+    const cruza = ((y1 > lat) !== (y2 > lat)) &&
+                  (lon < (x2 - x1) * (lat - y1) / (y2 - y1) + x1);
+    if(cruza) count++;
+  }
+  return count;
+}
+
+function puntoEnLineStrings(lat, lon, geojson){
+  if(!geojson) return false;
+  const features = geojson.type === "FeatureCollection" ? geojson.features : [geojson];
+  let total = 0;
+  for(const f of features){
+    const g = f.geometry || f;
+    if(!g || !g.type) continue;
+    if(g.type === "LineString"){
+      total += contarCrucesRayo(lat, lon, g.coordinates);
+    } else if(g.type === "MultiLineString"){
+      for(const line of g.coordinates) total += contarCrucesRayo(lat, lon, line);
+    } else if(g.type === "Polygon"){
+      total += contarCrucesRayo(lat, lon, g.coordinates[0]);
+    } else if(g.type === "MultiPolygon"){
+      for(const poly of g.coordinates) total += contarCrucesRayo(lat, lon, poly[0]);
+    }
+  }
+  return (total % 2) === 1;
+}
+
 function enAnillo(lat, lon, ring){
   let inside = false;
-  for(let i=0, j=ring.length-1; i<ring.length; j=i++){
+  for(let i = 0, j = ring.length - 1; i < ring.length; j = i++){
     const xi = ring[i][0], yi = ring[i][1];
     const xj = ring[j][0], yj = ring[j][1];
-    const intersect = ((yi>lat)!==(yj>lat)) && (lon < (xj-xi)*(lat-yi)/(yj-yi)+xi);
-    if(intersect) inside = !inside;
+    const cruza = ((yi > lat) !== (yj > lat)) &&
+                  (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+    if(cruza) inside = !inside;
   }
   return inside;
 }
-
 function enPoligonoSimple(lat, lon, coords){
   if(!coords || !coords.length) return false;
-  const outer = coords[0];
-  if(!enAnillo(lat, lon, outer)) return false;
-  for(let i=1;i<coords.length;i++){
+  if(!enAnillo(lat, lon, coords[0])) return false;
+  for(let i = 1; i < coords.length; i++){
     if(enAnillo(lat, lon, coords[i])) return false;
   }
   return true;
 }
-
 function puntoEnPoligono(lat, lon, geojson){
   if(!geojson) return false;
   const features = geojson.type === "FeatureCollection" ? geojson.features : [geojson];
@@ -2300,11 +2313,12 @@ function detectarZona(lat, lon){
   if(puntoEnPoligono(lat, lon, geoZBE)){
     return { codigo: "bcn", nombre: "🟢 Zona de trabajo", color: "#4ade80" };
   }
-  if(enBBoxAMB(lat, lon)){
+  if(puntoEnLineStrings(lat, lon, geoAMB)){
     return { codigo: "amb", nombre: "🟡 Zona AMB (fuera de Barcelona)", color: "#fbbf24" };
   }
   return { codigo: "fuera", nombre: "🔴 Fuera de zona AMB (interurbana)", color: "#ef4444" };
 }
+/* ==================== FIN DETECCIÓN DE ZONA ==================== */
 
 function actualizarMapaConPosicion(lat, lon, acc){
   if(!mapaInstance) return;
@@ -2344,14 +2358,18 @@ async function iniciarGeolocalizacion(){
   try {
     const Cap = window.Capacitor;
     if(!Cap || !Cap.Plugins || !Cap.Plugins.BackgroundGeolocation){
-      alert('❌ Plugin de geolocalización no instalado');
+      alert('❌ Plugin de geolocalización no instalado.\n\nAsegúrate de tener:\n@capacitor-community/background-geolocation\n\nY haber hecho:\nnpx cap sync android');
       return;
     }
     const BG = Cap.Plugins.BackgroundGeolocation;
 
     try {
       const permisos = await BG.requestPermissions({ permissions: ['location'] });
-      console.log('Permisos:', permisos);
+      console.log('Permisos:', JSON.stringify(permisos));
+      if(permisos && permisos.location === 'denied'){
+        alert('❌ Permiso de ubicación denegado.\nActívalo en Ajustes → Apps → Permisos → Ubicación.');
+        return;
+      }
     } catch(e){
       console.warn('Error pidiendo permisos:', e);
     }
@@ -2361,28 +2379,31 @@ async function iniciarGeolocalizacion(){
       geoWatcherId = null;
     }
 
+    const onLocation = (location, error) => {
+      if(error){
+        console.warn('Error geolocalización:', error);
+        mostrarToast('⚠️ Error ubicación: ' + (error.message || JSON.stringify(error)));
+        return;
+      }
+      if(!location) return;
+      console.log('📍 Posición:', location.latitude, location.longitude, '±' + location.accuracy + 'm');
+      actualizarMapaConPosicion(location.latitude, location.longitude, Math.round(location.accuracy));
+      mostrarToast('📍 ' + location.latitude.toFixed(5) + ', ' + location.longitude.toFixed(5));
+    };
+
     geoWatcherId = await BG.addWatcher({
       backgroundMessage: 'Rastreando zona...',
       backgroundTitle: 'Cambio VTC · Zona',
       requestPermissions: false,
       stale: false,
-      distanceFilter: 100,
-      callback: (location, error) => {
-        if(error){
-          console.warn('Error geolocalización:', error);
-          return;
-        }
-        console.log('📍 Posición:', location.latitude, location.longitude);
-        actualizarMapaConPosicion(location.latitude, location.longitude, Math.round(location.accuracy));
-        mostrarToast('📍 ' + location.latitude.toFixed(5) + ', ' + location.longitude.toFixed(5));
-      }
-    });
+      distanceFilter: 30
+    }, onLocation);
 
     console.log('✅ Watcher iniciado:', geoWatcherId);
-    mostrarToast('✅ Rastreando ubicación');
+    mostrarToast('✅ Rastreando ubicación...');
   } catch(e){
     console.error('Error iniciando geolocalización:', e);
-    alert('❌ Error: ' + e.message);
+    alert('❌ Error: ' + (e.message || JSON.stringify(e)));
   }
 }
 

@@ -2172,33 +2172,60 @@ async function cargarLeaflet(){
   if(leafletLoaded) return;
   if(leafletLoading) return leafletLoading;
   leafletLoading = new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error("Timeout: Leaflet no cargó en 10s"));
+    }, 10000);
+
+    // CSS
     const css = document.createElement("link");
     css.rel = "stylesheet";
-    css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    css.href = "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css";
     document.head.appendChild(css);
+
+    // JS
     const s = document.createElement("script");
-    s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-    s.onload = () => { leafletLoaded = true; resolve(); };
-    s.onerror = () => reject(new Error("No se pudo cargar Leaflet"));
+    s.src = "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js";
+    s.onload = () => {
+      clearTimeout(timeout);
+      leafletLoaded = true;
+      console.log("✅ Leaflet cargado");
+      resolve();
+    };
+    s.onerror = () => {
+      clearTimeout(timeout);
+      reject(new Error("No se pudo cargar Leaflet desde jsdelivr"));
+    };
     document.head.appendChild(s);
   });
   return leafletLoading;
 }
 
-async function cargarPoligonos(){
+async function cargarPoligonos(cont){
   if(!geoAMB){
     try {
+      if(cont) cont.innerHTML = "<div style='text-align:center;color:#94a3b8;padding:20px'>Cargando zona AMB...</div>";
       const r1 = await fetch("VallasMap/AMB.json");
+      if(!r1.ok) throw new Error("HTTP "+r1.status);
       geoAMB = await r1.json();
-      console.log("✅ AMB cargado");
-    } catch(e){ console.warn("⚠️ AMB no cargado:", e); }
+      console.log("✅ AMB cargado, features:", geoAMB.features ? geoAMB.features.length : "?");
+    } catch(e){
+      console.warn("⚠️ AMB no cargado:", e);
+      if(cont) cont.innerHTML = "<div style='text-align:center;color:#fbbf24;padding:20px'>⚠️ AMB no cargado. Siguiendo...</div>";
+      await new Promise(r => setTimeout(r, 800));
+    }
   }
   if(!geoZBE){
     try {
+      if(cont) cont.innerHTML = "<div style='text-align:center;color:#94a3b8;padding:20px'>Cargando zona Rondas...</div>";
       const r2 = await fetch("VallasMap/ZBE.json");
+      if(!r2.ok) throw new Error("HTTP "+r2.status);
       geoZBE = await r2.json();
-      console.log("✅ ZBE cargado");
-    } catch(e){ console.warn("⚠️ ZBE no cargado:", e); }
+      console.log("✅ ZBE cargado, features:", geoZBE.features ? geoZBE.features.length : "?");
+    } catch(e){
+      console.warn("⚠️ ZBE no cargado:", e);
+      if(cont) cont.innerHTML = "<div style='text-align:center;color:#fbbf24;padding:20px'>⚠️ ZBE no cargado. Siguiendo...</div>";
+      await new Promise(r => setTimeout(r, 800));
+    }
   }
 }
 
@@ -2210,15 +2237,17 @@ async function abrirMapaPantalla(){
   if(p)p.style.display="block";
 
   const cont = document.getElementById("mapaContenido");
-  cont.innerHTML = "<div style='text-align:center;color:#94a3b8;padding:20px'>Cargando mapa...</div>";
+  cont.innerHTML = "<div style='text-align:center;color:#94a3b8;padding:20px'>Cargando librería de mapas...</div>";
 
   try {
     await cargarLeaflet();
-    await cargarPoligonos();
   } catch(e){
-    cont.innerHTML = "<div style='text-align:center;color:#ef4444;padding:20px'>Error cargando el mapa: "+e.message+"</div>";
+    cont.innerHTML = "<div style='text-align:center;color:#ef4444;padding:20px'>❌ Error: "+e.message+"</div>" +
+      "<div style='text-align:center;color:#94a3b8;padding:10px;font-size:12px'>¿Tienes internet? ¿Está bloqueado jsdelivr por el firewall?</div>";
     return;
   }
+
+  await cargarPoligonos(cont);
 
   // HTML de la pantalla
   cont.innerHTML = `
@@ -2279,6 +2308,7 @@ async function abrirMapaPantalla(){
       setTimeout(() => { if(mapaInstance) mapaInstance.invalidateSize(); }, 200);
     } catch(e){
       console.error("Error montando el mapa:", e);
+      cont.innerHTML += "<div style='text-align:center;color:#ef4444;padding:20px'>Error montando el mapa: "+e.message+"</div>";
     }
   }, 100);
 }

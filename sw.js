@@ -4,7 +4,11 @@ const HOSTNAME_WHITELIST = [
   'fonts.googleapis.com',
   'cdn.jsdelivr.net',
   'unpkg.com',
-  'tessdata.projectnaptha.com'
+  'tessdata.projectnaptha.com',
+  'tile.openstreetmap.org',        // ← añade este
+  'a.tile.openstreetmap.org',      // ← y estos por si acaso
+  'b.tile.openstreetmap.org',
+  'c.tile.openstreetmap.org'
 ];
 
 self.addEventListener('install', event => {

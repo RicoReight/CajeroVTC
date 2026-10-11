@@ -380,7 +380,32 @@ function renderTopesList(){const box=document.getElementById("topesList");if(!bo
 function updateTopeVal(c,v){topesRecibir[c]=Math.max(0,v);saveTopes();renderTopesList()}
 function resetTopes(){if(!confirm("¿Restaurar los topes máximos a los valores por defecto?"))return;topesRecibir=Object.assign({},TOPES_DEFAULT);saveTopes();renderTopesList()}
 
-function renderResetPanel(){const inp=document.getElementById("resetDia");if(inp)inp.value=diaReset;const el=document.getElementById("resetUltimaVez");if(el){if(ultimoResetPropinas){const d=new Date(ultimoResetPropinas);el.textContent="Última vez: "+d.toLocaleDateString("es-ES")+" "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})}else el.textContent="Última vez: —"}renderHistorialPanel()}
+function renderResetPanel(){
+  const inp=document.getElementById("resetDia");
+  if(inp)inp.value=diaReset;
+  const el=document.getElementById("resetUltimaVez");
+  if(el){
+    if(ultimoResetPropinas){
+      const d=new Date(ultimoResetPropinas);
+      el.textContent="Última vez: "+d.toLocaleDateString("es-ES")+" "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})
+    } else {
+      el.textContent="Última vez: —"
+    }
+  }
+  const btnDbg = document.getElementById("btnDebugToggle");
+  if(btnDbg){
+    if(safeStorage.get("uberCambioDebug") === "1"){
+      btnDbg.textContent = "ON";
+      btnDbg.style.background = "#7c3aed";
+      btnDbg.style.color = "#fff";
+    } else {
+      btnDbg.textContent = "OFF";
+      btnDbg.style.background = "#334155";
+      btnDbg.style.color = "#94a3b8";
+    }
+  }
+  renderHistorialPanel();
+}
 function guardarDiaReset(){const el=document.getElementById("resetDia");if(!el)return;const n=parseInt(el.value)||20;diaReset=Math.max(1,Math.min(31,n));saveDiaReset();el.value=diaReset}
 function resetCuenta(){if(!confirm("¿Poner el INVENTARIO (caja) a CERO?\nLas propinas NO se tocan."))return;stock=new Array(denominations.length).fill(0);saveStock();renderStockList();if(received.length)calculate()}
 function resetPropinas(){if(!confirm("¿Poner las PROPINAS a CERO?\nEl inventario NO se toca."))return;totalTips=0;saveTips();renderStockList();renderResetPanel()}
@@ -1635,6 +1660,53 @@ function confirmarReponer(){
   cerrarReponerPantalla()
 }
 
+/* ==================== MODO DEBUG (ERUDA) ==================== */
+function cargarEruda(){
+  return new Promise((resolve, reject) => {
+    if(window.eruda){ resolve(); return; }
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/eruda";
+    s.onload = () => {
+      if(window.eruda){
+        window.eruda.init();
+        resolve();
+      } else {
+        reject(new Error("eruda no se inicializó"));
+      }
+    };
+    s.onerror = () => reject(new Error("No se pudo cargar Eruda"));
+    document.head.appendChild(s);
+  });
+}
+
+function activarModoDebug(){
+  safeStorage.set("uberCambioDebug", "1");
+  cargarEruda()
+    .then(() => mostrarToast("🐞 Modo debug activado"))
+    .catch(e => alert("❌ Error: " + e.message));
+}
+
+function desactivarModoDebug(){
+  safeStorage.set("uberCambioDebug", "0");
+  if(window.eruda && window.eruda.destroy){
+    try { window.eruda.destroy(); } catch(e){}
+  }
+  mostrarToast("🐞 Modo debug desactivado");
+}
+
+function toggleModoDebug(){
+  const activo = safeStorage.get("uberCambioDebug") === "1";
+  if(!activo){
+    if(!confirm("⚠️ Activar modo DEBUG\n\nSe cargará Eruda con consola y herramientas de desarrollo.\n\nÚsalo solo para diagnóstico.")) return;
+    activarModoDebug();
+  } else {
+    desactivarModoDebug();
+  }
+  renderResetPanel();
+}
+/* ==================== FIN MODO DEBUG ==================== */
+
+
 function setupBackupUI(){const p=document.getElementById("panelInventario");if(!p)return;if(document.getElementById("backupBox"))return;const box=document.createElement("div");box.id="backupBox";box.style.cssText="margin-top:16px;border-top:1px solid #334155;padding-top:14px";const tt=document.createElement("div");tt.textContent="COPIA DE SEGURIDAD";tt.style.cssText="font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:8px";const be=document.createElement("button");be.type="button";be.textContent="💾 Guardar copia";be.style.cssText="width:100%;background:#334155;color:#fff;padding:12px;border-radius:10px;margin-bottom:8px;font-weight:700;font-size:15px;border:none;cursor:pointer";be.onclick=exportInventory;const bi=document.createElement("button");bi.type="button";bi.textContent="📂 Cargar copia";bi.style.cssText=be.style.cssText;bi.onclick=()=>fi.click();const fi=document.createElement("input");fi.type="file";fi.accept="application/json,.json";fi.style.display="none";fi.onchange=e=>{const f=e.target.files[0];if(f)importInventory(f);fi.value=""};box.appendChild(tt);box.appendChild(be);box.appendChild(bi);box.appendChild(fi);p.appendChild(box)}
 
 async function exportInventory(){
@@ -1875,6 +1947,11 @@ function mostrarToast(msg){
 /* ==================== FIN OCR ==================== */
 
 function init(){
+  // Auto-activar Eruda si estaba activado
+  if(safeStorage.get("uberCambioDebug") === "1"){
+    cargarEruda().catch(e => console.warn("Eruda no cargó:", e));
+  }
+
   try{renderButtons()}catch(e){console.error("renderButtons",e)}
   try{renderStockList()}catch(e){console.error("renderStockList",e)}
   try{updateCashSummary()}catch(e){console.error("updateCashSummary",e)}

@@ -2811,7 +2811,6 @@ async function renderSonidosPanel(){
     return;
   }
 
-  // Detectar idioma por código en el nombre del archivo
   const idiomas = [
     { code: "ESP", titulo: "🇪🇸 Español" },
     { code: "ENG", titulo: "🇬🇧 English" },
@@ -2830,7 +2829,6 @@ async function renderSonidosPanel(){
     return { code: "OTROS", titulo: "🌐 Otros" };
   }
 
-  // Agrupar por idioma (manteniendo el orden de la lista `idiomas`)
   const grupos = {};
   Object.entries(manifest).forEach(([archivo, titulo]) => {
     const idi = detectarIdioma(archivo);
@@ -2840,7 +2838,6 @@ async function renderSonidosPanel(){
     grupos[idi.code].items.push({ archivo, titulo });
   });
 
-  // Ordenar grupos: primero los idiomas definidos, luego OTROS
   const ordenFinal = [...idiomas.map(i => i.code), "OTROS"];
   const gruposOrdenados = ordenFinal
     .filter(c => grupos[c])
@@ -2851,8 +2848,19 @@ async function renderSonidosPanel(){
     return;
   }
 
-  // Render
-  let html = "";
+  // Botón PARAR arriba
+  let html = `
+    <button type="button" onclick="detenerAudioActual()"
+      style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
+             background:linear-gradient(135deg,#7f1d1d,#991b1b);
+             border:2px solid #ef4444;border-radius:14px;
+             padding:16px;color:#fca5a5;font-size:16px;font-weight:900;
+             letter-spacing:0.5px;cursor:pointer;margin-bottom:16px">
+      <span style="font-size:22px">⏹</span>
+      <span>PARAR AUDIO</span>
+    </button>
+  `;
+
   gruposOrdenados.forEach(grupo => {
     html += `
       <div style="font-size:13px;color:#38bdf8;font-weight:900;letter-spacing:0.5px;
@@ -2881,17 +2889,6 @@ async function renderSonidosPanel(){
     html += `</div>`;
   });
 
-  html += `
-    <div class="card" style="margin-top:16px;background:#0f172a;border:1px dashed #475569">
-      <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">💡 CÓDIGOS DE IDIOMA</div>
-      <div style="font-size:12px;color:#94a3b8;line-height:1.8">
-        Añade al final del nombre del archivo:<br>
-        <b>_ESP</b> · <b>_ENG</b> · <b>_FRA</b> · <b>_ITA</b> · <b>_DEU</b> · <b>_POR</b> · <b>_CAT</b><br><br>
-        Ejemplo: <code style="background:#1e293b;padding:2px 6px;border-radius:4px">cinturones_ENG.mp3</code> → va a la sección English
-      </div>
-    </div>
-  `;
-
   cont.innerHTML = html;
 }
 
@@ -2916,7 +2913,12 @@ function reproducirAudio(url, boton){
 
 function detenerAudioActual(){
   if(audioActual){
-    try { audioActual.pause(); audioActual.currentTime = 0; } catch(e){}
+    try {
+      audioActual.pause();
+      audioActual.currentTime = 0;
+      audioActual.src = "";
+      audioActual.load();
+    } catch(e){}
     audioActual = null;
   }
 }

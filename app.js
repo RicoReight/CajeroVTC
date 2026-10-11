@@ -1860,17 +1860,30 @@ function cerrarOCRModal(){
   if(m) m.style.display = "none";
 }
 
+window.__toastQueue = [];
+let __toastTimer = null;
+
 function mostrarToast(msg){
   let t = document.getElementById("toastPrecio");
   if(!t){
     t = document.createElement("div");
     t.id = "toastPrecio";
-    t.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#059669;color:#fff;padding:12px 20px;border-radius:10px;font-weight:700;font-size:14px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:opacity 0.3s;opacity:0;pointer-events:none";
+    t.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#059669;color:#fff;padding:12px 20px;border-radius:10px;font-weight:700;font-size:13px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:opacity 0.3s;opacity:0;pointer-events:none;max-width:90vw;white-space:pre-line;line-height:1.5;text-align:left";
     document.body.appendChild(t);
   }
-  t.textContent = msg;
+
+  // Añadir al buffer
+  window.__toastQueue.push(msg);
+  if(window.__toastQueue.length > 8) window.__toastQueue.shift();
+
+  t.textContent = window.__toastQueue.join("\n");
   t.style.opacity = "1";
-  setTimeout(() => { t.style.opacity = "0"; }, 2200);
+
+  if(__toastTimer) clearTimeout(__toastTimer);
+  __toastTimer = setTimeout(() => {
+    t.style.opacity = "0";
+    window.__toastQueue = [];
+  }, 4000);
 }
 /* ==================== FIN OCR ==================== */
 
@@ -2345,11 +2358,12 @@ function cerrarMapaPantalla(){
 /* ==================== FIN DETECCIÓN DE ZONA ==================== */
 
 function actualizarMapaConPosicion(lat, lon, acc){
-  console.log("🎯 actualizarMapaConPosicion →", lat, lon, acc);
+  mostrarToast("🎯 Pos: " + lat.toFixed(4) + "," + lon.toFixed(4));
+
   ultimaPosicion = { lat, lon };
 
   if(!mapaInstance){
-    console.warn("❌ mapaInstance es null");
+    mostrarToast("❌ mapaInstance es null");
     return;
   }
 
@@ -2358,33 +2372,30 @@ function actualizarMapaConPosicion(lat, lon, acc){
       radius: 8, color: "#fff", weight: 3,
       fillColor: "#38bdf8", fillOpacity: 1
     }).addTo(mapaInstance);
-    console.log("✓ Marcador creado");
+    mostrarToast("✓ Marcador creado");
   } else {
     mapaMarker.setLatLng([lat, lon]);
-    console.log("✓ Marcador movido");
+    mostrarToast("✓ Marcador movido");
   }
 
   mapaInstance.panTo([lat, lon]);
-  console.log("✓ Mapa centrado");
 
   let zona;
   try {
     zona = detectarZona(lat, lon);
-    console.log("✓ detectarZona →", JSON.stringify(zona));
+    mostrarToast("✓ Zona: " + (zona ? zona.codigo : "null"));
   } catch(e){
-    console.error("❌ detectarZona lanzó excepción:", e);
+    mostrarToast("❌ Error detectarZona: " + e.message);
     return;
   }
 
   const elZona = document.getElementById("mapaZonaActual");
-  console.log("✓ Elemento mapaZonaActual:", elZona);
-
   if(elZona){
     elZona.innerHTML = "Zona: " + zona.nombre + "<div style='font-size:11px;color:#94a3b8;margin-top:4px;font-weight:600'>" + lat.toFixed(5) + ", " + lon.toFixed(5) + " · ±" + (acc||0) + "m</div>";
     elZona.style.color = zona.color;
-    console.log("✅ Zona actualizada en el DOM");
+    mostrarToast("✅ Zona pintada en el DOM");
   } else {
-    console.error("❌ No se encontró el elemento mapaZonaActual en el DOM");
+    mostrarToast("❌ No existe #mapaZonaActual");
   }
 }
 

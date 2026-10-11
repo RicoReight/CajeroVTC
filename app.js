@@ -1715,50 +1715,125 @@ async function exportInventory(){
   const st=new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
   const fn="cambio-vtc-"+st+".json";
 
+  const eleccion = await preguntarModoExport();
+  if(!eleccion) return;
+
   const Cap = window.Capacitor;
+  if(!Cap || !Cap.Plugins || !Cap.Plugins.Filesystem){
+    alert("❌ Filesystem no disponible");
+    return;
+  }
+  const Fs = Cap.Plugins.Filesystem;
 
-  // 1) Si estamos en la app Android → guardar con Filesystem
-  if(Cap && Cap.Plugins && Cap.Plugins.Filesystem){
-    const Fs = Cap.Plugins.Filesystem;
+  let uriGuardado = null;
+  try {
     try {
-      try {
-        const perm = await Fs.checkPermissions();
-        if(perm.publicStorage !== 'granted'){
-          await Fs.requestPermissions();
-        }
-      } catch(e){}
-
-      const result = await Fs.writeFile({
-        path: 'CambioVTC/copias/' + fn,
-        data: js,
-        directory: 'DOCUMENTS',
-        encoding: 'utf8',
-        recursive: true
-      });
-
-      if(Cap.Plugins.Share){
-        try {
-          await Cap.Plugins.Share.share({
-            title: 'Copia de seguridad',
-            text: 'Copia de seguridad Cambio VTC',
-            url: result.uri,
-            dialogTitle: 'Guardar o enviar copia'
-          });
-          return;
-        } catch(e){
-          console.warn('Share cancelado o falló:', e);
-        }
+      const perm = await Fs.checkPermissions();
+      if(perm.publicStorage !== 'granted'){
+        await Fs.requestPermissions();
       }
+    } catch(e){}
 
-      alert("✅ Copia guardada en:\n\nDocumentos/CambioVTC/copias/" + fn);
-      return;
-    } catch(e){
-      console.error('Error guardando con Filesystem:', e);
-    }
+    const result = await Fs.writeFile({
+      path: 'CambioVTC/copias/' + fn,
+      data: js,
+      directory: 'EXTERNAL_STORAGE',
+      encoding: 'utf8',
+      recursive: true
+    });
+    uriGuardado = result.uri;
+    console.log("Archivo guardado en:", uriGuardado);
+  } catch(e){
+    console.error('Error guardando:', e);
+    alert("❌ No se pudo guardar:\n" + (e.message || ""));
+    return;
   }
 
-  // 2) Fallback: mostrar el texto para copiar manualmente
-  showCopyFallback(js, false);
+  if(eleccion === "compartir"){
+    if(Cap.Plugins.Share){
+      try {
+        await Cap.Plugins.Share.share({
+          title: 'Copia de seguridad',
+          text: 'Copia de seguridad Cambio VTC',
+          url: uriGuardado,
+          dialogTitle: 'Compartir copia'
+        });
+        return;
+      } catch(e){
+        console.warn("Share cancelado o falló:", e);
+      }
+    } else {
+      alert("⚠️ Plugin Share no disponible.\n\nLa copia se ha guardado en:\nCambioVTC/copias/" + fn);
+    }
+  } else {
+    mostrarToast("✅ Guardado en CambioVTC/copias/");
+  }
+}
+
+function preguntarModoExport(){
+  return new Promise((resolve) => {
+    const prev = document.getElementById("modalExportOpciones");
+    if(prev) prev.remove();
+
+    const m = document.createElement("div");
+    m.id = "modalExportOpciones";
+    m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px";
+
+    m.innerHTML = `
+      <div style="background:#1e293b;color:#f8fafc;border-radius:16px;padding:20px;max-width:380px;width:100%;border:1px solid #334155">
+
+        <div style="font-size:16px;font-weight:900;color:#38bdf8;text-align:center;margin-bottom:6px">
+          💾 Guardar copia
+        </div>
+        <div style="font-size:12px;color:#94a3b8;text-align:center;margin-bottom:18px;line-height:1.4">
+          ¿Qué quieres hacer con el archivo?
+        </div>
+
+        <button type="button" id="expLocal"
+          style="width:100%;display:flex;align-items:center;gap:14px;padding:16px;margin-bottom:10px;
+                 background:linear-gradient(135deg,#1e3a8a,#1e40af);border:2px solid #3b82f6;
+                 border-radius:12px;color:#fff;cursor:pointer;font-size:15px;font-weight:800;text-align:left">
+          <span style="font-size:28px">📱</span>
+          <div style="flex:1">
+            <div>Guardar en el móvil</div>
+            <div style="font-size:11px;color:#bfdbfe;font-weight:600;margin-top:3px">
+              CambioVTC/copias/
+            </div>
+          </div>
+        </button>
+
+        <button type="button" id="expCompartir"
+          style="width:100%;display:flex;align-items:center;gap:14px;padding:16px;margin-bottom:14px;
+                 background:linear-gradient(135deg,#4c1d95,#6d28d9);border:2px solid #8b5cf6;
+                 border-radius:12px;color:#fff;cursor:pointer;font-size:15px;font-weight:800;text-align:left">
+          <span style="font-size:28px">📤</span>
+          <div style="flex:1">
+            <div>Compartir / Exportar</div>
+            <div style="font-size:11px;color:#ddd6fe;font-weight:600;margin-top:3px">
+              Drive, WhatsApp, Gmail, etc.
+            </div>
+          </div>
+        </button>
+
+        <button type="button" id="expCancelar"
+          style="width:100%;padding:12px;background:#0f172a;color:#94a3b8;
+                 border:1px solid #475569;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer">
+          ✖ Cancelar
+        </button>
+
+      </div>
+    `;
+
+    document.body.appendChild(m);
+
+    document.getElementById("expLocal").onclick = () => { m.remove(); resolve("local"); };
+    document.getElementById("expCompartir").onclick = () => { m.remove(); resolve("compartir"); };
+    document.getElementById("expCancelar").onclick = () => { m.remove(); resolve(null); };
+
+    m.addEventListener("click", (e) => {
+      if(e.target === m){ m.remove(); resolve(null); }
+    });
+  });
 }
 
 function showCopyFallback(js,after){const prev=document.getElementById("copyBackupModal");if(prev)prev.remove();const m=document.createElement("div");m.id="copyBackupModal";m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";const b=document.createElement("div");b.style.cssText="background:#1e293b;color:#f8fafc;border-radius:14px;padding:16px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto";const t=document.createElement("h3");t.textContent="Copia de seguridad";t.style.cssText="margin:0 0 8px;font-size:16px";const i=document.createElement("p");i.textContent=after?"Si no se ha descargado, copia este texto y guárdalo como .json.":"Copia este texto y guárdalo como .json.";i.style.cssText="font-size:13px;color:#94a3b8;margin:0 0 10px";const ta=document.createElement("textarea");ta.value=js;ta.readOnly=true;ta.style.cssText="width:100%;height:180px;background:#0f172a;color:#f8fafc;border:1px solid #475569;border-radius:10px;padding:10px;font-family:monospace;font-size:12px";const r=document.createElement("div");r.style.cssText="display:flex;gap:8px;margin-top:12px";const bc=document.createElement("button");bc.type="button";bc.textContent="📋 Copiar";bc.style.cssText="flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:700;cursor:pointer";bc.onclick=async()=>{ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length);try{if(navigator.clipboard&&navigator.clipboard.writeText)await navigator.clipboard.writeText(js);else document.execCommand("copy");bc.textContent="✅ Copiado";setTimeout(()=>{bc.textContent="📋 Copiar"},1500)}catch(e){try{document.execCommand("copy");bc.textContent="✅ Copiado"}catch(_){bc.textContent="Selecciona y copia"}setTimeout(()=>{bc.textContent="📋 Copiar"},1500)}};const bx=document.createElement("button");bx.type="button";bx.textContent="Cerrar";bx.style.cssText="flex:1;background:#0f172a;color:#f8fafc;border:1px solid #475569;padding:12px;border-radius:10px;font-weight:700;cursor:pointer";bx.onclick=()=>m.remove();m.addEventListener("click",e=>{if(e.target===m)m.remove()});r.appendChild(bc);r.appendChild(bx);b.appendChild(t);b.appendChild(i);b.appendChild(ta);b.appendChild(r);m.appendChild(b);document.body.appendChild(m);setTimeout(()=>{ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length)},50)}

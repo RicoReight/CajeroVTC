@@ -2166,6 +2166,7 @@ let geoWatcherId = null;
 let geoActivo = false;
 let ultimaPosicion = null;
 let zonaActual = null;
+let zonaPendiente = null;
 
 function actualizarEstadoGeo(){
   const badge = document.getElementById("geoEstadoBadge");
@@ -2503,23 +2504,36 @@ function detectarZona(lat, lon){
 }
 
 async function actualizarNotificacionZona(nuevaZona){
-  if(zonaActual === null){
-    zonaActual = nuevaZona.codigo;
-    return;
-  }
+  // Si no ha cambiado, no hacemos nada
   if(zonaActual === nuevaZona.codigo) return;
 
-  mostrarToast("Has cambiado a: " + nuevaZona.nombre);
+  const esPrimeraVez = (zonaActual === null);
   zonaActual = nuevaZona.codigo;
 
+  // Si aún no hay watcher, guardamos la zona para aplicarla luego
+  if(!geoWatcherId){
+    zonaPendiente = nuevaZona;
+    return;
+  }
+
+  // Toast solo si NO es la primera vez (para no molestar al arrancar)
+  if(!esPrimeraVez){
+    mostrarToast("Has cambiado a: " + nuevaZona.nombre);
+  }
+
+  await reiniciarWatcherConTexto(nuevaZona.nombre);
+}
+
+async function reiniciarWatcherConTexto(texto){
   const Cap = window.Capacitor;
   if(!Cap || !Cap.Plugins || !Cap.Plugins.BackgroundGeolocation) return;
-  if(!geoWatcherId) return;
   const BG = Cap.Plugins.BackgroundGeolocation;
 
   try {
-    await BG.removeWatcher({ id: geoWatcherId });
-    geoWatcherId = null;
+    if(geoWatcherId){
+      await BG.removeWatcher({ id: geoWatcherId });
+      geoWatcherId = null;
+    }
 
     const onLocation = (location, error) => {
       if(error || !location) return;
@@ -2527,12 +2541,14 @@ async function actualizarNotificacionZona(nuevaZona){
     };
 
     geoWatcherId = await BG.addWatcher({
-      backgroundMessage: nuevaZona.nombre,
+      backgroundMessage: texto,
       backgroundTitle: 'Cambio VTC',
       requestPermissions: false,
       stale: false,
       distanceFilter: 30
     }, onLocation);
+
+    zonaPendiente = null;
   } catch(e){
     console.warn('No se pudo actualizar la notificación:', e);
   }
@@ -2605,6 +2621,7 @@ async function iniciarGeolocalizacion(){
 
     // Reset zona al arrancar
     zonaActual = null;
+    zonaPendiente = null;
 
     // Posición inicial con navigator.geolocation (best-effort)
     mostrarToast("🔎 Buscando tu posición...");
@@ -2651,6 +2668,13 @@ async function iniciarGeolocalizacion(){
     console.log('✅ Watcher arrancado:', geoWatcherId);
     geoActivo = true;
     actualizarEstadoGeo();
+
+    // Si mientras se creaba el watcher ya se detectó una zona, la aplicamos ahora
+    if(zonaPendiente){
+      const zp = zonaPendiente;
+      zonaPendiente = null;
+      await reiniciarWatcherConTexto(zp.nombre);
+    }
 
   } catch(e){
     console.error('Error general:', e);

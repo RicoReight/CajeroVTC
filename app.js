@@ -2399,25 +2399,45 @@ async function iniciarGeolocalizacion(){
       console.warn('Error pidiendo permisos:', e);
     }
 
-    // 1) Posición inicial INMEDIATA (para no esperar a moverse)
-    if(navigator.geolocation){
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const lat = pos.coords.latitude;
-          const lon = pos.coords.longitude;
-          const acc = Math.round(pos.coords.accuracy || 0);
-          console.log('📍 Posición inicial:', lat, lon, '±' + acc + 'm');
-          actualizarMapaConPosicion(lat, lon, acc);
-          mostrarToast('📍 Posición inicial capturada');
-        },
-        (err) => {
-          console.warn('No se pudo obtener posición inicial:', err);
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-      );
+    // 1) Posición inicial INMEDIATA usando el plugin (funciona siempre en WebView)
+    mostrarToast('🔎 Buscando tu posición...');
+    try {
+      if(typeof BG.getCurrentPosition === "function"){
+        const pos = await BG.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        });
+        if(pos && typeof pos.latitude === "number" && typeof pos.longitude === "number"){
+          const acc = Math.round(pos.accuracy || 0);
+          console.log('📍 Posición inicial:', pos.latitude, pos.longitude, '±' + acc + 'm');
+          actualizarMapaConPosicion(pos.latitude, pos.longitude, acc);
+          mostrarToast('📍 Posición capturada');
+        } else {
+          console.warn('getCurrentPosition devolvió datos vacíos:', pos);
+          mostrarToast('⚠️ No se pudo obtener posición inicial');
+        }
+      } else {
+        // Fallback: por si la versión del plugin no tiene getCurrentPosition
+        console.warn('BG.getCurrentPosition no existe, usando navigator.geolocation');
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            actualizarMapaConPosicion(pos.coords.latitude, pos.coords.longitude, Math.round(pos.coords.accuracy||0));
+            mostrarToast('📍 Posición capturada');
+          },
+          (err) => {
+            console.warn('getCurrentPosition falló:', err);
+            mostrarToast('⚠️ No se pudo obtener posición inicial');
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      }
+    } catch(e){
+      console.warn('Error en posición inicial:', e);
+      mostrarToast('⚠️ Error al pedir posición inicial');
     }
 
-    // 2) Watcher de background para actualizaciones continuas
+    // 2) Watcher de background para actualizaciones cada 30m
     if(geoWatcherId){
       try { await BG.removeWatcher({ id: geoWatcherId }); } catch(e){}
       geoWatcherId = null;
@@ -2432,7 +2452,7 @@ async function iniciarGeolocalizacion(){
         return;
       }
       if(!location) return;
-      console.log('📍 Posición:', location.latitude, location.longitude, '±' + location.accuracy + 'm');
+      console.log('📍 Posición watcher:', location.latitude, location.longitude, '±' + location.accuracy + 'm');
       actualizarMapaConPosicion(location.latitude, location.longitude, Math.round(location.accuracy));
       mostrarToast('📍 ' + location.latitude.toFixed(5) + ', ' + location.longitude.toFixed(5));
     };
@@ -2446,9 +2466,9 @@ async function iniciarGeolocalizacion(){
     }, onLocation);
 
     console.log('✅ Watcher iniciado:', geoWatcherId);
-    mostrarToast('✅ Rastreando ubicación...');
     geoActivo = true;
     actualizarEstadoGeo();
+
   } catch(e){
     console.error('Error iniciando geolocalización:', e);
     alert('❌ Error: ' + (e.message || JSON.stringify(e)));

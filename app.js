@@ -2399,6 +2399,25 @@ async function iniciarGeolocalizacion(){
       console.warn('Error pidiendo permisos:', e);
     }
 
+    // 1) Posición inicial INMEDIATA (para no esperar a moverse)
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const acc = Math.round(pos.coords.accuracy || 0);
+          console.log('📍 Posición inicial:', lat, lon, '±' + acc + 'm');
+          actualizarMapaConPosicion(lat, lon, acc);
+          mostrarToast('📍 Posición inicial capturada');
+        },
+        (err) => {
+          console.warn('No se pudo obtener posición inicial:', err);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+    }
+
+    // 2) Watcher de background para actualizaciones continuas
     if(geoWatcherId){
       try { await BG.removeWatcher({ id: geoWatcherId }); } catch(e){}
       geoWatcherId = null;

@@ -1735,9 +1735,9 @@ async function exportInventory(){
     } catch(e){}
 
     const result = await Fs.writeFile({
-      path: 'CambioVTC/copias/' + fn,
+      path: 'Documents/CambioVTC/copias/' + fn,
       data: js,
-      directory: 'EXTERNAL_STORAGE',
+      directory: 'DOCUMENTS',
       encoding: 'utf8',
       recursive: true
     });
@@ -1763,10 +1763,10 @@ async function exportInventory(){
         console.warn("Share cancelado o falló:", e);
       }
     } else {
-      alert("⚠️ Plugin Share no disponible.\n\nLa copia se ha guardado en:\nCambioVTC/copias/" + fn);
+      alert("⚠️ Plugin Share no disponible.\n\nLa copia se ha guardado en:\nDocuments/Documents/CambioVTC/copias/" + fn);
     }
   } else {
-    mostrarToast("✅ Guardado en CambioVTC/copias/");
+    mostrarToast("✅ Guardado en Documents/CambioVTC/copias/");
   }
 }
 
@@ -1797,7 +1797,7 @@ function preguntarModoExport(){
           <div style="flex:1">
             <div>Guardar en el móvil</div>
             <div style="font-size:11px;color:#bfdbfe;font-weight:600;margin-top:3px">
-              CambioVTC/copias/
+              Documents/CambioVTC/copias/
             </div>
           </div>
         </button>

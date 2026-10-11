@@ -2242,13 +2242,16 @@ function cerrarMapaPantalla(){
 /* AMB.json son LineStrings encadenados. Aplicamos ray casting:
    si el rayo cruza un número IMPAR de segmentos → dentro. */
 function contarCrucesRayo(lat, lon, coords){
+  // Rayo hacia el NORTE (arriba): contamos segmentos que cruzan la
+  // línea vertical lon = x por encima del punto.
   let count = 0;
   for(let i = 0; i < coords.length - 1; i++){
     const x1 = coords[i][0],   y1 = coords[i][1];
     const x2 = coords[i+1][0], y2 = coords[i+1][1];
-    const cruza = ((y1 > lat) !== (y2 > lat)) &&
-                  (lon < (x2 - x1) * (lat - y1) / (y2 - y1) + x1);
-    if(cruza) count++;
+    const cruzaV = ((x1 > lon) !== (x2 > lon));
+    if(!cruzaV) continue;
+    const yInter = (y2 - y1) * (lon - x1) / (x2 - x1) + y1;
+    if(yInter > lat) count++;
   }
   return count;
 }

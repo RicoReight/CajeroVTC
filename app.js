@@ -2157,4 +2157,291 @@ async function detenerGeolocalizacion(){
 }
 /* ==================== FIN GEOLOCALIZACIÓN ==================== */
 
+/* ==================== MAPA DE ZONAS ==================== */
+let leafletLoaded = false;
+let leafletLoading = null;
+let mapaInstance = null;
+let mapaMarker = null;
+let geoAMB = null;
+let geoZBE = null;
+let capaAMB = null;
+let capaZBE = null;
+let geoWatcherId = null;
+
+async function cargarLeaflet(){
+  if(leafletLoaded) return;
+  if(leafletLoading) return leafletLoading;
+  leafletLoading = new Promise((resolve, reject) => {
+    const css = document.createElement("link");
+    css.rel = "stylesheet";
+    css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    document.head.appendChild(css);
+    const s = document.createElement("script");
+    s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    s.onload = () => { leafletLoaded = true; resolve(); };
+    s.onerror = () => reject(new Error("No se pudo cargar Leaflet"));
+    document.head.appendChild(s);
+  });
+  return leafletLoading;
+}
+
+async function cargarPoligonos(){
+  if(!geoAMB){
+    try {
+      const r1 = await fetch("VallasMap/AMB.json");
+      geoAMB = await r1.json();
+      console.log("✅ AMB cargado");
+    } catch(e){ console.warn("⚠️ AMB no cargado:", e); }
+  }
+  if(!geoZBE){
+    try {
+      const r2 = await fetch("VallasMap/ZBE.json");
+      geoZBE = await r2.json();
+      console.log("✅ ZBE cargado");
+    } catch(e){ console.warn("⚠️ ZBE no cargado:", e); }
+  }
+}
+
+async function abrirMapaPantalla(){
+  const d=document.getElementById("drawer"),o=document.getElementById("overlay");
+  if(d)d.classList.remove("active");
+  if(o)o.classList.remove("active");
+  const p=document.getElementById("mapaPantalla");
+  if(p)p.style.display="block";
+
+  const cont = document.getElementById("mapaContenido");
+  cont.innerHTML = "<div style='text-align:center;color:#94a3b8;padding:20px'>Cargando mapa...</div>";
+
+  try {
+    await cargarLeaflet();
+    await cargarPoligonos();
+  } catch(e){
+    cont.innerHTML = "<div style='text-align:center;color:#ef4444;padding:20px'>Error cargando el mapa: "+e.message+"</div>";
+    return;
+  }
+
+  // HTML de la pantalla
+  cont.innerHTML = `
+    <div style="position:relative;margin-bottom:12px">
+      <div id="mapa-leaflet" style="width:100%;height:60vh;min-height:380px;border-radius:10px;background:#1e293b"></div>
+    </div>
+
+    <div id="mapaZonaActual" style="text-align:center;margin-bottom:12px;padding:12px;background:#1e293b;border-radius:10px;font-size:15px;font-weight:800;color:#94a3b8;border:1px solid #334155">
+      Zona: —
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <button type="button" onclick="iniciarGeolocalizacion()" style="background:#0ea5e9;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer">📍 Iniciar rastreo</button>
+      <button type="button" onclick="detenerGeolocalizacion()" style="background:#78350f;color:#fbbf24;border:1px solid #b45309;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer">⏹️ Detener</button>
+    </div>
+
+    <div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:10px;margin-bottom:12px">
+      <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">🧪 PROBAR CON COORDENADAS MANUALES</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input type="text" id="testLat" placeholder="Lat (ej: 41.3874)" style="flex:1;font-size:14px;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;outline:none;min-width:0">
+        <input type="text" id="testLon" placeholder="Lon (ej: 2.1686)" style="flex:1;font-size:14px;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;outline:none;min-width:0">
+      </div>
+      <button type="button" onclick="probarCoordenadasManuales()" style="width:100%;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;font-size:14px;cursor:pointer">Probar esta posición</button>
+    </div>
+
+    <div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:10px">
+      <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">📖 LEYENDA</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="width:20px;height:4px;background:#4ade80;border-radius:2px"></div>
+        <span style="font-size:13px;color:#fff">Zona Barcelona (Rondas)</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:20px;height:4px;background:#38bdf8;border-radius:2px"></div>
+        <span style="font-size:13px;color:#fff">Zona AMB</span>
+      </div>
+    </div>
+  `;
+
+  setTimeout(() => {
+    try {
+      mapaInstance = L.map("mapa-leaflet", { zoomControl: true }).setView([41.3874, 2.1686], 11);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap",
+        maxZoom: 19
+      }).addTo(mapaInstance);
+
+      if(geoAMB){
+        capaAMB = L.geoJSON(geoAMB, {
+          style: { color: "#38bdf8", weight: 2, fillColor: "#38bdf8", fillOpacity: 0.08 }
+        }).addTo(mapaInstance);
+      }
+      if(geoZBE){
+        capaZBE = L.geoJSON(geoZBE, {
+          style: { color: "#4ade80", weight: 3, fillColor: "#4ade80", fillOpacity: 0.15 }
+        }).addTo(mapaInstance);
+      }
+
+      setTimeout(() => { if(mapaInstance) mapaInstance.invalidateSize(); }, 200);
+    } catch(e){
+      console.error("Error montando el mapa:", e);
+    }
+  }, 100);
+}
+
+function cerrarMapaPantalla(){
+  const p = document.getElementById("mapaPantalla");
+  if(p) p.style.display = "none";
+}
+
+function enAnillo(lat, lon, ring){
+  let inside = false;
+  for(let i=0, j=ring.length-1; i<ring.length; j=i++){
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
+    const intersect = ((yi>lat)!==(yj>lat)) && (lon < (xj-xi)*(lat-yi)/(yj-yi)+xi);
+    if(intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function enPoligonoSimple(lat, lon, coords){
+  if(!coords || !coords.length) return false;
+  const outer = coords[0];
+  if(!enAnillo(lat, lon, outer)) return false;
+  for(let i=1;i<coords.length;i++){
+    if(enAnillo(lat, lon, coords[i])) return false;
+  }
+  return true;
+}
+
+function puntoEnPoligono(lat, lon, geojson){
+  if(!geojson) return false;
+  const features = geojson.type === "FeatureCollection" ? geojson.features : [geojson];
+  for(const f of features){
+    const g = f.geometry || f;
+    if(!g || !g.type) continue;
+    if(g.type === "Polygon"){
+      if(enPoligonoSimple(lat, lon, g.coordinates)) return true;
+    } else if(g.type === "MultiPolygon"){
+      for(const poly of g.coordinates){
+        if(enPoligonoSimple(lat, lon, poly)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function detectarZona(lat, lon){
+  if(puntoEnPoligono(lat, lon, geoZBE)){
+    return { codigo: "bcn", nombre: "🟢 Barcelona (Rondas)", color: "#4ade80" };
+  }
+  if(puntoEnPoligono(lat, lon, geoAMB)){
+    return { codigo: "amb", nombre: "🟡 AMB (fuera de Barcelona)", color: "#fbbf24" };
+  }
+  return { codigo: "fuera", nombre: "🔴 Zona interurbana", color: "#ef4444" };
+}
+
+function actualizarMapaConPosicion(lat, lon, acc){
+  if(!mapaInstance) return;
+  if(!mapaMarker){
+    mapaMarker = L.circleMarker([lat, lon], {
+      radius: 8, color: "#fff", weight: 3,
+      fillColor: "#38bdf8", fillOpacity: 1
+    }).addTo(mapaInstance);
+  } else {
+    mapaMarker.setLatLng([lat, lon]);
+  }
+  mapaInstance.panTo([lat, lon]);
+
+  const zona = detectarZona(lat, lon);
+  const elZona = document.getElementById("mapaZonaActual");
+  if(elZona){
+    elZona.innerHTML = "Zona: " + zona.nombre + "<div style='font-size:11px;color:#94a3b8;margin-top:4px;font-weight:600'>" + lat.toFixed(5) + ", " + lon.toFixed(5) + " · ±" + (acc||0) + "m</div>";
+    elZona.style.color = zona.color;
+  }
+}
+
+function probarCoordenadasManuales(){
+  const latEl = document.getElementById("testLat");
+  const lonEl = document.getElementById("testLon");
+  if(!latEl || !lonEl) return;
+  const lat = parseFloat(latEl.value.replace(',','.'));
+  const lon = parseFloat(lonEl.value.replace(',','.'));
+  if(isNaN(lat) || isNaN(lon)){
+    alert("Coordenadas inválidas. Usa números decimales (ej: 41.3874, 2.1686)");
+    return;
+  }
+  actualizarMapaConPosicion(lat, lon, 0);
+}
+
+/* ==================== GEOLOCALIZACIÓN BACKGROUND ==================== */
+async function iniciarGeolocalizacion(){
+  try {
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.Plugins || !Cap.Plugins.BackgroundGeolocation){
+      alert('❌ Plugin de geolocalización no instalado');
+      return;
+    }
+    const BG = Cap.Plugins.BackgroundGeolocation;
+
+    try {
+      const permisos = await BG.requestPermissions({ permissions: ['location'] });
+      console.log('Permisos:', permisos);
+    } catch(e){
+      console.warn('Error pidiendo permisos:', e);
+    }
+
+    if(geoWatcherId){
+      try { await BG.removeWatcher({ id: geoWatcherId }); } catch(e){}
+      geoWatcherId = null;
+    }
+
+    geoWatcherId = await BG.addWatcher({
+      backgroundMessage: 'Rastreando zona...',
+      backgroundTitle: 'Cambio VTC · Zona',
+      requestPermissions: false,
+      stale: false,
+      distanceFilter: 100,
+      callback: (location, error) => {
+        if(error){
+          console.warn('Error geolocalización:', error);
+          return;
+        }
+        console.log('📍 Posición:', location.latitude, location.longitude);
+        actualizarMapaConPosicion(location.latitude, location.longitude, Math.round(location.accuracy));
+        mostrarToast('📍 ' + location.latitude.toFixed(5) + ', ' + location.longitude.toFixed(5));
+      }
+    });
+
+    console.log('✅ Watcher iniciado:', geoWatcherId);
+    mostrarToast('✅ Rastreando ubicación');
+  } catch(e){
+    console.error('Error iniciando geolocalización:', e);
+    alert('❌ Error: ' + e.message);
+  }
+}
+
+async function detenerGeolocalizacion(){
+  try {
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.Plugins || !Cap.Plugins.BackgroundGeolocation) return;
+    const BG = Cap.Plugins.BackgroundGeolocation;
+    if(geoWatcherId){
+      await BG.removeWatcher({ id: geoWatcherId });
+      geoWatcherId = null;
+      mostrarToast('⏹️ Rastreo detenido');
+    }
+  } catch(e){
+    console.warn('Error deteniendo:', e);
+  }
+}
+
+function abrirSonidosPantalla(){
+  const d=document.getElementById("drawer"),o=document.getElementById("overlay");
+  if(d)d.classList.remove("active");
+  if(o)o.classList.remove("active");
+  const p=document.getElementById("sonidosPantalla");
+  if(p)p.style.display="block";
+}
+function cerrarSonidosPantalla(){
+  const p=document.getElementById("sonidosPantalla");
+  if(p)p.style.display="none";
+}
+/* ==================== FIN MAPA Y GEO ==================== */
+
 init();

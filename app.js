@@ -2086,7 +2086,112 @@ let geoZBE = null;
 let capaAMB = null;
 let capaZBE = null;
 let geoWatcherId = null;
+let geoActivo = false;
+let ultimaPosicion = null;   // { lat, lon } — para el botón "volver a mi ubicación"
+let capaActual = "calles";   // "calles" | "satelite" | "claro"
+let capaTiles = null;
 
+function actualizarEstadoGeo(){
+  const badge = document.getElementById("geoEstadoBadge");
+  const btnIni = document.getElementById("btnGeoIniciar");
+  const btnDet = document.getElementById("btnGeoDetener");
+  if(!badge || !btnIni || !btnDet) return;
+
+  if(geoActivo){
+    badge.innerHTML = "🟢 RASTREO ACTIVO<div style='font-size:11px;font-weight:600;color:#a7f3d0;margin-top:4px'>La ubicación se actualiza en segundo plano</div>";
+    badge.style.background = "linear-gradient(135deg,#064e3b,#065f46)";
+    badge.style.color = "#4ade80";
+    badge.style.borderColor = "#059669";
+    badge.style.boxShadow = "0 0 0 3px rgba(34,197,94,0.25)";
+
+    btnIni.style.background = "#1e293b";
+    btnIni.style.color = "#475569";
+    btnIni.style.borderColor = "#334155";
+    btnIni.style.cursor = "not-allowed";
+    btnIni.disabled = true;
+
+    btnDet.style.background = "linear-gradient(135deg,#7f1d1d,#991b1b)";
+    btnDet.style.color = "#fca5a5";
+    btnDet.style.borderColor = "#ef4444";
+    btnDet.style.cursor = "pointer";
+    btnDet.disabled = false;
+  } else {
+    badge.innerHTML = "⚫ RASTREO DETENIDO<div style='font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px'>Pulsa INICIAR para empezar a rastrear</div>";
+    badge.style.background = "linear-gradient(135deg,#1e293b,#0f172a)";
+    badge.style.color = "#94a3b8";
+    badge.style.borderColor = "#475569";
+    badge.style.boxShadow = "none";
+
+    btnIni.style.background = "linear-gradient(135deg,#0ea5e9,#0284c7)";
+    btnIni.style.color = "#fff";
+    btnIni.style.borderColor = "#0ea5e9";
+    btnIni.style.cursor = "pointer";
+    btnIni.disabled = false;
+
+    btnDet.style.background = "#1e293b";
+    btnDet.style.color = "#475569";
+    btnDet.style.borderColor = "#334155";
+    btnDet.style.cursor = "not-allowed";
+    btnDet.disabled = true;
+  }
+}
+
+function toggleDebugCoords(){
+  const box = document.getElementById("debugCoordsBox");
+  if(!box) return;
+  box.style.display = (box.style.display === "none" || !box.style.display) ? "block" : "none";
+}
+
+function centrarEnMiUbicacion(){
+  if(!mapaInstance) return;
+  if(!ultimaPosicion){
+    mostrarToast("📍 Aún no hay ubicación. Pulsa INICIAR o prueba coordenadas manuales.");
+    return;
+  }
+  mapaInstance.setView([ultimaPosicion.lat, ultimaPosicion.lon], 14);
+  if(mapaMarker){
+    mapaMarker.setLatLng([ultimaPosicion.lat, ultimaPosicion.lon]);
+  }
+}
+
+function cambiarCapa(tipo){
+  if(!mapaInstance) return;
+  capaActual = tipo;
+  if(capaTiles){
+    mapaInstance.removeLayer(capaTiles);
+  }
+  let url = "";
+  let attr = "";
+  if(tipo === "satelite"){
+    url = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+    attr = "© Esri, Maxar, Earthstar Geographics";
+  } else if(tipo === "claro"){
+    url = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+    attr = "© OpenStreetMap, © CARTO";
+  } else {
+    url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+    attr = "© OpenStreetMap";
+  }
+  capaTiles = L.tileLayer(url, { attribution: attr, maxZoom: 19 }).addTo(mapaInstance);
+  capaTiles.bringToBack();
+
+  // Marcar botón activo
+  ["calles","satelite","claro"].forEach(t => {
+    const b = document.getElementById("btnCapa_" + t);
+    if(!b) return;
+    if(t === tipo){
+      b.style.background = "#0ea5e9";
+      b.style.color = "#fff";
+      b.style.borderColor = "#0284c7";
+      b.style.fontWeight = "900";
+    } else {
+      b.style.background = "#1e293b";
+      b.style.color = "#94a3b8";
+      b.style.borderColor = "#334155";
+      b.style.fontWeight = "700";
+    }
+  });
+}
 async function cargarLeaflet(){
   if(leafletLoaded) return;
   if(leafletLoading) return leafletLoading;
@@ -2167,29 +2272,63 @@ async function abrirMapaPantalla(){
   await cargarPoligonos(cont);
 
   cont.innerHTML = `
+    <div id="geoEstadoBadge"
+      style="text-align:center;margin-bottom:12px;padding:14px;border-radius:12px;border:2px solid #475569;
+             background:linear-gradient(135deg,#1e293b,#0f172a);color:#94a3b8;
+             font-size:15px;font-weight:900;letter-spacing:0.5px;transition:all 0.3s">
+      ⚫ RASTREO DETENIDO
+      <div style='font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px'>Pulsa INICIAR para empezar a rastrear</div>
+    </div>
+
     <div style="position:relative;margin-bottom:12px">
-      <div id="mapa-leaflet" style="width:100%;height:60vh;min-height:380px;border-radius:10px;background:#1e293b"></div>
+      <div id="mapa-leaflet" style="width:100%;height:55vh;min-height:340px;border-radius:10px;background:#1e293b"></div>
+
+      <button type="button" onclick="centrarEnMiUbicacion()" title="Volver a mi ubicación"
+        style="position:absolute;right:10px;bottom:20px;z-index:500;
+               width:46px;height:46px;border-radius:50%;border:2px solid #0ea5e9;
+               background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;
+               font-size:22px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.5);
+               display:flex;align-items:center;justify-content:center;padding:0;line-height:1">
+        ◎
+      </button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px">
+      <button type="button" id="btnCapa_calles" onclick="cambiarCapa('calles')"
+        style="background:#0ea5e9;color:#fff;border:2px solid #0284c7;border-radius:10px;
+               padding:8px 4px;font-size:12px;font-weight:900;cursor:pointer;letter-spacing:0.3px">
+        🗺️ Calles
+      </button>
+      <button type="button" id="btnCapa_satelite" onclick="cambiarCapa('satelite')"
+        style="background:#1e293b;color:#94a3b8;border:2px solid #334155;border-radius:10px;
+               padding:8px 4px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.3px">
+        🛰️ Satélite
+      </button>
+      <button type="button" id="btnCapa_claro" onclick="cambiarCapa('claro')"
+        style="background:#1e293b;color:#94a3b8;border:2px solid #334155;border-radius:10px;
+               padding:8px 4px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.3px">
+        ☀️ Claro
+      </button>
     </div>
 
     <div id="mapaZonaActual" style="text-align:center;margin-bottom:12px;padding:12px;background:#1e293b;border-radius:10px;font-size:15px;font-weight:800;color:#94a3b8;border:1px solid #334155">
       Zona: —
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-      <button type="button" onclick="iniciarGeolocalizacion()" style="background:#0ea5e9;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer">📍 Iniciar rastreo</button>
-      <button type="button" onclick="detenerGeolocalizacion()" style="background:#78350f;color:#fbbf24;border:1px solid #b45309;border-radius:10px;padding:12px;font-weight:700;font-size:14px;cursor:pointer">⏹️ Detener</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <button type="button" id="btnGeoIniciar" onclick="iniciarGeolocalizacion()"
+        style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:2px solid #0ea5e9;border-radius:10px;
+               padding:14px;font-weight:900;font-size:15px;cursor:pointer;letter-spacing:0.5px;transition:all 0.2s">
+        ▶ INICIAR
+      </button>
+      <button type="button" id="btnGeoDetener" onclick="detenerGeolocalizacion()"
+        style="background:#1e293b;color:#475569;border:2px solid #334155;border-radius:10px;
+               padding:14px;font-weight:900;font-size:15px;cursor:not-allowed;letter-spacing:0.5px;transition:all 0.2s">
+        ⏹ DETENER
+      </button>
     </div>
 
     <div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:10px;margin-bottom:12px">
-      <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">🧪 PROBAR CON COORDENADAS MANUALES</div>
-      <div style="display:flex;gap:6px;margin-bottom:8px">
-        <input type="text" id="testLat" placeholder="Lat (ej: 41.3874)" style="flex:1;font-size:14px;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;outline:none;min-width:0">
-        <input type="text" id="testLon" placeholder="Lon (ej: 2.1686)" style="flex:1;font-size:14px;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;outline:none;min-width:0">
-      </div>
-      <button type="button" onclick="probarCoordenadasManuales()" style="width:100%;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;font-size:14px;cursor:pointer">Probar esta posición</button>
-    </div>
-
-    <div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:10px">
       <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">📖 LEYENDA</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <div style="width:20px;height:4px;background:#4ade80;border-radius:2px"></div>
@@ -2204,12 +2343,29 @@ async function abrirMapaPantalla(){
         <span style="font-size:13px;color:#fff">🔴 Fuera de zona AMB (interurbana)</span>
       </div>
     </div>
+
+    <div style="text-align:center;margin-top:16px">
+      <button type="button" onclick="toggleDebugCoords()"
+        style="background:transparent;color:#475569;border:1px dashed #334155;border-radius:10px;
+               padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">
+        🐞 Probar coordenadas manuales
+      </button>
+    </div>
+
+    <div id="debugCoordsBox" style="display:none;margin-top:10px;padding:12px;background:#1e293b;border:1px dashed #475569;border-radius:10px">
+      <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px;letter-spacing:0.5px">DEBUG · PRUEBA UNA POSICIÓN</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input type="text" id="testLat" placeholder="Lat (ej: 41.3874)" style="flex:1;font-size:14px;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;outline:none;min-width:0">
+        <input type="text" id="testLon" placeholder="Lon (ej: 2.1686)" style="flex:1;font-size:14px;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;outline:none;min-width:0">
+      </div>
+      <button type="button" onclick="probarCoordenadasManuales()" style="width:100%;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;font-size:13px;cursor:pointer">Probar esta posición</button>
+    </div>
   `;
 
   setTimeout(() => {
     try {
       mapaInstance = L.map("mapa-leaflet", { zoomControl: true }).setView([41.3874, 2.1686], 11);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      capaTiles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap",
         maxZoom: 19
       }).addTo(mapaInstance);
@@ -2226,6 +2382,7 @@ async function abrirMapaPantalla(){
       }
 
       setTimeout(() => { if(mapaInstance) mapaInstance.invalidateSize(); }, 200);
+      actualizarEstadoGeo();
     } catch(e){
       console.error("Error montando el mapa:", e);
       cont.innerHTML += "<div style='text-align:center;color:#ef4444;padding:20px'>Error montando el mapa: "+e.message+"</div>";
@@ -2238,92 +2395,10 @@ function cerrarMapaPantalla(){
   if(p) p.style.display = "none";
 }
 
-/* ==================== DETECCIÓN DE ZONA ==================== */
-/* AMB.json son LineStrings encadenados. Aplicamos ray casting:
-   si el rayo cruza un número IMPAR de segmentos → dentro. */
-function contarCrucesRayo(lat, lon, coords){
-  // Rayo hacia el NORTE (arriba): contamos segmentos que cruzan la
-  // línea vertical lon = x por encima del punto.
-  let count = 0;
-  for(let i = 0; i < coords.length - 1; i++){
-    const x1 = coords[i][0],   y1 = coords[i][1];
-    const x2 = coords[i+1][0], y2 = coords[i+1][1];
-    const cruzaV = ((x1 > lon) !== (x2 > lon));
-    if(!cruzaV) continue;
-    const yInter = (y2 - y1) * (lon - x1) / (x2 - x1) + y1;
-    if(yInter > lat) count++;
-  }
-  return count;
-}
-
-function puntoEnLineStrings(lat, lon, geojson){
-  if(!geojson) return false;
-  const features = geojson.type === "FeatureCollection" ? geojson.features : [geojson];
-  let total = 0;
-  for(const f of features){
-    const g = f.geometry || f;
-    if(!g || !g.type) continue;
-    if(g.type === "LineString"){
-      total += contarCrucesRayo(lat, lon, g.coordinates);
-    } else if(g.type === "MultiLineString"){
-      for(const line of g.coordinates) total += contarCrucesRayo(lat, lon, line);
-    } else if(g.type === "Polygon"){
-      total += contarCrucesRayo(lat, lon, g.coordinates[0]);
-    } else if(g.type === "MultiPolygon"){
-      for(const poly of g.coordinates) total += contarCrucesRayo(lat, lon, poly[0]);
-    }
-  }
-  return (total % 2) === 1;
-}
-
-function enAnillo(lat, lon, ring){
-  let inside = false;
-  for(let i = 0, j = ring.length - 1; i < ring.length; j = i++){
-    const xi = ring[i][0], yi = ring[i][1];
-    const xj = ring[j][0], yj = ring[j][1];
-    const cruza = ((yi > lat) !== (yj > lat)) &&
-                  (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi);
-    if(cruza) inside = !inside;
-  }
-  return inside;
-}
-function enPoligonoSimple(lat, lon, coords){
-  if(!coords || !coords.length) return false;
-  if(!enAnillo(lat, lon, coords[0])) return false;
-  for(let i = 1; i < coords.length; i++){
-    if(enAnillo(lat, lon, coords[i])) return false;
-  }
-  return true;
-}
-function puntoEnPoligono(lat, lon, geojson){
-  if(!geojson) return false;
-  const features = geojson.type === "FeatureCollection" ? geojson.features : [geojson];
-  for(const f of features){
-    const g = f.geometry || f;
-    if(!g || !g.type) continue;
-    if(g.type === "Polygon"){
-      if(enPoligonoSimple(lat, lon, g.coordinates)) return true;
-    } else if(g.type === "MultiPolygon"){
-      for(const poly of g.coordinates){
-        if(enPoligonoSimple(lat, lon, poly)) return true;
-      }
-    }
-  }
-  return false;
-}
-
-function detectarZona(lat, lon){
-  if(puntoEnPoligono(lat, lon, geoZBE)){
-    return { codigo: "bcn", nombre: "🟢 Zona de trabajo", color: "#4ade80" };
-  }
-  if(puntoEnLineStrings(lat, lon, geoAMB)){
-    return { codigo: "amb", nombre: "🟡 Zona AMB (fuera de Barcelona)", color: "#fbbf24" };
-  }
-  return { codigo: "fuera", nombre: "🔴 Fuera de zona AMB (interurbana)", color: "#ef4444" };
-}
 /* ==================== FIN DETECCIÓN DE ZONA ==================== */
 
 function actualizarMapaConPosicion(lat, lon, acc){
+  ultimaPosicion = { lat, lon };
   if(!mapaInstance) return;
   if(!mapaMarker){
     mapaMarker = L.circleMarker([lat, lon], {
@@ -2386,6 +2461,8 @@ async function iniciarGeolocalizacion(){
       if(error){
         console.warn('Error geolocalización:', error);
         mostrarToast('⚠️ Error ubicación: ' + (error.message || JSON.stringify(error)));
+        geoActivo = false;
+        actualizarEstadoGeo();
         return;
       }
       if(!location) return;
@@ -2404,9 +2481,13 @@ async function iniciarGeolocalizacion(){
 
     console.log('✅ Watcher iniciado:', geoWatcherId);
     mostrarToast('✅ Rastreando ubicación...');
+    geoActivo = true;
+    actualizarEstadoGeo();
   } catch(e){
     console.error('Error iniciando geolocalización:', e);
     alert('❌ Error: ' + (e.message || JSON.stringify(e)));
+    geoActivo = false;
+    actualizarEstadoGeo();
   }
 }
 
@@ -2420,8 +2501,12 @@ async function detenerGeolocalizacion(){
       geoWatcherId = null;
       mostrarToast('⏹️ Rastreo detenido');
     }
+    geoActivo = false;
+    actualizarEstadoGeo();
   } catch(e){
     console.warn('Error deteniendo:', e);
+    geoActivo = false;
+    actualizarEstadoGeo();
   }
 }
 

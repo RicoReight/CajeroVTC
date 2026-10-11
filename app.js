@@ -2096,6 +2096,14 @@ let capaAMB = null;
 let capaZBE = null;
 let geoWatcherId = null;
 
+/* Bounding box aproximado del AMB (a partir de AMB.json) */
+const AMB_BBOX = { minLat: 41.260, maxLat: 41.535, minLon: 1.846, maxLon: 2.297 };
+
+function enBBoxAMB(lat, lon){
+  return lat >= AMB_BBOX.minLat && lat <= AMB_BBOX.maxLat
+      && lon >= AMB_BBOX.minLon && lon <= AMB_BBOX.maxLon;
+}
+
 async function cargarLeaflet(){
   if(leafletLoaded) return;
   if(leafletLoading) return leafletLoading;
@@ -2205,11 +2213,15 @@ async function abrirMapaPantalla(){
       <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">📖 LEYENDA</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <div style="width:20px;height:4px;background:#4ade80;border-radius:2px"></div>
-        <span style="font-size:13px;color:#fff">Zona Barcelona (Rondas)</span>
+        <span style="font-size:13px;color:#fff">🟢 Zona de trabajo (Barcelona)</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="width:20px;height:4px;background:#38bdf8;border-radius:2px"></div>
+        <span style="font-size:13px;color:#fff">🟡 Zona AMB (fuera de Barcelona)</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <div style="width:20px;height:4px;background:#38bdf8;border-radius:2px"></div>
-        <span style="font-size:13px;color:#fff">Zona AMB</span>
+        <div style="width:20px;height:4px;background:#ef4444;border-radius:2px"></div>
+        <span style="font-size:13px;color:#fff">🔴 Fuera de zona AMB (interurbana)</span>
       </div>
     </div>
   `;
@@ -2286,12 +2298,12 @@ function puntoEnPoligono(lat, lon, geojson){
 
 function detectarZona(lat, lon){
   if(puntoEnPoligono(lat, lon, geoZBE)){
-    return { codigo: "bcn", nombre: "🟢 Barcelona (Rondas)", color: "#4ade80" };
+    return { codigo: "bcn", nombre: "🟢 Zona de trabajo", color: "#4ade80" };
   }
-  if(puntoEnPoligono(lat, lon, geoAMB)){
-    return { codigo: "amb", nombre: "🟡 AMB (fuera de Barcelona)", color: "#fbbf24" };
+  if(enBBoxAMB(lat, lon)){
+    return { codigo: "amb", nombre: "🟡 Zona AMB (fuera de Barcelona)", color: "#fbbf24" };
   }
-  return { codigo: "fuera", nombre: "🔴 Zona interurbana", color: "#ef4444" };
+  return { codigo: "fuera", nombre: "🔴 Fuera de zona AMB (interurbana)", color: "#ef4444" };
 }
 
 function actualizarMapaConPosicion(lat, lon, acc){

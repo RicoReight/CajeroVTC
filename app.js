@@ -2787,36 +2787,44 @@ async function renderSonidosPanel(){
   const cont = document.getElementById("sonidosContenido");
   if(!cont) return;
 
-  cont.innerHTML = `<div style="text-align:center;color:#94a3b8;padding:20px">Cargando sonidos…</div>`;
+  cont.innerHTML = `<div style="text-align:center;color:#94a3b8;padding:24px">Cargando audios…</div>`;
 
-  const lista = await cargarListaSonidos();
+  let manifest = null;
+  try {
+    const r = await fetch("audios/manifest.json");
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    manifest = await r.json();
+  } catch(e){
+    console.warn("No se pudo cargar audios/manifest.json:", e);
+  }
 
-  if(!lista){
+  if(!manifest || typeof manifest !== "object" || Array.isArray(manifest)){
     cont.innerHTML = `
-      <div class="card" style="background:#7f1d1d;border:1px solid #ef4444">
-        <div style="font-size:14px;color:#fecaca;font-weight:800;margin-bottom:6px">⚠️ No se encontró audios/manifest.json</div>
-        <div style="font-size:12px;color:#fca5a5;line-height:1.5">
-          Crea el archivo <b>audios/manifest.json</b> con la lista de tus mp3.<br>
-          Ejemplo: <code style="background:#0f172a;padding:2px 6px;border-radius:4px">["cinturones.mp3", "seatbelt_ENG.mp3"]</code>
+      <div class="card" style="background:#78350f;border:1px solid #b45309">
+        <div style="font-size:14px;color:#fbbf24;font-weight:800;margin-bottom:6px">⚠️ No se pudo leer audios/manifest.json</div>
+        <div style="font-size:12px;color:#fde68a;line-height:1.6">
+          Comprueba que tienes el archivo con este formato:<br>
+          <code style="background:#0f172a;padding:6px 8px;border-radius:4px;display:block;margin-top:8px;font-size:11px;white-space:pre">{ "seatbelt_ESP.mp3": "🪢 Ponte el cinturón" }</code>
         </div>
+        <button type="button" onclick="renderSonidosPanel()" style="width:100%;margin-top:12px;background:#334155;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer">🔄 Reintentar</button>
       </div>`;
     return;
   }
 
-  if(lista.length === 0){
-    cont.innerHTML = `<div class="card" style="text-align:center;color:#94a3b8;padding:30px">Sin sonidos configurados.<br>Añade archivos al <b>manifest.json</b>.</div>`;
+  const entradas = Object.entries(manifest);
+
+  if(entradas.length === 0){
+    cont.innerHTML = `<div class="card" style="text-align:center;color:#94a3b8;padding:30px">Sin audios configurados.<br><br><span style="font-size:12px">Añade entradas al <b>manifest.json</b>.</span></div>`;
     return;
   }
 
   let html = `<div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px">🔊 TOCA PARA REPRODUCIR</div>`;
-
   html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">`;
 
-  lista.forEach((nombre, idx) => {
-    const titulo = formatearTitulo(nombre);
-    const archivo = "audios/" + nombre;
+  entradas.forEach(([archivo, titulo]) => {
+    const url = "audios/" + archivo;
     html += `
-      <button type="button" data-idx="${idx}" onclick="reproducirAudio('${archivo.replace(/'/g, "\\'")}', this)"
+      <button type="button" onclick="reproducirAudio('${url.replace(/'/g, "\\'")}', this)"
         style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
                background:linear-gradient(135deg,#1e293b,#0f172a);
                border:2px solid #334155;border-radius:16px;
@@ -2833,11 +2841,11 @@ async function renderSonidosPanel(){
 
   html += `
     <div class="card" style="margin-top:16px;background:#0f172a;border:1px dashed #475569">
-      <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">💡 PARA AÑADIR UN SONIDO NUEVO</div>
+      <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">💡 PARA AÑADIR UN AUDIO NUEVO</div>
       <div style="font-size:12px;color:#94a3b8;line-height:1.7">
-        1. Copia el archivo (por ejemplo <b>seatbelt_ENG.mp3</b>) en la carpeta <code style="background:#1e293b;padding:2px 6px;border-radius:4px">audios/</code><br>
-        2. Añade su nombre al <code style="background:#1e293b;padding:2px 6px;border-radius:4px">audios/manifest.json</code><br>
-        3. Vuelve a abrir esta pantalla y aparecerá el botón.
+        1. Copia el mp3 a la carpeta <code style="background:#1e293b;padding:2px 6px;border-radius:4px">audios/</code><br>
+        2. Añade una línea al <code style="background:#1e293b;padding:2px 6px;border-radius:4px">audios/manifest.json</code><br>
+        3. <code style="background:#1e293b;padding:2px 6px;border-radius:4px">npx cap sync android</code> y Run
       </div>
     </div>
   `;
@@ -2845,13 +2853,12 @@ async function renderSonidosPanel(){
   cont.innerHTML = html;
 }
 
-function reproducirAudio(archivo, boton){
+function reproducirAudio(url, boton){
   detenerAudioActual();
-
-  audioActual = new Audio(archivo);
+  audioActual = new Audio(url);
   audioActual.volume = 1.0;
   audioActual.play().catch(e => {
-    alert("❌ No se pudo reproducir.\n\nComprueba que existe: " + archivo);
+    alert("❌ No se pudo reproducir:\n" + url);
     console.warn("Error reproduciendo:", e);
   });
 

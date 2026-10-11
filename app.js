@@ -1714,17 +1714,51 @@ async function exportInventory(){
   const js=JSON.stringify(data,null,2);
   const st=new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
   const fn="cambio-vtc-"+st+".json";
-  let dl=false;
-  try{
-    const b=new Blob([js],{type:"application/json"});
-    const u=URL.createObjectURL(b);
-    const a=document.createElement("a");
-    a.href=u;a.download=fn;a.rel="noopener";
-    document.body.appendChild(a);a.click();document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(u),1000);
-    dl=true;
-  }catch(e){console.warn("Descarga directa falló:",e);}
-  if(!dl) setTimeout(()=>showCopyFallback(js,false),100);
+
+  const Cap = window.Capacitor;
+
+  // 1) Si estamos en la app Android → guardar con Filesystem
+  if(Cap && Cap.Plugins && Cap.Plugins.Filesystem){
+    const Fs = Cap.Plugins.Filesystem;
+    try {
+      try {
+        const perm = await Fs.checkPermissions();
+        if(perm.publicStorage !== 'granted'){
+          await Fs.requestPermissions();
+        }
+      } catch(e){}
+
+      const result = await Fs.writeFile({
+        path: 'CambioVTC/copias/' + fn,
+        data: js,
+        directory: 'DOCUMENTS',
+        encoding: 'utf8',
+        recursive: true
+      });
+
+      if(Cap.Plugins.Share){
+        try {
+          await Cap.Plugins.Share.share({
+            title: 'Copia de seguridad',
+            text: 'Copia de seguridad Cambio VTC',
+            url: result.uri,
+            dialogTitle: 'Guardar o enviar copia'
+          });
+          return;
+        } catch(e){
+          console.warn('Share cancelado o falló:', e);
+        }
+      }
+
+      alert("✅ Copia guardada en:\n\nDocumentos/CambioVTC/copias/" + fn);
+      return;
+    } catch(e){
+      console.error('Error guardando con Filesystem:', e);
+    }
+  }
+
+  // 2) Fallback: mostrar el texto para copiar manualmente
+  showCopyFallback(js, false);
 }
 
 function showCopyFallback(js,after){const prev=document.getElementById("copyBackupModal");if(prev)prev.remove();const m=document.createElement("div");m.id="copyBackupModal";m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";const b=document.createElement("div");b.style.cssText="background:#1e293b;color:#f8fafc;border-radius:14px;padding:16px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto";const t=document.createElement("h3");t.textContent="Copia de seguridad";t.style.cssText="margin:0 0 8px;font-size:16px";const i=document.createElement("p");i.textContent=after?"Si no se ha descargado, copia este texto y guárdalo como .json.":"Copia este texto y guárdalo como .json.";i.style.cssText="font-size:13px;color:#94a3b8;margin:0 0 10px";const ta=document.createElement("textarea");ta.value=js;ta.readOnly=true;ta.style.cssText="width:100%;height:180px;background:#0f172a;color:#f8fafc;border:1px solid #475569;border-radius:10px;padding:10px;font-family:monospace;font-size:12px";const r=document.createElement("div");r.style.cssText="display:flex;gap:8px;margin-top:12px";const bc=document.createElement("button");bc.type="button";bc.textContent="📋 Copiar";bc.style.cssText="flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:700;cursor:pointer";bc.onclick=async()=>{ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length);try{if(navigator.clipboard&&navigator.clipboard.writeText)await navigator.clipboard.writeText(js);else document.execCommand("copy");bc.textContent="✅ Copiado";setTimeout(()=>{bc.textContent="📋 Copiar"},1500)}catch(e){try{document.execCommand("copy");bc.textContent="✅ Copiado"}catch(_){bc.textContent="Selecciona y copia"}setTimeout(()=>{bc.textContent="📋 Copiar"},1500)}};const bx=document.createElement("button");bx.type="button";bx.textContent="Cerrar";bx.style.cssText="flex:1;background:#0f172a;color:#f8fafc;border:1px solid #475569;padding:12px;border-radius:10px;font-weight:700;cursor:pointer";bx.onclick=()=>m.remove();m.addEventListener("click",e=>{if(e.target===m)m.remove()});r.appendChild(bc);r.appendChild(bx);b.appendChild(t);b.appendChild(i);b.appendChild(ta);b.appendChild(r);m.appendChild(b);document.body.appendChild(m);setTimeout(()=>{ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length)},50)}
@@ -2756,33 +2790,6 @@ function cerrarSonidosPantalla(){
   detenerAudioActual();
 }
 
-async function cargarListaSonidos(){
-  if(listaSonidos) return listaSonidos;
-  try {
-    const r = await fetch("audios/manifest.json");
-    if(!r.ok) throw new Error("HTTP " + r.status);
-    const arr = await r.json();
-    if(!Array.isArray(arr)) throw new Error("formato inválido");
-    listaSonidos = arr;
-    return listaSonidos;
-  } catch(e){
-    console.warn("No se pudo cargar audios/manifest.json:", e);
-    return null;
-  }
-}
-
-// Convierte "seatbelt_ENG.mp3" → "Seatbelt ENG"
-function formatearTitulo(nombreArchivo){
-  return nombreArchivo
-    .replace(/\.(mp3|wav|ogg|m4a)$/i, "")
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .split(" ")
-    .map(p => p.charAt(0).toUpperCase() + p.slice(1))
-    .join(" ");
-}
-
 async function renderSonidosPanel(){
   const cont = document.getElementById("sonidosContenido");
   if(!cont) return;
@@ -2894,11 +2901,36 @@ async function renderSonidosPanel(){
 
 function reproducirAudio(url, boton){
   detenerAudioActual();
+
+  // Pedir foco de audio → pausa Spotify/música
+  try {
+    if(window.AndroidAudio && window.AndroidAudio.requestAudioFocus){
+      window.AndroidAudio.requestAudioFocus();
+    }
+  } catch(e){
+    console.warn("No se pudo pedir foco de audio:", e);
+  }
+
   audioActual = new Audio(url);
   audioActual.volume = 1.0;
+
+  audioActual.onended = () => {
+    try {
+      if(window.AndroidAudio && window.AndroidAudio.abandonAudioFocus){
+        window.AndroidAudio.abandonAudioFocus();
+      }
+    } catch(e){}
+    audioActual = null;
+  };
+
   audioActual.play().catch(e => {
     alert("❌ No se pudo reproducir:\n" + url);
     console.warn("Error reproduciendo:", e);
+    try {
+      if(window.AndroidAudio && window.AndroidAudio.abandonAudioFocus){
+        window.AndroidAudio.abandonAudioFocus();
+      }
+    } catch(e2){}
   });
 
   if(boton){
@@ -2921,6 +2953,11 @@ function detenerAudioActual(){
     } catch(e){}
     audioActual = null;
   }
+  try {
+    if(window.AndroidAudio && window.AndroidAudio.abandonAudioFocus){
+      window.AndroidAudio.abandonAudioFocus();
+    }
+  } catch(e){}
 }
 /* ==================== FIN MAPA Y GEO ==================== */
 

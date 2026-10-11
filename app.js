@@ -2087,9 +2087,7 @@ let capaAMB = null;
 let capaZBE = null;
 let geoWatcherId = null;
 let geoActivo = false;
-let ultimaPosicion = null;   // { lat, lon } — para el botón "volver a mi ubicación"
-let capaActual = "calles";   // "calles" | "satelite" | "claro"
-let capaTiles = null;
+let ultimaPosicion = null;
 
 function actualizarEstadoGeo(){
   const badge = document.getElementById("geoEstadoBadge");
@@ -2154,44 +2152,6 @@ function centrarEnMiUbicacion(){
   }
 }
 
-function cambiarCapa(tipo){
-  if(!mapaInstance) return;
-  capaActual = tipo;
-  if(capaTiles){
-    mapaInstance.removeLayer(capaTiles);
-  }
-  let url = "";
-  let attr = "";
-  if(tipo === "satelite"){
-    url = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
-    attr = "© Esri, Maxar, Earthstar Geographics";
-  } else if(tipo === "claro"){
-    url = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-    attr = "© OpenStreetMap, © CARTO";
-  } else {
-    url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-    attr = "© OpenStreetMap";
-  }
-  capaTiles = L.tileLayer(url, { attribution: attr, maxZoom: 19 }).addTo(mapaInstance);
-  capaTiles.bringToBack();
-
-  // Marcar botón activo
-  ["calles","satelite","claro"].forEach(t => {
-    const b = document.getElementById("btnCapa_" + t);
-    if(!b) return;
-    if(t === tipo){
-      b.style.background = "#0ea5e9";
-      b.style.color = "#fff";
-      b.style.borderColor = "#0284c7";
-      b.style.fontWeight = "900";
-    } else {
-      b.style.background = "#1e293b";
-      b.style.color = "#94a3b8";
-      b.style.borderColor = "#334155";
-      b.style.fontWeight = "700";
-    }
-  });
-}
 async function cargarLeaflet(){
   if(leafletLoaded) return;
   if(leafletLoading) return leafletLoading;
@@ -2293,24 +2253,6 @@ async function abrirMapaPantalla(){
       </button>
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px">
-      <button type="button" id="btnCapa_calles" onclick="cambiarCapa('calles')"
-        style="background:#0ea5e9;color:#fff;border:2px solid #0284c7;border-radius:10px;
-               padding:8px 4px;font-size:12px;font-weight:900;cursor:pointer;letter-spacing:0.3px">
-        🗺️ Calles
-      </button>
-      <button type="button" id="btnCapa_satelite" onclick="cambiarCapa('satelite')"
-        style="background:#1e293b;color:#94a3b8;border:2px solid #334155;border-radius:10px;
-               padding:8px 4px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.3px">
-        🛰️ Satélite
-      </button>
-      <button type="button" id="btnCapa_claro" onclick="cambiarCapa('claro')"
-        style="background:#1e293b;color:#94a3b8;border:2px solid #334155;border-radius:10px;
-               padding:8px 4px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.3px">
-        ☀️ Claro
-      </button>
-    </div>
-
     <div id="mapaZonaActual" style="text-align:center;margin-bottom:12px;padding:12px;background:#1e293b;border-radius:10px;font-size:15px;font-weight:800;color:#94a3b8;border:1px solid #334155">
       Zona: —
     </div>
@@ -2365,7 +2307,7 @@ async function abrirMapaPantalla(){
   setTimeout(() => {
     try {
       mapaInstance = L.map("mapa-leaflet", { zoomControl: true }).setView([41.3874, 2.1686], 11);
-      capaTiles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap",
         maxZoom: 19
       }).addTo(mapaInstance);
@@ -2383,6 +2325,11 @@ async function abrirMapaPantalla(){
 
       setTimeout(() => { if(mapaInstance) mapaInstance.invalidateSize(); }, 200);
       actualizarEstadoGeo();
+
+      // Si ya teníamos una posición guardada, la aplicamos ahora
+      if(ultimaPosicion){
+        actualizarMapaConPosicion(ultimaPosicion.lat, ultimaPosicion.lon, 0);
+      }
     } catch(e){
       console.error("Error montando el mapa:", e);
       cont.innerHTML += "<div style='text-align:center;color:#ef4444;padding:20px'>Error montando el mapa: "+e.message+"</div>";

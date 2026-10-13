@@ -2265,8 +2265,16 @@ function diasHastaCaducar(festivo){
 }
 function estadoFestivo(f){
   if(!f.trabajado) return "libre";
-  if(f.sacrificado) return "sacrificado";   // ← NUEVO
+  if(f.sacrificado) return "sacrificado";
   if(f.solicitado) return "solicitado";
+
+  // 👇 NUEVO: si el día aún no ha pasado, no está acumulado todavía
+  const hoy = new Date();
+  hoy.setHours(0,0,0,0);
+  const p = f.fecha.split("-");
+  const fechaFest = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+  if(fechaFest > hoy) return "futuro";
+
   const d = diasHastaCaducar(f);
   if(d < 0) return "caducado";
   if(d <= 15) return "porCaducar";
@@ -2280,7 +2288,8 @@ function colorEstadoFestivo(estado){
     porCaducar:"#fbbf24",
     caducado:"#ef4444",
     libre:"#64748b",
-    sacrificado:"#a855f7"      // ← NUEVO (violeta)
+    sacrificado:"#a855f7",
+    futuro:"#475569"          // 👈 gris para "aún no ha pasado"
   };
   return c[estado] || "#64748b";
 }
@@ -2292,10 +2301,12 @@ function nombreEstado(est){
     porCaducar:"Por caducar",
     caducado:"Caducado",
     libre:"No trabajado",
-    sacrificado:"Sacrificado"  // ← NUEVO
+    sacrificado:"Sacrificado",
+    futuro:"Pendiente"        // 👈
   };
   return n[est] || est;
 }
+
 function formatearFechaBonita(fechaStr){
   const p = fechaStr.split("-");
   const m = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
@@ -2384,9 +2395,11 @@ function renderDiasTrabajo(){
 
   // --- Datos del año ---
   const festivosAnio = festivos.filter(f => parseInt(f.fecha.slice(0,4)) === diasAnioVista);
-  const solicitados = festivosAnio.filter(f => f.trabajado && f.solicitado && !f.sacrificado).length;
-  const acumulados = festivosAnio.filter(f => f.trabajado && !f.solicitado && !f.sacrificado && diasHastaCaducar(f) >= 0).length;
-  const porCaducar = festivosAnio.filter(f => f.trabajado && !f.solicitado && !f.sacrificado && diasHastaCaducar(f) >= 0 && diasHastaCaducar(f) <= 15).length;
+
+  // 👇 Ahora usamos estadoFestivo para que los futuros no cuenten como acumulados
+  const solicitados = festivosAnio.filter(f => estadoFestivo(f) === "solicitado").length;
+  const acumulados  = festivosAnio.filter(f => estadoFestivo(f) === "acumulado").length;
+  const porCaducar  = festivosAnio.filter(f => estadoFestivo(f) === "porCaducar").length;
 
   const personalesAnio = diasPersonales.filter(d =>
     parseInt(d.fecha.slice(0,4)) === diasAnioVista &&
@@ -2476,8 +2489,8 @@ function renderDiasTrabajo(){
   }
 
   // ===== Aviso caducidad =====
-  const urgentes = festivosAnio.filter(f => f.trabajado && !f.solicitado && !f.sacrificado && diasHastaCaducar(f) >= 0 && diasHastaCaducar(f) <= 15);
-  if(urgentes.length > 0){
+  // 👇 Solo festivos ya pasados y por caducar (los futuros no cuentan)
+  const urgentes = festivosAnio.filter(f => estadoFestivo(f) === "porCaducar");  if(urgentes.length > 0){
     html += `<div style="background:#7c2d12;border:2px solid #ea580c;border-radius:12px;padding:12px;margin-bottom:14px">`;
     html += `<div style="font-size:13px;color:#fed7aa;font-weight:900;margin-bottom:6px">⚠️ A PUNTO DE CADUCAR</div>`;
     urgentes.forEach(f => {
@@ -2505,6 +2518,7 @@ function renderDiasTrabajo(){
         ${renderCalendarioMes()}
       </div>
       <div style="margin-top:12px;padding-top:10px;border-top:1px solid #334155;display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:#94a3b8">
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#475569"></div>Pendiente</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#4ade80"></div>Solicitado</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#38bdf8"></div>Acumulado</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#fbbf24"></div>Por caducar</div>
@@ -2529,15 +2543,18 @@ function renderDiasTrabajo(){
       const dl = diasHastaCaducar(f);
       let txtDias = "";
       let txtDisfrute = "";
+
       if(est === "porCaducar") txtDias = `<span style="color:#fbbf24;font-weight:900;font-size:11px">${dl}d</span>`;
       else if(est === "caducado") txtDias = `<span style="color:#ef4444;font-weight:900;font-size:11px">caducado</span>`;
       else if(est === "acumulado") txtDias = `<span style="color:#64748b;font-weight:700;font-size:11px">${dl}d</span>`;
+      // 👇 En "futuro" no mostramos cuenta atrás
+
       if(f.solicitado && f.fechaDisfrute && !f.sacrificado){
         const disfrutado = f.fechaDisfrute < hoyStr;
         txtDisfrute = `<div style="font-size:10px;color:${disfrutado?'#64748b':'#22d3ee'};margin-top:2px">${disfrutado?'✓':'🎉'} Disfrute: ${formatearFechaBonita(f.fechaDisfrute)}</div>`;
       }
       if(f.sacrificado){
-        txtDisfrute = `<div style="font-size:10px;color:#e9d5ff;margin-top:2px">🔥 Convertido en vacaciones</div>`;
+        txtDisfrute = `<div style="font-size:10px;color:#e9d5ff;margin-top:2px">🔥 Sacrificado por la empresa</div>`;
       }
 
       html += `
@@ -2728,12 +2745,12 @@ function abrirModalFestivo(fechaStr){
           style="width:100%;padding:14px 8px;border-radius:10px;border:2px solid ${f.sacrificado?'#a855f7':'#475569'};
                  background:${f.sacrificado?'linear-gradient(135deg,#4c1d95,#6d28d9)':'#0f172a'};
                  color:${f.sacrificado?'#e9d5ff':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px;margin-bottom:16px">
-          🔥 ${f.sacrificado ? "Sacrificado · pulsa para quitar" : "Marcar como sacrificado (→ vacaciones)"}
+          🔥 ${f.sacrificado ? "Sacrificado · pulsa para quitar" : "Marcar como sacrificado"}
         </button>
 
         ${f.sacrificado ? `
           <div style="background:#4c1d95;border:1px solid #8b5cf6;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:#e9d5ff;line-height:1.5;text-align:center">
-            🔥 Este festivo se convirtió en <b>vacaciones</b><br>
+            🔥 Este festivo fue <b>sacrificado</b> por la empresa<br>
             No cuenta como pendiente ni bloquea el año
           </div>
         ` : ""}
@@ -2823,27 +2840,19 @@ function setFestivoSacrificado(v){
   if(!f) return;
 
   if(v){
-    const anio = parseInt(f.fecha.slice(0,4));
-
-    const resp = confirm(
+    if(!confirm(
       "🔥 MARCAR COMO SACRIFICADO\n\n" +
-      "Este festivo se ha convertido en vacaciones.\n\n" +
-      "👉 Aceptar = sumar +1 día a las VACACIONES de " + anio + "\n" +
-      "👉 Cancelar = solo marcarlo como sacrificado (sin sumar)"
-    );
-
-    if(resp){
-      const actuales = getVacacionesAsignadas(anio);
-      setVacacionesAsignadas(anio, actuales + 1);
-      mostrarToast("🏖️ +1 día añadido a vacaciones " + anio);
-    }
+      "Este festivo lo sacrificó la empresa.\n\n" +
+      "👉 No sumará días a tus vacaciones.\n" +
+      "👉 Solo queda registrado como sacrificado."
+    )) return;
 
     f.sacrificado = true;
     f.solicitado = false;
     f.fechaSolicitud = null;
     f.fechaDisfrute = null;
+    mostrarToast("🔥 Marcado como sacrificado");
   } else {
-    // Desmarcar sacrificado
     f.sacrificado = false;
   }
 

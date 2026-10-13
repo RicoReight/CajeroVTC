@@ -2183,6 +2183,10 @@ let diasVacacionesAsignados = loadVacacionesAsignados();
 let diasAnioVista = new Date().getFullYear();
 let diasMesVista = new Date().getMonth();
 let festivoModalFecha = null;
+let vacCalAnio = new Date().getFullYear();   // 👈 NUEVA
+let vacCalMes = new Date().getMonth();       // 👈 NUEVA
+let vacCalInicio = null;                     // 👈 NUEVA
+let vacCalFin = null;                        // 👈 NUEVA
 
 /* ==================== VACACIONES ASIGNADAS ==================== */
 function loadVacacionesAsignados(){
@@ -3093,43 +3097,34 @@ function abrirModalVacaciones(){
   const prev = document.getElementById("modalVacaciones");
   if(prev) prev.remove();
 
+  // Empezamos en el mes actual
   const hoy = new Date();
-  const fechaDefault = hoy.getFullYear() + "-" +
-                       String(hoy.getMonth()+1).padStart(2,"0") + "-" +
-                       String(hoy.getDate()).padStart(2,"0");
+  vacCalAnio = hoy.getFullYear();
+  vacCalMes = hoy.getMonth();
+  vacCalInicio = null;
+  vacCalFin = null;
 
   const m = document.createElement("div");
   m.id = "modalVacaciones";
-  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto";
 
   m.innerHTML = `
-    <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:400px;width:100%;border:1px solid #334155">
-      <div style="font-size:16px;font-weight:900;color:#22d3ee;text-align:center;margin-bottom:16px">
+    <div style="background:#1e293b;border-radius:16px;padding:18px;max-width:420px;width:100%;border:1px solid #334155;margin:auto">
+      <div style="font-size:16px;font-weight:900;color:#22d3ee;text-align:center;margin-bottom:4px">
         🏖️ Añadir vacaciones
       </div>
-
-      <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">DESDE</div>
-      <input type="date" id="vacFechaIni" value="${fechaDefault}"
-        onchange="onVacFechaIniChange()"
-        style="width:100%;font-size:16px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin-bottom:10px;outline:none">
-
-      <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">HASTA <span style="color:#64748b;font-weight:600">(mismo día si es 1 solo)</span></div>
-      <input type="date" id="vacFechaFin" value="${fechaDefault}"
-        onchange="onVacFechaFinChange()"
-        style="width:100%;font-size:16px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin-bottom:10px;outline:none">
-
-      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-        <button type="button" onclick="setRangoRapido(1)" style="flex:1;min-width:60px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">1 día</button>
-        <button type="button" onclick="setRangoRapido(2)" style="flex:1;min-width:60px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">2 días</button>
-        <button type="button" onclick="setRangoRapido(3)" style="flex:1;min-width:60px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">3 días</button>
-        <button type="button" onclick="setRangoRapido(5)" style="flex:1;min-width:60px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">5 días</button>
-        <button type="button" onclick="setRangoRapido(7)" style="flex:1;min-width:60px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">7 días</button>
+      <div style="font-size:11px;color:#94a3b8;text-align:center;margin-bottom:14px">
+        Pulsa el primer día y luego el último
       </div>
 
-      <div id="vacPreview" style="font-size:12px;color:#a7f3d0;background:#164e63;padding:10px 12px;border-radius:8px;margin-bottom:14px;line-height:1.4;text-align:center"></div>
+      <div id="vacCalendarioBox"></div>
+
+      <div id="vacPreview" style="font-size:12px;color:#a7f3d0;background:#164e63;padding:10px 12px;border-radius:8px;margin:12px 0;line-height:1.4;text-align:center;min-height:20px"></div>
+
+      <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap" id="vacRapidosBox"></div>
 
       <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">NOTA (OPCIONAL)</div>
-      <input type="text" id="vacNota" placeholder="Ej: Verano 2026" style="width:100%;font-size:14px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin-bottom:14px;outline:none">
+      <input type="text" id="vacNota" placeholder="Ej: Verano 2026" style="width:100%;font-size:14px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin-bottom:14px;outline:none;box-sizing:border-box">
 
       <div style="display:flex;gap:8px">
         <button type="button" onclick="cerrarModalVacaciones()" style="flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">Cancelar</button>
@@ -3141,127 +3136,257 @@ function abrirModalVacaciones(){
   document.body.appendChild(m);
   m.addEventListener("click", (e) => { if(e.target === m) cerrarModalVacaciones(); });
 
-  window.__vacHastaModificado = false;
-  actualizarVacPreview();
+  renderVacCalendario();
+  renderVacPreview();
+  renderVacRapidos();
 }
 
 function cerrarModalVacaciones(){
   const m = document.getElementById("modalVacaciones");
   if(m) m.remove();
-  window.__vacHastaModificado = false;
+  vacCalInicio = null;
+  vacCalFin = null;
 }
 
-function onVacFechaIniChange(){
-  const ini = document.getElementById("vacFechaIni");
-  const fin = document.getElementById("vacFechaFin");
-  if(!ini || !fin) return;
+function renderVacCalendario(){
+  const box = document.getElementById("vacCalendarioBox");
+  if(!box) return;
 
-  // Si el usuario no ha tocado "Hasta", se autocompleta con "Desde"
-  if(!window.__vacHastaModificado){
-    fin.value = ini.value;
+  const nombresMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  const primerDia = new Date(vacCalAnio, vacCalMes, 1);
+  const totalDias = new Date(vacCalAnio, vacCalMes + 1, 0).getDate();
+  const diaSemanaInicio = (primerDia.getDay() + 6) % 7;
+
+  let html = `
+    <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <button type="button" onclick="cambiarMesVacCal(-1)" style="background:#334155;color:#fff;border:none;width:34px;height:34px;border-radius:8px;font-size:16px;font-weight:900;cursor:pointer">◀</button>
+        <div style="font-size:15px;font-weight:900;color:#38bdf8">${nombresMes[vacCalMes]} ${vacCalAnio}</div>
+        <button type="button" onclick="cambiarMesVacCal(1)" style="background:#334155;color:#fff;border:none;width:34px;height:34px;border-radius:8px;font-size:16px;font-weight:900;cursor:pointer">▶</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px">
+        ${["L","M","X","J","V","S","D"].map(d => `<div style="text-align:center;font-size:10px;color:#64748b;font-weight:900">${d}</div>`).join("")}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">
+  `;
+
+  for(let i = 0; i < diaSemanaInicio; i++) html += `<div style="aspect-ratio:1"></div>`;
+
+  for(let d = 1; d <= totalDias; d++){
+    const fechaStr = `${vacCalAnio}-${String(vacCalMes+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const dia = new Date(vacCalAnio, vacCalMes, d).getDay();
+    const esFinde = (dia === 0 || dia === 6);
+    const festivo = festivos.find(f => f.fecha === fechaStr && f.trabajado);
+    const festivoNoTrab = festivos.find(f => f.fecha === fechaStr && !f.trabajado);
+    const yaEsPersonal = diasPersonales.find(x => x.fecha === fechaStr);
+
+    // ¿Está en el rango seleccionado?
+    let enRango = false;
+    let esExtremo = false;
+    if(vacCalInicio && vacCalFin){
+      enRango = fechaStr >= vacCalInicio && fechaStr <= vacCalFin;
+      esExtremo = (fechaStr === vacCalInicio || fechaStr === vacCalFin);
+    } else if(vacCalInicio){
+      enRango = fechaStr === vacCalInicio;
+      esExtremo = true;
+    }
+
+    // Colores
+    let bg, color, border;
+    if(esExtremo){
+      bg = "#22d3ee"; color = "#0f172a"; border = "#0891b2";
+    } else if(enRango){
+      bg = "#164e63"; color = "#a5f3fc"; border = "#0891b2";
+    } else if(yaEsPersonal){
+      bg = "#1e293b"; color = "#64748b"; border = "#334155";
+    } else if(festivo){
+      bg = "#78350f"; color = "#fbbf24"; border = "#b45309";
+    } else if(festivoNoTrab){
+      bg = "#1e293b"; color = "#64748b"; border = "#334155";
+    } else if(esFinde){
+      bg = "#0f172a"; color = "#475569"; border = "#1e293b";
+    } else {
+      bg = "#1e293b"; color = "#cbd5e1"; border = "#334155";
+    }
+
+    const hoy = new Date();
+    const esHoy = (hoy.getFullYear() === vacCalAnio && hoy.getMonth() === vacCalMes && hoy.getDate() === d);
+
+    const clickable = !yaEsPersonal && !festivoNoTrab;
+    const onclick = clickable ? `onclick="clickDiaVac('${fechaStr}')"` : "";
+
+    html += `
+      <div ${onclick} style="aspect-ratio:1;background:${bg};border:1px solid ${border};border-radius:6px;
+                              display:flex;flex-direction:column;align-items:center;justify-content:center;
+                              cursor:${clickable?'pointer':'default'};position:relative;
+                              ${esHoy ? "box-shadow:0 0 0 2px #3b82f6 inset;" : ""}">
+        <div style="font-size:12px;color:${color};font-weight:${esHoy||esExtremo?'900':'600'}">${d}</div>
+        ${festivo && !enRango && !esExtremo ? `<div style="width:5px;height:5px;border-radius:50%;background:#fbbf24;margin-top:1px"></div>` : ""}
+      </div>
+    `;
   }
 
-  // Si "Hasta" queda antes de "Desde", igualamos a "Desde"
-  if(fin.value < ini.value){
-    fin.value = ini.value;
-    window.__vacHastaModificado = false;
-  }
-  actualizarVacPreview();
+  html += `</div></div>`;
+
+  // Leyenda rápida
+  html += `
+    <div style="display:flex;justify-content:center;gap:12px;font-size:10px;color:#94a3b8;margin-top:8px;flex-wrap:wrap">
+      <span style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:10px;height:10px;background:#1e293b;border:1px solid #334155;border-radius:2px"></span>Laborable</span>
+      <span style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:10px;height:10px;background:#78350f;border:1px solid #b45309;border-radius:2px"></span>Festivo</span>
+      <span style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:10px;height:10px;background:#0f172a;border:1px solid #1e293b;border-radius:2px"></span>Finde</span>
+    </div>
+  `;
+
+  box.innerHTML = html;
 }
 
-function onVacFechaFinChange(){
-  const ini = document.getElementById("vacFechaIni");
-  const fin = document.getElementById("vacFechaFin");
-  if(!ini || !fin) return;
-
-  // Si el usuario iguala Hasta a Desde, no lo marcamos como "modificado"
-  window.__vacHastaModificado = (fin.value !== ini.value);
-
-  // Si es anterior, lo forzamos
-  if(fin.value < ini.value){
-    fin.value = ini.value;
-    window.__vacHastaModificado = false;
-  }
-  actualizarVacPreview();
+function cambiarMesVacCal(delta){
+  vacCalMes += delta;
+  if(vacCalMes < 0){ vacCalMes = 11; vacCalAnio--; }
+  else if(vacCalMes > 11){ vacCalMes = 0; vacCalAnio++; }
+  renderVacCalendario();
 }
 
-function setRangoRapido(n){
-  const ini = document.getElementById("vacFechaIni");
-  const fin = document.getElementById("vacFechaFin");
-  if(!ini || !fin || !ini.value) return;
-
-  const d = new Date(ini.value + "T00:00:00");
-  d.setDate(d.getDate() + (n - 1));
-  const y = d.getFullYear();
-  const mm = String(d.getMonth()+1).padStart(2,"0");
-  const dd = String(d.getDate()).padStart(2,"0");
-  fin.value = y + "-" + mm + "-" + dd;
-  window.__vacHastaModificado = (n > 1);
-  actualizarVacPreview();
-}
-
-function actualizarVacPreview(){
-  const el = document.getElementById("vacPreview");
-  if(!el) return;
-
-  const ini = document.getElementById("vacFechaIni");
-  const fin = document.getElementById("vacFechaFin");
-  if(!ini || !fin || !ini.value || !fin.value){ el.innerHTML = ""; return; }
-
-  const a = new Date(ini.value + "T00:00:00");
-  const b = new Date(fin.value + "T00:00:00");
-  if(b < a){
-    el.innerHTML = "<span style='color:#f87171'>⚠️ La fecha fin es anterior a la de inicio</span>";
-    el.style.background = "#7f1d1d";
+function clickDiaVac(fechaStr){
+  // Sin inicio → marcamos inicio
+  if(!vacCalInicio){
+    vacCalInicio = fechaStr;
+    vacCalFin = null;
+    renderVacCalendario();
+    renderVacPreview();
+    renderVacRapidos();
     return;
   }
 
+  // Con inicio, sin fin → marcamos fin
+  if(vacCalInicio && !vacCalFin){
+    if(fechaStr === vacCalInicio){
+      // Mismo día = 1 solo día, cerramos rango
+      vacCalFin = fechaStr;
+    } else if(fechaStr < vacCalInicio){
+      // Es anterior → hacemos swap
+      vacCalFin = vacCalInicio;
+      vacCalInicio = fechaStr;
+    } else {
+      vacCalFin = fechaStr;
+    }
+    renderVacCalendario();
+    renderVacPreview();
+    renderVacRapidos();
+    return;
+  }
+
+  // Con rango completo → empezamos de nuevo desde este día
+  vacCalInicio = fechaStr;
+  vacCalFin = null;
+  renderVacCalendario();
+  renderVacPreview();
+  renderVacRapidos();
+}
+
+function renderVacPreview(){
+  const el = document.getElementById("vacPreview");
+  if(!el) return;
+
+  if(!vacCalInicio){
+    el.innerHTML = "👆 Pulsa el <b>primer día</b> en el calendario";
+    el.style.background = "#164e63";
+    el.style.color = "#a5f3fc";
+    return;
+  }
+
+  if(!vacCalFin){
+    el.innerHTML = "📍 Inicio: <b>" + formatearFechaBonita(vacCalInicio) + "</b><br>Pulsa el <b>último día</b>";
+    el.style.background = "#164e63";
+    el.style.color = "#a5f3fc";
+    return;
+  }
+
+  // Rango completo → contamos
+  const a = new Date(vacCalInicio + "T00:00:00");
+  const b = new Date(vacCalFin + "T00:00:00");
   let nat = 0, lab = 0, fest = 0;
   const cursor = new Date(a);
   while(cursor <= b){
     nat++;
     const dia = cursor.getDay();
     if(dia !== 0 && dia !== 6){
-      const s = cursor.getFullYear() + "-" +
-                String(cursor.getMonth()+1).padStart(2,"0") + "-" +
-                String(cursor.getDate()).padStart(2,"0");
+      const s = cursor.getFullYear() + "-" + String(cursor.getMonth()+1).padStart(2,"0") + "-" + String(cursor.getDate()).padStart(2,"0");
       if(festivos.find(f => f.fecha === s && f.trabajado)) fest++;
       else lab++;
     }
     cursor.setDate(cursor.getDate() + 1);
   }
 
-  let txt;
-  if(nat === 1){
-    txt = "📅 1 día seleccionado";
-  } else {
-    txt = "📅 " + nat + " días naturales";
-  }
-  txt += " · " + lab + " laborable" + (lab !== 1 ? "s" : "");
-  if(fest > 0) txt += " · " + fest + " festivo" + (fest !== 1 ? "s" : "");
+  const rango = (vacCalInicio === vacCalFin)
+    ? formatearFechaBonita(vacCalInicio)
+    : formatearFechaBonita(vacCalInicio) + " → " + formatearFechaBonita(vacCalFin);
+
+  let txt = "📅 <b>" + rango + "</b><br>";
+  txt += nat + " día" + (nat !== 1 ? "s" : "") + " naturales · ";
+  txt += "<span style='color:#4ade80'>" + lab + " laborable" + (lab !== 1 ? "s" : "") + "</span>";
+  if(fest > 0) txt += " · <span style='color:#fbbf24'>" + fest + " festivo" + (fest !== 1 ? "s" : "") + "</span>";
 
   el.innerHTML = txt;
   el.style.background = "#164e63";
+  el.style.color = "#a5f3fc";
+}
+
+function renderVacRapidos(){
+  const box = document.getElementById("vacRapidosBox");
+  if(!box) return;
+
+  if(!vacCalInicio){
+    box.innerHTML = "";
+    return;
+  }
+
+  // Botones de "desde el inicio actual"
+  box.innerHTML = `
+    <div style="font-size:10px;color:#64748b;font-weight:800;width:100%;margin-bottom:2px">ATAJOS · CUENTAN DESDE EL INICIO</div>
+    <button type="button" onclick="vacRangoDesdeInicio(1)" style="flex:1;min-width:60px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">1 día</button>
+    <button type="button" onclick="vacRangoDesdeInicio(2)" style="flex:1;min-width:60px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">2 días</button>
+    <button type="button" onclick="vacRangoDesdeInicio(3)" style="flex:1;min-width:60px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">3 días</button>
+    <button type="button" onclick="vacRangoDesdeInicio(5)" style="flex:1;min-width:60px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">5 días</button>
+    <button type="button" onclick="vacRangoDesdeInicio(7)" style="flex:1;min-width:60px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">7 días</button>
+    <button type="button" onclick="resetVacSeleccion()" style="flex:1;min-width:60px;background:#7f1d1d;color:#fca5a5;border:1px solid #b91c1c;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">🗑️</button>
+  `;
+}
+
+function vacRangoDesdeInicio(n){
+  if(!vacCalInicio) return;
+  const d = new Date(vacCalInicio + "T00:00:00");
+  d.setDate(d.getDate() + (n - 1));
+  const y = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+  vacCalFin = y + "-" + mm + "-" + dd;
+  renderVacCalendario();
+  renderVacPreview();
+  renderVacRapidos();
+}
+
+function resetVacSeleccion(){
+  vacCalInicio = null;
+  vacCalFin = null;
+  renderVacCalendario();
+  renderVacPreview();
+  renderVacRapidos();
 }
 
 function guardarVacaciones(){
-  const iniStr = document.getElementById("vacFechaIni").value;
-  const finStr = document.getElementById("vacFechaFin").value;
-  const nota = document.getElementById("vacNota").value.trim() || "Vacaciones";
+  const nota = (document.getElementById("vacNota") || {}).value || "";
+  const notaFinal = nota.trim() || "Vacaciones";
 
-  if(!iniStr || !finStr){ alert("Elige fecha de inicio y fin."); return; }
-
-  const ini = new Date(iniStr + "T00:00:00");
-  const fin = new Date(finStr + "T00:00:00");
-
-  if(fin < ini){ alert("La fecha fin no puede ser anterior a la de inicio."); return; }
-
-  const diasTotales = Math.round((fin - ini) / (1000*60*60*24)) + 1;
-  if(diasTotales > 90){
-    if(!confirm("⚠️ Has seleccionado " + diasTotales + " días.\n\n¿Seguro?")) return;
+  if(!vacCalInicio || !vacCalFin){
+    alert("Selecciona un rango en el calendario.");
+    return;
   }
 
-  // 👇 Recorremos el rango y clasificamos cada día
+  const ini = new Date(vacCalInicio + "T00:00:00");
+  const fin = new Date(vacCalFin + "T00:00:00");
+
+  // Días laborables y festivos dentro del rango
   const laborables = [];
   const festivosEnRango = [];
   const cursor = new Date(ini);
@@ -3273,10 +3398,10 @@ function guardarVacaciones(){
               String(cursor.getDate()).padStart(2,"0");
 
     if(dia !== 0 && dia !== 6){
-      const fest = festivos.find(f => f.fecha === s);
+      const fest = festivos.find(f => f.fecha === s && f.trabajado);
       const yaEsPersonal = diasPersonales.find(d => d.fecha === s);
 
-      if(fest && fest.trabajado){
+      if(fest){
         if(!yaEsPersonal) festivosEnRango.push({ fecha: s, nombre: fest.nombre });
       } else if(!yaEsPersonal){
         laborables.push(s);
@@ -3285,7 +3410,7 @@ function guardarVacaciones(){
     cursor.setDate(cursor.getDate() + 1);
   }
 
-  // 👇 Preguntamos si hay festivos dentro
+  // Aviso de festivos dentro del rango
   let festivosAContar = [];
   if(festivosEnRango.length > 0){
     const lista = festivosEnRango.map(f => "· " + formatearFechaBonita(f.fecha) + " (" + f.nombre + ")").join("\n");
@@ -3307,7 +3432,7 @@ function guardarVacaciones(){
   }
 
   fechasAñadir.forEach(fecha => {
-    diasPersonales.push({ fecha, nota, tipo: "vacacion" });
+    diasPersonales.push({ fecha, nota: notaFinal, tipo: "vacacion" });
   });
   diasPersonales.sort((a,b) => a.fecha.localeCompare(b.fecha));
   saveDiasPersonales();

@@ -88,7 +88,6 @@ function stockDisponible(){return stock.map((n,i)=>Math.max(0,n-(reservaMinima[d
 function canMakeAmount(target,avail){if(target<=0)return true;const r=new Uint8Array(target+1);r[0]=1;for(let i=0;i<denominations.length;i++){const v=denominations[i].c,m=avail[i];if(m<=0||v>target)continue;const u=new Int32Array(target+1).fill(-1);for(let t=0;t<=target;t++)if(r[t])u[t]=0;for(let t=0;t+v<=target;t++){if(u[t]<0)continue;if(u[t]<m&&u[t+v]<0){r[t+v]=1;u[t+v]=u[t]+1}}}return r[target]===1}
 function setStatusBadge(id,estado){const el=document.getElementById(id);if(!el)return;el.style.background="";el.style.color="";if(estado==="yes"){el.textContent="SÍ";el.className="status-badge yes"}else if(estado==="warn"){el.textContent="MÍN";el.className="status-badge warn";el.style.background="#eab308";el.style.color="#000"}else{el.textContent="NO";el.className="status-badge no"}}
 function toggleMenu(){const d=document.getElementById("drawer"),o=document.getElementById("overlay");if(!d||!o)return;d.classList.toggle("active");o.classList.toggle("active")}
-function switchDrawerTab(tab){const panels={inventario:document.getElementById("panelInventario"),reset:document.getElementById("panelReset")};const tabs={inventario:document.getElementById("tabInventario"),reset:document.getElementById("tabReset")};const A="flex:1;padding:8px;border-radius:10px;border:1px solid #475569;background:#334155;color:#fff;font-weight:700;cursor:pointer;font-size:12px";const I="flex:1;padding:8px;border-radius:10px;border:1px solid #475569;background:#1e293b;color:#94a3b8;font-weight:700;cursor:pointer;font-size:12px";Object.keys(panels).forEach(k=>{if(panels[k])panels[k].style.display=(k===tab)?"block":"none";if(tabs[k])tabs[k].style.cssText=(k===tab)?A:I});if(tab==="inventario")renderStockList();if(tab==="reset")renderResetPanel()}
 function renderButtons(){const box=document.getElementById("moneyButtons");if(!box)return;box.innerHTML="";const bt=document.createElement("div");bt.className="section";bt.textContent="Billetes";box.appendChild(bt);denominations.slice(0,5).forEach(d=>{const b=document.createElement("button");b.type="button";b.className="money";b.textContent=d.n;b.addEventListener("click",()=>addMoney(d.c));box.appendChild(b)});const ct=document.createElement("div");ct.className="section";ct.textContent="Monedas";box.appendChild(ct);denominations.slice(5).forEach(d=>{const b=document.createElement("button");b.type="button";b.className="money";b.textContent=d.n;b.addEventListener("click",()=>addMoney(d.c));box.appendChild(b)})}
 function addMoney(c){received.push(c);updateReceived();calculate()}
 function undoMoney(){received.pop();updateReceived();calculate()}
@@ -2055,6 +2054,28 @@ function mostrarToast(msg){
 }
 /* ==================== FIN OCR ==================== */
 
+/* ==================== PANTALLAS NUEVAS ==================== */
+function abrirResetPantalla(){
+  const p = document.getElementById("resetPantalla");
+  if(p) p.style.display = "block";
+  renderResetPanel();
+}
+function cerrarResetPantalla(){
+  const p = document.getElementById("resetPantalla");
+  if(p) p.style.display = "none";
+}
+
+function abrirDiasPantalla(){
+  const p = document.getElementById("diasPantalla");
+  if(p) p.style.display = "block";
+  renderDiasTrabajo();
+}
+function cerrarDiasPantalla(){
+  const p = document.getElementById("diasPantalla");
+  if(p) p.style.display = "none";
+}
+/* ==================== FIN PANTALLAS NUEVAS ==================== */
+
 async function lanzarNotificacionZona(texto){
   if(safeStorage.get("uberCambioSonidoZona") === "0") return;
 
@@ -2092,9 +2113,625 @@ async function solicitarPermisoNotificaciones(){
   }
 }
 
+/* ==================== DÍAS DE TRABAJO ==================== */
+const FESTIVOS_DEFAULT = {
+  "2026-01-01": "Año Nuevo",
+  "2026-01-06": "Reyes",
+  "2026-04-03": "Viernes Santo",
+  "2026-05-01": "Fiesta del Trabajo",
+  "2026-06-24": "San Juan",
+  "2026-08-15": "La Asunción",
+  "2026-09-11": "Diada Nacional",
+  "2026-09-24": "La Mercè",
+  "2026-12-08": "La Inmaculada",
+  "2026-12-25": "Navidad",
+  "2026-12-26": "San Esteban",
+  "2027-01-01": "Año Nuevo",
+  "2027-01-06": "Reyes",
+  "2027-03-26": "Viernes Santo",
+  "2027-05-01": "Fiesta del Trabajo",
+  "2027-06-24": "San Juan",
+  "2027-09-11": "Diada Nacional",
+  "2027-09-24": "La Mercè",
+  "2027-10-12": "Día Nacional España",
+  "2027-12-08": "La Inmaculada",
+  "2027-12-25": "Navidad"
+};
+
+let festivos = loadFestivos();
+let diasPersonales = loadDiasPersonales();
+let diasAnioVista = new Date().getFullYear();
+let diasMesVista = new Date().getMonth();
+let festivoModalFecha = null;
+
+function loadFestivos(){
+  const s = safeStorage.get("uberCambioFestivos");
+  if(s){
+    try{
+      const arr = JSON.parse(s);
+      if(Array.isArray(arr)) return arr;
+    }catch(e){}
+  }
+  const lista = [];
+  Object.keys(FESTIVOS_DEFAULT).forEach(fecha => {
+    lista.push({
+      fecha: fecha,
+      nombre: FESTIVOS_DEFAULT[fecha],
+      trabajado: true,
+      solicitado: false,
+      fechaSolicitud: null
+    });
+  });
+  lista.sort((a,b) => a.fecha.localeCompare(b.fecha));
+  return lista;
+}
+function saveFestivos(){ safeStorage.set("uberCambioFestivos", JSON.stringify(festivos)); }
+
+function loadDiasPersonales(){
+  const s = safeStorage.get("uberCambioDiasPersonales");
+  if(s){
+    try{
+      const arr = JSON.parse(s);
+      if(Array.isArray(arr)) return arr;
+    }catch(e){}
+  }
+  return [];
+}
+function saveDiasPersonales(){ safeStorage.set("uberCambioDiasPersonales", JSON.stringify(diasPersonales)); }
+
+function fechaCaducidad(fechaStr){
+  const p = fechaStr.split("-");
+  const d = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+  d.setMonth(d.getMonth() + 3);
+  return d;
+}
+function diasHastaCaducar(festivo){
+  const cad = fechaCaducidad(festivo.fecha);
+  const ahora = new Date();
+  ahora.setHours(0,0,0,0);
+  cad.setHours(0,0,0,0);
+  return Math.ceil((cad - ahora) / (1000*60*60*24));
+}
+function estadoFestivo(f){
+  if(!f.trabajado) return "libre";
+  if(f.solicitado) return "solicitado";
+  const d = diasHastaCaducar(f);
+  if(d < 0) return "caducado";
+  if(d <= 15) return "porCaducar";
+  return "acumulado";
+}
+function colorEstadoFestivo(estado){
+  const c = { solicitado:"#4ade80", acumulado:"#38bdf8", porCaducar:"#fbbf24", caducado:"#ef4444", libre:"#64748b" };
+  return c[estado] || "#64748b";
+}
+function nombreEstado(est){
+  const n = { solicitado:"Solicitado", acumulado:"Acumulado", porCaducar:"Por caducar", caducado:"Caducado", libre:"No trabajado" };
+  return n[est] || est;
+}
+function formatearFechaBonita(fechaStr){
+  const p = fechaStr.split("-");
+  const m = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  return parseInt(p[2]) + " " + m[parseInt(p[1])-1] + " " + p[0];
+}
+
+function renderDiasTrabajo(){
+  const cont = document.getElementById("diasContenido");
+  if(!cont) return;
+
+  const festivosAnio = festivos.filter(f => parseInt(f.fecha.slice(0,4)) === diasAnioVista);
+  const solicitados = festivosAnio.filter(f => f.trabajado && f.solicitado).length;
+  const acumulados = festivosAnio.filter(f => f.trabajado && !f.solicitado && diasHastaCaducar(f) >= 0).length;
+  const porCaducar = festivosAnio.filter(f => f.trabajado && !f.solicitado && diasHastaCaducar(f) >= 0 && diasHastaCaducar(f) <= 15).length;
+  const personalesAnio = diasPersonales.filter(d => parseInt(d.fecha.slice(0,4)) === diasAnioVista);
+  const personalesRestantes = Math.max(0, 2 - personalesAnio.length);
+
+  const anios = [...new Set(festivos.map(f => parseInt(f.fecha.slice(0,4))))].sort();
+  if(!anios.includes(diasAnioVista)) anios.push(diasAnioVista);
+  anios.sort();
+
+  let html = "";
+
+  // Tabs años
+  html += `<div style="display:flex;gap:6px;margin-bottom:14px">`;
+  anios.forEach(a => {
+    const act = a === diasAnioVista;
+    html += `<button type="button" onclick="cambiarAnioVista(${a})"
+      style="flex:1;padding:10px;border-radius:10px;border:2px solid ${act?'#3b82f6':'#334155'};
+             background:${act?'#1e40af':'#0f172a'};color:${act?'#fff':'#94a3b8'};
+             font-weight:800;cursor:pointer;font-size:14px">${a}</button>`;
+  });
+  html += `</div>`;
+
+  // Contadores
+  html += `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px">
+        <div style="font-size:11px;color:#94a3b8;font-weight:700">🔵 ACUMULADOS</div>
+        <div style="font-size:26px;font-weight:900;color:#38bdf8;margin-top:4px">${acumulados}</div>
+      </div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px">
+        <div style="font-size:11px;color:#94a3b8;font-weight:700">🟢 SOLICITADOS</div>
+        <div style="font-size:26px;font-weight:900;color:#4ade80;margin-top:4px">${solicitados}</div>
+      </div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px">
+        <div style="font-size:11px;color:#94a3b8;font-weight:700">🟡 POR CADUCAR</div>
+        <div style="font-size:26px;font-weight:900;color:#fbbf24;margin-top:4px">${porCaducar}</div>
+      </div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px">
+        <div style="font-size:11px;color:#94a3b8;font-weight:700">👤 PERSONALES</div>
+        <div style="font-size:26px;font-weight:900;color:#a78bfa;margin-top:4px">${personalesRestantes}/2</div>
+      </div>
+    </div>
+  `;
+
+  // Aviso caducidad
+  const urgentes = festivosAnio.filter(f => f.trabajado && !f.solicitado && diasHastaCaducar(f) >= 0 && diasHastaCaducar(f) <= 15);
+  if(urgentes.length > 0){
+    html += `<div style="background:#7c2d12;border:2px solid #ea580c;border-radius:12px;padding:12px;margin-bottom:14px">`;
+    html += `<div style="font-size:13px;color:#fed7aa;font-weight:900;margin-bottom:6px">⚠️ A PUNTO DE CADUCAR</div>`;
+    urgentes.forEach(f => {
+      html += `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:#fff">
+        <span>${formatearFechaBonita(f.fecha)} · ${f.nombre}</span>
+        <span style="color:#fbbf24;font-weight:900">${diasHastaCaducar(f)}d</span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Calendario
+  const nombresMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  html += `
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <button type="button" onclick="cambiarMesVista(-1)" style="background:#334155;color:#fff;border:none;width:36px;height:36px;border-radius:10px;font-size:18px;font-weight:900;cursor:pointer">◀</button>
+        <div style="font-size:16px;font-weight:900;color:#38bdf8">${nombresMes[diasMesVista]} ${diasAnioVista}</div>
+        <button type="button" onclick="cambiarMesVista(1)" style="background:#334155;color:#fff;border:none;width:36px;height:36px;border-radius:10px;font-size:18px;font-weight:900;cursor:pointer">▶</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px">
+        ${["L","M","X","J","V","S","D"].map(d => `<div style="text-align:center;font-size:11px;color:#64748b;font-weight:900">${d}</div>`).join("")}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
+        ${renderCalendarioMes()}
+      </div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid #334155;display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:#94a3b8">
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#4ade80"></div>Solicitado</div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#38bdf8"></div>Acumulado</div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#fbbf24"></div>Por caducar</div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#ef4444"></div>Caducado</div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#64748b"></div>No trabajado</div>
+      </div>
+    </div>
+  `;
+
+  // Lista festivos
+  html += `<div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">`;
+  html += `<div style="font-size:12px;color:#94a3b8;font-weight:900;letter-spacing:1px;margin-bottom:10px">📅 FESTIVOS ${diasAnioVista}</div>`;
+
+  if(festivosAnio.length === 0){
+    html += `<div style="text-align:center;color:#64748b;font-size:13px;padding:14px">No hay festivos este año.</div>`;
+  } else {
+    festivosAnio.forEach(f => {
+      const est = estadoFestivo(f);
+      const col = colorEstadoFestivo(est);
+      const dl = diasHastaCaducar(f);
+      let txtDias = "";
+      if(est === "porCaducar") txtDias = `<span style="color:#fbbf24;font-weight:900;font-size:11px">${dl}d</span>`;
+      else if(est === "caducado") txtDias = `<span style="color:#ef4444;font-weight:900;font-size:11px">caducado</span>`;
+      else if(est === "acumulado") txtDias = `<span style="color:#64748b;font-weight:700;font-size:11px">${dl}d</span>`;
+
+      html += `
+        <div onclick="abrirModalFestivo('${f.fecha}')" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1e293b;cursor:pointer">
+          <div style="width:12px;height:12px;border-radius:50%;background:${col};flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;color:#fff;font-weight:700">${formatearFechaBonita(f.fecha)}</div>
+            <div style="font-size:12px;color:#94a3b8;margin-top:2px">${f.nombre}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:11px;color:${col};font-weight:800;text-transform:uppercase">${nombreEstado(est)}</div>
+            ${txtDias}
+          </div>
+        </div>
+      `;
+    });
+  }
+  html += `</div>`;
+
+  // Días personales
+  html += `<div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">`;
+  html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div style="font-size:12px;color:#94a3b8;font-weight:900;letter-spacing:1px">👤 DÍAS PERSONALES ${diasAnioVista}</div>
+    <div style="font-size:13px;color:#a78bfa;font-weight:900">${personalesAnio.length}/2</div>
+  </div>`;
+
+  if(personalesAnio.length === 0){
+    html += `<div style="text-align:center;color:#64748b;font-size:13px;padding:10px">Sin días personales usados este año.</div>`;
+  } else {
+    personalesAnio.forEach(d => {
+      html += `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1e293b">
+          <div style="width:12px;height:12px;border-radius:50%;background:#a78bfa;flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;color:#fff;font-weight:700">${formatearFechaBonita(d.fecha)}</div>
+            ${d.nota ? `<div style="font-size:12px;color:#94a3b8;margin-top:2px">${d.nota}</div>` : ""}
+          </div>
+          <button type="button" onclick="borrarDiaPersonal('${d.fecha}')" style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">🗑️</button>
+        </div>
+      `;
+    });
+  }
+  if(personalesRestantes > 0){
+    html += `<button type="button" onclick="abrirModalDiaPersonal()" style="width:100%;margin-top:10px;background:#4c1d95;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer">+ AÑADIR DÍA PERSONAL</button>`;
+  } else {
+    html += `<div style="text-align:center;color:#f59e0b;font-size:12px;padding:10px;font-weight:700">⚠️ Ya has usado los 2 días personales de ${diasAnioVista}</div>`;
+  }
+  html += `</div>`;
+
+  // Botones extra
+  html += `
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button type="button" onclick="importarICS()" style="flex:1;background:#0e7490;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">📥 Importar .ics</button>
+      <button type="button" onclick="abrirModalFestivoNuevo()" style="flex:1;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">+ Añadir festivo</button>
+    </div>
+    <input type="file" id="icsInput" accept=".ics,text/calendar" style="display:none" onchange="onICSSeleccionado(event)">
+  `;
+
+  cont.innerHTML = html;
+}
+
+function renderCalendarioMes(){
+  const primerDia = new Date(diasAnioVista, diasMesVista, 1);
+  const totalDias = new Date(diasAnioVista, diasMesVista + 1, 0).getDate();
+  const diaSemanaInicio = (primerDia.getDay() + 6) % 7;
+
+  let html = "";
+  for(let i = 0; i < diaSemanaInicio; i++) html += `<div style="aspect-ratio:1"></div>`;
+
+  for(let d = 1; d <= totalDias; d++){
+    const fechaStr = `${diasAnioVista}-${String(diasMesVista+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const festivo = festivos.find(f => f.fecha === fechaStr);
+    const diaPersonal = diasPersonales.find(f => f.fecha === fechaStr);
+
+    let circColor = null;
+    if(festivo) circColor = colorEstadoFestivo(estadoFestivo(festivo));
+    else if(diaPersonal) circColor = "#a78bfa";
+
+    const hoy = new Date();
+    const esHoy = (hoy.getFullYear() === diasAnioVista && hoy.getMonth() === diasMesVista && hoy.getDate() === d);
+
+    const bg = esHoy ? "#1e40af" : "#0f172a";
+    const border = esHoy ? "#3b82f6" : "#334155";
+    const click = festivo ? `onclick="abrirModalFestivo('${fechaStr}')"` : (diaPersonal ? `onclick="abrirModalDiaPersonal('${fechaStr}')"` : "");
+
+    html += `
+      <div ${click} style="aspect-ratio:1;background:${bg};border:1px solid ${border};border-radius:8px;
+                            display:flex;flex-direction:column;align-items:center;justify-content:center;
+                            padding:2px;cursor:${circColor?'pointer':'default'}">
+        <div style="font-size:12px;color:${esHoy?'#fff':'#cbd5e1'};font-weight:${esHoy?'900':'600'}">${d}</div>
+        ${circColor ? `<div style="width:7px;height:7px;border-radius:50%;background:${circColor};margin-top:2px"></div>` : ""}
+      </div>
+    `;
+  }
+  return html;
+}
+
+function cambiarAnioVista(a){ diasAnioVista = a; renderDiasTrabajo(); }
+function cambiarMesVista(delta){
+  diasMesVista += delta;
+  if(diasMesVista < 0){ diasMesVista = 11; diasAnioVista--; }
+  else if(diasMesVista > 11){ diasMesVista = 0; diasAnioVista++; }
+  renderDiasTrabajo();
+}
+
+function abrirModalFestivo(fechaStr){
+  const f = festivos.find(x => x.fecha === fechaStr);
+  if(!f) return;
+  festivoModalFecha = fechaStr;
+
+  const prev = document.getElementById("modalFestivo");
+  if(prev) prev.remove();
+
+  const m = document.createElement("div");
+  m.id = "modalFestivo";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px";
+
+  m.innerHTML = `
+    <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:380px;width:100%;border:1px solid #334155">
+      <div style="font-size:16px;font-weight:900;color:#38bdf8;text-align:center;margin-bottom:4px">${formatearFechaBonita(f.fecha)}</div>
+      <div style="font-size:13px;color:#94a3b8;text-align:center;margin-bottom:18px">${f.nombre}</div>
+
+      <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:8px">ESTADO</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+        <button type="button" onclick="setFestivoTrabajado(true)"
+          style="padding:14px 8px;border-radius:10px;border:2px solid ${f.trabajado?'#22c55e':'#475569'};
+                 background:${f.trabajado?'linear-gradient(135deg,#14532d,#15803d)':'#0f172a'};
+                 color:${f.trabajado?'#4ade80':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px">
+          ✅ Trabajado
+        </button>
+        <button type="button" onclick="setFestivoTrabajado(false)"
+          style="padding:14px 8px;border-radius:10px;border:2px solid ${!f.trabajado?'#64748b':'#475569'};
+                 background:${!f.trabajado?'#334155':'#0f172a'};
+                 color:${!f.trabajado?'#cbd5e1':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px">
+          ⚪ No trabajado
+        </button>
+      </div>
+
+      ${f.trabajado ? `
+        <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:8px">¿LO HAS SOLICITADO?</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+          <button type="button" onclick="setFestivoSolicitado(true)"
+            style="padding:14px 8px;border-radius:10px;border:2px solid ${f.solicitado?'#22c55e':'#475569'};
+                   background:${f.solicitado?'linear-gradient(135deg,#14532d,#15803d)':'#0f172a'};
+                   color:${f.solicitado?'#4ade80':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px">
+            🟢 Sí
+          </button>
+          <button type="button" onclick="setFestivoSolicitado(false)"
+            style="padding:14px 8px;border-radius:10px;border:2px solid ${!f.solicitado?'#fbbf24':'#475569'};
+                   background:${!f.solicitado?'#78350f':'#0f172a'};
+                   color:${!f.solicitado?'#fbbf24':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px">
+            🟡 No
+          </button>
+        </div>
+
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:#94a3b8;line-height:1.5">
+          📅 Caduca el <b style="color:#fff">${formatearFechaBonita(fechaCaducidad(f.fecha).toISOString().slice(0,10))}</b>
+          ${diasHastaCaducar(f) >= 0 ? `<br>Quedan <b style="color:${diasHastaCaducar(f)<=15?'#fbbf24':'#4ade80'}">${diasHastaCaducar(f)} días</b>` : `<br><b style="color:#ef4444">Ya ha caducado</b>`}
+        </div>
+      ` : ""}
+
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button type="button" onclick="cerrarModalFestivo()" style="flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">Cerrar</button>
+        <button type="button" onclick="borrarFestivo('${f.fecha}')" style="flex:0 0 auto;background:#7f1d1d;color:#fca5a5;border:none;padding:12px 16px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">🗑️</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(m);
+  m.addEventListener("click", (e) => { if(e.target === m) cerrarModalFestivo(); });
+}
+
+function cerrarModalFestivo(){
+  const m = document.getElementById("modalFestivo");
+  if(m) m.remove();
+  festivoModalFecha = null;
+}
+
+function setFestivoTrabajado(v){
+  if(!festivoModalFecha) return;
+  const f = festivos.find(x => x.fecha === festivoModalFecha);
+  if(!f) return;
+  f.trabajado = v;
+  if(!v) f.solicitado = false;
+  saveFestivos();
+  abrirModalFestivo(festivoModalFecha);
+  renderDiasTrabajo();
+}
+
+function setFestivoSolicitado(v){
+  if(!festivoModalFecha) return;
+  const f = festivos.find(x => x.fecha === festivoModalFecha);
+  if(!f) return;
+  f.solicitado = v;
+  if(v) f.fechaSolicitud = new Date().toISOString().slice(0,10);
+  else f.fechaSolicitud = null;
+  saveFestivos();
+  abrirModalFestivo(festivoModalFecha);
+  renderDiasTrabajo();
+}
+
+function borrarFestivo(fecha){
+  if(!confirm("¿Borrar este festivo?")) return;
+  festivos = festivos.filter(f => f.fecha !== fecha);
+  saveFestivos();
+  cerrarModalFestivo();
+  renderDiasTrabajo();
+}
+
+function abrirModalDiaPersonal(fechaExistente){
+  const prev = document.getElementById("modalDiaPersonal");
+  if(prev) prev.remove();
+
+  const esNuevo = !fechaExistente;
+  const hoy = new Date();
+  const fechaDefault = hoy.getFullYear() + "-" + String(hoy.getMonth()+1).padStart(2,"0") + "-" + String(hoy.getDate()).padStart(2,"0");
+  const fecha = fechaExistente || fechaDefault;
+  const existente = fechaExistente ? diasPersonales.find(d => d.fecha === fechaExistente) : null;
+
+  const m = document.createElement("div");
+  m.id = "modalDiaPersonal";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px";
+
+  m.innerHTML = `
+    <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:380px;width:100%;border:1px solid #334155">
+      <div style="font-size:16px;font-weight:900;color:#a78bfa;text-align:center;margin-bottom:16px">
+        ${esNuevo ? "👤 Nuevo día personal" : "👤 Editar día personal"}
+      </div>
+
+      <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">FECHA</div>
+      <input type="date" id="dpFecha" value="${fecha}" style="width:100%;font-size:16px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin-bottom:14px;outline:none">
+
+      <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">NOTA (OPCIONAL)</div>
+      <input type="text" id="dpNota" placeholder="Ej: fiesta familiar" value="${existente && existente.nota ? existente.nota : ''}" style="width:100%;font-size:14px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin-bottom:16px;outline:none">
+
+      <div style="display:flex;gap:8px">
+        <button type="button" onclick="cerrarModalDiaPersonal()" style="flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">Cancelar</button>
+        <button type="button" onclick="guardarDiaPersonal('${fechaExistente || ''}')" style="flex:1;background:#7c3aed;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">✅ Guardar</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(m);
+  m.addEventListener("click", (e) => { if(e.target === m) cerrarModalDiaPersonal(); });
+}
+
+function cerrarModalDiaPersonal(){
+  const m = document.getElementById("modalDiaPersonal");
+  if(m) m.remove();
+}
+
+function guardarDiaPersonal(fechaVieja){
+  const fecha = document.getElementById("dpFecha").value;
+  const nota = document.getElementById("dpNota").value.trim();
+  if(!fecha){ alert("Elige una fecha."); return; }
+
+  const anio = parseInt(fecha.slice(0,4));
+  const otros = diasPersonales.filter(d => d.fecha !== fechaVieja && parseInt(d.fecha.slice(0,4)) === anio);
+  if(otros.length >= 2){ alert("⚠️ Ya tienes 2 días personales en " + anio + "."); return; }
+
+  if(fechaVieja) diasPersonales = diasPersonales.filter(d => d.fecha !== fechaVieja);
+  diasPersonales = diasPersonales.filter(d => d.fecha !== fecha);
+  diasPersonales.push({ fecha, nota });
+  diasPersonales.sort((a,b) => a.fecha.localeCompare(b.fecha));
+  saveDiasPersonales();
+  cerrarModalDiaPersonal();
+  renderDiasTrabajo();
+  mostrarToast("✅ Día personal guardado");
+}
+
+function borrarDiaPersonal(fecha){
+  if(!confirm("¿Borrar este día personal?")) return;
+  diasPersonales = diasPersonales.filter(d => d.fecha !== fecha);
+  saveDiasPersonales();
+  renderDiasTrabajo();
+}
+
+function importarICS(){
+  const inp = document.getElementById("icsInput");
+  if(inp) inp.click();
+}
+
+function onICSSeleccionado(e){
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if(!file) return;
+
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const eventos = parseICS(rd.result);
+      if(!eventos.length){ alert("⚠️ El archivo .ics no contiene eventos."); return; }
+
+      const eventosFiltrados = [];
+      eventos.forEach(ev => {
+        const p = ev.fecha.split("-");
+        const d = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+        const dia = d.getDay();
+        if(dia === 0 || dia === 1) return;
+        eventosFiltrados.push(ev);
+      });
+
+      if(!eventosFiltrados.length){ alert("⚠️ Todos los eventos caían en Domingo o Lunes."); return; }
+
+      let añadidos = 0, actualizados = 0;
+      eventosFiltrados.forEach(ev => {
+        const existente = festivos.find(f => f.fecha === ev.fecha);
+        if(existente){
+          if(existente.nombre !== ev.nombre){ existente.nombre = ev.nombre; actualizados++; }
+        } else {
+          festivos.push({ fecha: ev.fecha, nombre: ev.nombre, trabajado: true, solicitado: false, fechaSolicitud: null });
+          añadidos++;
+        }
+      });
+
+      festivos.sort((a,b) => a.fecha.localeCompare(b.fecha));
+      saveFestivos();
+      renderDiasTrabajo();
+      alert(`✅ Importación completa:\n\n• ${añadidos} nuevos\n• ${actualizados} actualizados\n• ${eventos.length - eventosFiltrados.length} descartados (Dom/Lun)`);
+    } catch(err){
+      alert("❌ Error al leer el .ics: " + (err.message || ""));
+    }
+  };
+  rd.readAsText(file);
+}
+
+function parseICS(texto){
+  const eventos = [];
+  const lineasRaw = texto.split(/\r?\n/);
+  const lineas = [];
+  for(let i = 0; i < lineasRaw.length; i++){
+    const l = lineasRaw[i];
+    if((l.startsWith(" ") || l.startsWith("\t")) && lineas.length > 0){
+      lineas[lineas.length-1] += l.slice(1);
+    } else {
+      lineas.push(l);
+    }
+  }
+
+  let actual = null;
+  for(const l of lineas){
+    if(l.startsWith("BEGIN:VEVENT")) actual = {};
+    else if(l.startsWith("END:VEVENT")){
+      if(actual && actual.fecha && actual.nombre) eventos.push(actual);
+      actual = null;
+    } else if(actual){
+      if(l.startsWith("DTSTART")){
+        const m = l.match(/(\d{8})/);
+        if(m){ const s = m[1]; actual.fecha = s.slice(0,4) + "-" + s.slice(4,6) + "-" + s.slice(6,8); }
+      } else if(l.startsWith("SUMMARY")){
+        const idx = l.indexOf(":");
+        if(idx >= 0){
+          let v = l.slice(idx+1).replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\n/gi, " ");
+          actual.nombre = v.trim();
+        }
+      }
+    }
+  }
+  return eventos;
+}
+
+function abrirModalFestivoNuevo(){
+  const fecha = prompt("Fecha del festivo (AAAA-MM-DD):");
+  if(!fecha) return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)){ alert("Formato incorrecto. Usa AAAA-MM-DD"); return; }
+  const p = fecha.split("-");
+  const d = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+  const dia = d.getDay();
+  if(dia === 0 || dia === 1){ alert("⚠️ Ese día cae en Domingo o Lunes, no cuenta como festivo trabajado."); return; }
+  if(festivos.find(f => f.fecha === fecha)){ alert("Ya existe un festivo en esa fecha."); return; }
+  const nombre = prompt("Nombre del festivo:");
+  if(!nombre) return;
+  festivos.push({ fecha, nombre, trabajado: true, solicitado: false, fechaSolicitud: null });
+  festivos.sort((a,b) => a.fecha.localeCompare(b.fecha));
+  saveFestivos();
+  renderDiasTrabajo();
+}
+
+async function checkFestivosCaducidad(){
+  const hoy = new Date().toISOString().slice(0,10);
+  if(safeStorage.get("uberCambioUltimoAvisoFestivos") === hoy) return;
+
+  const urgentes = festivos.filter(f => {
+    if(!f.trabajado || f.solicitado) return false;
+    const d = diasHastaCaducar(f);
+    return d >= 0 && d <= 15;
+  });
+
+  if(urgentes.length === 0) return;
+  safeStorage.set("uberCambioUltimoAvisoFestivos", hoy);
+
+  try {
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
+    const LN = Cap.Plugins.LocalNotifications;
+    await LN.schedule({
+      notifications: [{
+        id: 2001,
+        title: '💼 Días pendientes de solicitar',
+        body: urgentes.length === 1 ? `Tienes 1 festivo a punto de caducar. Revísalo.` : `Tienes ${urgentes.length} festivos a punto de caducar. Revísalos.`,
+        schedule: { at: new Date(), allowWhileIdle: true }
+      }]
+    });
+  } catch(e){
+    console.warn('Error notif caducidad:', e);
+  }
+}
+/* ==================== FIN DÍAS DE TRABAJO ==================== */
+
 function init(){
   // Pedir permiso de notificaciones al arrancar
   solicitarPermisoNotificaciones();
+
+  // Revisar festivos a punto de caducar (1 vez al día)
+  setTimeout(() => { checkFestivosCaducidad(); }, 1500);
 
   // Auto-activar Eruda si estaba activado
   if(safeStorage.get("uberCambioDebug") === "1"){
@@ -2302,20 +2939,6 @@ setTimeout(async () => {
   }
 }, 500);
 
-/* ==================== MENÚ PRINCIPAL ☰ ==================== */
-function abrirMenuPrincipal(){
-  const m = document.getElementById("menuPrincipal");
-  const o = document.getElementById("menuPrincipalOverlay");
-  if(m) m.style.display = "flex";
-  if(o) o.style.display = "block";
-}
-function cerrarMenuPrincipal(){
-  const m = document.getElementById("menuPrincipal");
-  const o = document.getElementById("menuPrincipalOverlay");
-  if(m) m.style.display = "none";
-  if(o) o.style.display = "none";
-}
-/* ==================== FIN MENÚ ==================== */
 
 /* ==================== MAPA DE ZONAS ==================== */
 let leafletLoaded = false;
@@ -2763,7 +3386,7 @@ async function reiniciarWatcherConTexto(texto){
       backgroundTitle: 'Cambio VTC',
       requestPermissions: false,
       stale: false,
-      distanceFilter: 30
+      distanceFilter: 15
     }, onLocation);
 
     zonaPendiente = null;

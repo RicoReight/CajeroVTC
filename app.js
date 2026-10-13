@@ -2382,6 +2382,70 @@ function archivarAniosAntiguos(){
 }
 /* ==================== FIN ARCHIVAR ==================== */
 
+function agruparVacaciones(vacaciones){
+  if(!vacaciones.length) return [];
+  const sorted = [...vacaciones].sort((a,b) => a.fecha.localeCompare(b.fecha));
+  const grupos = [];
+  let actual = { inicio: sorted[0].fecha, fin: sorted[0].fecha, nota: sorted[0].nota || "" };
+
+  for(let i = 1; i < sorted.length; i++){
+    if(sonDiasNoLaborablesEntre(actual.fin, sorted[i].fecha)){
+      actual.fin = sorted[i].fecha;
+    } else {
+      grupos.push(actual);
+      actual = { inicio: sorted[i].fecha, fin: sorted[i].fecha, nota: sorted[i].nota || "" };
+    }
+  }
+  grupos.push(actual);
+  return grupos;
+}
+
+function sonDiasNoLaborablesEntre(fechaA, fechaB){
+  const a = new Date(fechaA + "T00:00:00");
+  const b = new Date(fechaB + "T00:00:00");
+  const cursor = new Date(a);
+  cursor.setDate(cursor.getDate() + 1);
+  while(cursor < b){
+    const dia = cursor.getDay();
+    if(dia !== 0 && dia !== 6){
+      const s = cursor.getFullYear() + "-" + String(cursor.getMonth()+1).padStart(2,"0") + "-" + String(cursor.getDate()).padStart(2,"0");
+      if(!festivos.find(f => f.fecha === s)) return false;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return true;
+}
+
+function contarDiasLaborablesRango(inicio, fin){
+  const a = new Date(inicio + "T00:00:00");
+  const b = new Date(fin + "T00:00:00");
+  let n = 0;
+  const cursor = new Date(a);
+  while(cursor <= b){
+    const dia = cursor.getDay();
+    if(dia !== 0 && dia !== 6){
+      const s = cursor.getFullYear() + "-" + String(cursor.getMonth()+1).padStart(2,"0") + "-" + String(cursor.getDate()).padStart(2,"0");
+      if(!festivos.find(f => f.fecha === s)) n++;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return n;
+}
+
+function borrarRangoVacaciones(inicio, fin){
+  const msg = (inicio === fin)
+    ? "¿Borrar este día de vacaciones (" + formatearFechaBonita(inicio) + ")?"
+    : "¿Borrar el rango de vacaciones del " + formatearFechaBonita(inicio) + " al " + formatearFechaBonita(fin) + "?";
+  if(!confirm(msg)) return;
+  diasPersonales = diasPersonales.filter(d => {
+    if(d.tipo !== "vacacion") return true;
+    return !(d.fecha >= inicio && d.fecha <= fin);
+  });
+  saveDiasPersonales();
+  renderDiasTrabajo();
+  mostrarToast("🏖️ Vacaciones borradas");
+}
+
 /* ==================== RENDER PRINCIPAL ==================== */
 function renderDiasTrabajo(){
   const cont = document.getElementById("diasContenido");
@@ -2633,26 +2697,36 @@ function renderDiasTrabajo(){
   html += `</div>`;
 
   // ===== Lista de vacaciones =====
-  if(vacacionesAnio.length > 0){
-    html += `<div style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">`;
-    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div style="font-size:12px;color:#22d3ee;font-weight:900;letter-spacing:1px">🏖️ VACACIONES ${diasAnioVista}</div>
-      <div style="font-size:13px;color:#22d3ee;font-weight:900">${vacacionesAnio.length}</div>
-    </div>`;
-    vacacionesAnio.forEach(d => {
-      html += `
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1e293b">
-          <div style="width:12px;height:12px;border-radius:50%;background:#22d3ee;flex-shrink:0"></div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:14px;color:#fff;font-weight:700">${formatearFechaBonita(d.fecha)}</div>
-            ${d.nota ? `<div style="font-size:12px;color:#94a3b8;margin-top:2px">${d.nota}</div>` : ""}
-          </div>
-          <button type="button" onclick="borrarDiaPersonal('${d.fecha}')" style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">🗑️</button>
+// ===== Lista de vacaciones (agrupadas por rangos) =====
+if(vacacionesAnio.length > 0){
+  const grupos = agruparVacaciones(vacacionesAnio);
+  html += `<div style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">`;
+  html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div style="font-size:12px;color:#22d3ee;font-weight:900;letter-spacing:1px">🏖️ VACACIONES ${diasAnioVista}</div>
+    <div style="font-size:13px;color:#22d3ee;font-weight:900">${vacacionesAnio.length} día${vacacionesAnio.length !== 1 ? "s" : ""}</div>
+  </div>`;
+
+  grupos.forEach(g => {
+    const esUnDia = g.inicio === g.fin;
+    const txtFecha = esUnDia
+      ? formatearFechaBonita(g.inicio)
+      : formatearFechaBonita(g.inicio) + " → " + formatearFechaBonita(g.fin);
+    const diasLab = contarDiasLaborablesRango(g.inicio, g.fin);
+    const txtDias = diasLab + " día" + (diasLab !== 1 ? "s" : "") + " laborable" + (diasLab !== 1 ? "s" : "");
+
+    html += `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1e293b">
+        <div style="width:12px;height:12px;border-radius:50%;background:#22d3ee;flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;color:#fff;font-weight:700">${txtFecha}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:2px">${txtDias}${g.nota ? " · " + g.nota : ""}</div>
         </div>
-      `;
-    });
-    html += `</div>`;
-  }
+        <button type="button" onclick="borrarRangoVacaciones('${g.inicio}','${g.fin}')" style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">🗑️</button>
+      </div>
+    `;
+  });
+  html += `</div>`;
+}
 
   html += `<button type="button" onclick="abrirModalVacaciones()" style="width:100%;margin-bottom:8px;background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:800;font-size:14px;cursor:pointer">🏖️ AÑADIR VACACIONES</button>`;
 

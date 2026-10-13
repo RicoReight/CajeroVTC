@@ -2297,15 +2297,15 @@ function estadoFestivo(f){
 
 function colorEstadoFestivo(estado){
   const c = {
-    solicitado:"#a78bfa",     // 👈 violeta
-    aprobado:"#4ade80",       // 👈 verde
-    completado:"#94a3b8",     // 👈 gris claro
-    acumulado:"#38bdf8",
-    porCaducar:"#fbbf24",
-    caducado:"#ef4444",
-    libre:"#64748b",
-    sacrificado:"#a855f7",
-    futuro:"#475569"
+    solicitado:"#a78bfa",     // violeta
+    aprobado:"#4ade80",       // verde
+    completado:"#94a3b8",     // gris claro
+    acumulado:"#38bdf8",      // azul
+    porCaducar:"#fbbf24",     // amarillo
+    caducado:"#ef4444",       // rojo
+    libre:"#fb923c",          // 🟠 naranja (No trabajado)
+    sacrificado:"#a855f7",    // violeta oscuro
+    futuro:"#fcd34d"          // 🟡 amarillo claro (Pendiente)
   };
   return c[estado] || "#64748b";
 }
@@ -2636,7 +2636,7 @@ function renderDiasTrabajo(){
         ${renderCalendarioMes()}
       </div>
       <div style="margin-top:12px;padding-top:10px;border-top:1px solid #334155;display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:#94a3b8">
-        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#475569"></div>Pendiente</div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#fcd34d"></div>Pendiente</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#38bdf8"></div>Acumulado</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#a78bfa"></div>Solicitado</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#4ade80"></div>Aprobado</div>
@@ -2646,6 +2646,7 @@ function renderDiasTrabajo(){
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#a855f7"></div>Sacrificado</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#a78bfa"></div>Personal</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#22d3ee"></div>Vacaciones</div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#fb923c"></div>No trabajado</div>
       </div>
     </div>
   `;
@@ -2658,8 +2659,9 @@ function renderDiasTrabajo(){
     html += `<div style="text-align:center;color:#64748b;font-size:13px;padding:14px">No hay festivos este año.</div>`;
   } else {
     festivosAnio.forEach(f => {
+      const estaEnVacaciones = diasPersonales.find(d => d.fecha === f.fecha && d.tipo === "vacacion");
       const est = estadoFestivo(f);
-      const col = colorEstadoFestivo(est);
+      const col = estaEnVacaciones ? "#22d3ee" : colorEstadoFestivo(est);
       const dl = diasHastaCaducar(f);
       let txtDias = "";
       let txtDisfrute = "";
@@ -2687,7 +2689,7 @@ function renderDiasTrabajo(){
             ${txtDisfrute}
           </div>
           <div style="text-align:right;flex-shrink:0">
-            <div style="font-size:11px;color:${col};font-weight:800;text-transform:uppercase">${nombreEstado(est)}</div>
+            <div style="font-size:11px;color:${col};font-weight:800;text-transform:uppercase">${estaEnVacaciones ? "🏖️ Vacaciones" : nombreEstado(est)}</div>
             ${txtDias}
           </div>
         </div>
@@ -2782,15 +2784,15 @@ function renderCalendarioMes(){
     const diaPersonal = diasPersonales.find(f => f.fecha === fechaStr);
 
     let circColor = null;
-    if(festivo) circColor = colorEstadoFestivo(estadoFestivo(festivo));
-    else if(diaPersonal) circColor = diaPersonal.tipo === "vacacion" ? "#22d3ee" : "#a78bfa";
+    if(diaPersonal) circColor = diaPersonal.tipo === "vacacion" ? "#22d3ee" : "#a78bfa";
+    else if(festivo) circColor = colorEstadoFestivo(estadoFestivo(festivo));
 
     const hoy = new Date();
     const esHoy = (hoy.getFullYear() === diasAnioVista && hoy.getMonth() === diasMesVista && hoy.getDate() === d);
 
     const bg = esHoy ? "#1e40af" : "#0f172a";
     const border = esHoy ? "#3b82f6" : "#334155";
-    const click = festivo ? `onclick="abrirModalFestivo('${fechaStr}')"` : (diaPersonal ? `onclick="borrarDiaPersonal('${fechaStr}')"` : "");
+    const click = diaPersonal ? `onclick="borrarDiaPersonal('${fechaStr}')"` : (festivo ? `onclick="abrirModalFestivo('${fechaStr}')"` : ""); "");
 
     html += `
       <div ${click} style="aspect-ratio:1;background:${bg};border:1px solid ${border};border-radius:8px;

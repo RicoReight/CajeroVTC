@@ -2728,9 +2728,9 @@ async function checkFestivosCaducidad(){
 /* ==================== PESTAÑAS DEL DRAWER ==================== */
 function drawerTab(nombre){
   const tabs = {
-    caja:         { btn:"tabCaja",         cont:"drawerTabCaja",         color:"#3b82f6", bg1:"#1e3a8a", bg2:"#1e40af" },
-    herramientas: { btn:"tabHerramientas", cont:"drawerTabHerramientas", color:"#8b5cf6", bg1:"#4c1d95", bg2:"#6d28d9" },
-    sistema:      { btn:"tabSistema",      cont:"drawerTabSistema",      color:"#ef4444", bg1:"#7f1d1d", bg2:"#991b1b" }
+    caja:         { btn:"tabCaja",         cont:"drawerTabCaja",         c1:"#1e3a8a", c2:"#1e40af", cb:"#3b82f6" },
+    herramientas: { btn:"tabHerramientas", cont:"drawerTabHerramientas", c1:"#4c1d95", c2:"#6d28d9", cb:"#8b5cf6" },
+    sistema:      { btn:"tabSistema",      cont:"drawerTabSistema",      c1:"#7f1d1d", c2:"#991b1b", cb:"#ef4444" }
   };
 
   Object.keys(tabs).forEach(k => {
@@ -2740,14 +2740,15 @@ function drawerTab(nombre){
     if(!b || !c) return;
 
     if(k === nombre){
-      b.style.background = "linear-gradient(135deg," + t.bg1 + "," + t.bg2 + ")";
-      b.style.color = "#fff";
-      b.style.borderColor = t.color;
+      b.classList.remove("drawer-tab-idle");
+      b.classList.add("drawer-tab-active");
+      b.style.setProperty("--c1", t.c1);
+      b.style.setProperty("--c2", t.c2);
+      b.style.setProperty("--cb", t.cb);
       c.style.display = "block";
     } else {
-      b.style.background = "#1e293b";
-      b.style.color = "#94a3b8";
-      b.style.borderColor = "#334155";
+      b.classList.remove("drawer-tab-active");
+      b.classList.add("drawer-tab-idle");
       c.style.display = "none";
     }
   });

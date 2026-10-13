@@ -74,6 +74,7 @@ function resetStats(){
   };
   saveStats();
 }
+
 function saveStock(){safeStorage.set("uberCambioStock",JSON.stringify(stock));scheduleCashSummary()}
 function saveTips(){safeStorage.set("uberCambioTips",String(totalTips))}
 function saveReserva(){safeStorage.set("uberCambioReserva",JSON.stringify(reservaMinima));scheduleCashSummary();if(received.length)calculate()}
@@ -87,7 +88,6 @@ function estadoParaStock(target,arr){const disp=arr.map((n,i)=>Math.max(0,n-(res
 function stockDisponible(){return stock.map((n,i)=>Math.max(0,n-(reservaMinima[denominations[i].c]||0)))}
 function canMakeAmount(target,avail){if(target<=0)return true;const r=new Uint8Array(target+1);r[0]=1;for(let i=0;i<denominations.length;i++){const v=denominations[i].c,m=avail[i];if(m<=0||v>target)continue;const u=new Int32Array(target+1).fill(-1);for(let t=0;t<=target;t++)if(r[t])u[t]=0;for(let t=0;t+v<=target;t++){if(u[t]<0)continue;if(u[t]<m&&u[t+v]<0){r[t+v]=1;u[t+v]=u[t]+1}}}return r[target]===1}
 function setStatusBadge(id,estado){const el=document.getElementById(id);if(!el)return;el.style.background="";el.style.color="";if(estado==="yes"){el.textContent="SÍ";el.className="status-badge yes"}else if(estado==="warn"){el.textContent="MÍN";el.className="status-badge warn";el.style.background="#eab308";el.style.color="#000"}else{el.textContent="NO";el.className="status-badge no"}}
-function toggleMenu(){const d=document.getElementById("drawer"),o=document.getElementById("overlay");if(!d||!o)return;d.classList.toggle("active");o.classList.toggle("active")}
 function renderButtons(){const box=document.getElementById("moneyButtons");if(!box)return;box.innerHTML="";const bt=document.createElement("div");bt.className="section";bt.textContent="Billetes";box.appendChild(bt);denominations.slice(0,5).forEach(d=>{const b=document.createElement("button");b.type="button";b.className="money";b.textContent=d.n;b.addEventListener("click",()=>addMoney(d.c));box.appendChild(b)});const ct=document.createElement("div");ct.className="section";ct.textContent="Monedas";box.appendChild(ct);denominations.slice(5).forEach(d=>{const b=document.createElement("button");b.type="button";b.className="money";b.textContent=d.n;b.addEventListener("click",()=>addMoney(d.c));box.appendChild(b)})}
 function addMoney(c){received.push(c);updateReceived();calculate()}
 function undoMoney(){received.pop();updateReceived();calculate()}
@@ -2724,6 +2724,59 @@ async function checkFestivosCaducidad(){
     console.warn('Error notif caducidad:', e);
   }
 }
+
+/* ==================== PESTAÑAS DEL DRAWER ==================== */
+function drawerTab(nombre){
+  const tabs = {
+    caja:         { btn:"tabCaja",         cont:"drawerTabCaja",         color:"#3b82f6", bg1:"#1e3a8a", bg2:"#1e40af" },
+    herramientas: { btn:"tabHerramientas", cont:"drawerTabHerramientas", color:"#8b5cf6", bg1:"#4c1d95", bg2:"#6d28d9" },
+    sistema:      { btn:"tabSistema",      cont:"drawerTabSistema",      color:"#ef4444", bg1:"#7f1d1d", bg2:"#991b1b" }
+  };
+
+  Object.keys(tabs).forEach(k => {
+    const t = tabs[k];
+    const b = document.getElementById(t.btn);
+    const c = document.getElementById(t.cont);
+    if(!b || !c) return;
+
+    if(k === nombre){
+      b.style.background = "linear-gradient(135deg," + t.bg1 + "," + t.bg2 + ")";
+      b.style.color = "#fff";
+      b.style.borderColor = t.color;
+      c.style.display = "block";
+    } else {
+      b.style.background = "#1e293b";
+      b.style.color = "#94a3b8";
+      b.style.borderColor = "#334155";
+      c.style.display = "none";
+    }
+  });
+
+  if(nombre === "caja"){
+    try { renderStockList(); } catch(e){}
+    try { actualizarBotonModoEdicion(); } catch(e){}
+  }
+  if(nombre === "sistema"){
+    try { renderResetPanel(); } catch(e){}
+  }
+
+  safeStorage.set("uberCambioDrawerTab", nombre);
+}
+
+function toggleMenu(){
+  const d = document.getElementById("drawer"), o = document.getElementById("overlay");
+  if(!d || !o) return;
+  const abriendo = !d.classList.contains("active");
+  d.classList.toggle("active");
+  o.classList.toggle("active");
+
+  if(abriendo){
+    const guardada = safeStorage.get("uberCambioDrawerTab") || "caja";
+    drawerTab(guardada);
+  }
+}
+/* ==================== FIN PESTAÑAS DEL DRAWER ==================== */
+
 /* ==================== FIN DÍAS DE TRABAJO ==================== */
 
 function init(){
@@ -2737,7 +2790,7 @@ function init(){
   if(safeStorage.get("uberCambioDebug") === "1"){
     cargarEruda().catch(e => console.warn("Eruda no cargó:", e));
   }
-
+  try{ drawerTab(safeStorage.get("uberCambioDrawerTab") || "caja"); }catch(e){console.error("drawerTab",e)}
   try{renderButtons()}catch(e){console.error("renderButtons",e)}
   try{renderStockList()}catch(e){console.error("renderStockList",e)}
   try{updateCashSummary()}catch(e){console.error("updateCashSummary",e)}

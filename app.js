@@ -2327,8 +2327,10 @@ function nombreEstado(est){
 
 function formatearFechaBonita(fechaStr){
   const p = fechaStr.split("-");
-  const m = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-  return parseInt(p[2]) + " " + m[parseInt(p[1])-1] + " " + p[0];
+  const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  const dd = String(parseInt(p[2])).padStart(2,"0");
+  const mm = String(parseInt(p[1])).padStart(2,"0");
+  return dd + "/" + mm + "/" + p[0] + " (" + meses[parseInt(p[1])-1] + ")";
 }
 function estaPendiente(f){
   if(!f.trabajado) return false;

@@ -3486,7 +3486,7 @@ function guardarVacaciones(){
     cursor.setDate(cursor.getDate() + 1);
   }
 
-  // Aviso de festivos dentro del rango
+  // Aviso de festivos dentro del rango (solo 1 pregunta)
   let festivosAContar = [];
   if(festivosEnRango.length > 0){
     const lista = festivosEnRango.map(f => "· " + formatearFechaBonita(f.fecha) + " (" + f.nombre + ")").join("\n");
@@ -3495,14 +3495,35 @@ function guardarVacaciones(){
       lista + "\n\n" +
       "¿Quieres contarlos como vacaciones también?\n\n" +
       "👉 Aceptar = SÍ, contarlos como vacación\n" +
-      "👉 Cancelar = NO, dejarlos como festivo";
+      "👉 Cancelar = NO, marcarlos como No trabajados";
 
     if(confirm(msg)) festivosAContar = festivosEnRango.map(f => f.fecha);
   }
 
+  // 👇 AUTOMÁTICO: los festivos que NO se cuentan como vacación,
+  //    se marcan como NO TRABAJADOS (si no estaban ya tocados)
+  const festivosANoTrabajados = [];
+  festivosEnRango.forEach(f => {
+    if(festivosAContar.includes(f.fecha)) return;   // se cuenta como vacación → no tocar
+    const fest = festivos.find(x => x.fecha === f.fecha);
+    if(!fest) return;
+    // Solo lo tocamos si sigue "virgen" (sin solicitud previa)
+    if(fest.trabajado && !fest.solicitado && !fest.sacrificado){
+      fest.trabajado = false;
+      fest.solicitado = false;
+      fest.aprobado = false;
+      fest.fechaSolicitud = null;
+      fest.fechaDisfrute = null;
+      fest.sacrificado = false;
+      festivosANoTrabajados.push(f.fecha);
+    }
+  });
+  if(festivosANoTrabajados.length > 0) saveFestivos();
+
+  // Añadir días de vacación
   const fechasAñadir = [...laborables, ...festivosAContar];
 
-  if(fechasAñadir.length === 0){
+  if(fechasAñadir.length === 0 && festivosANoTrabajados.length === 0){
     alert("⚠️ No hay días nuevos que añadir en ese rango.\n\n(Puede que ya estuvieran todos)");
     return;
   }
@@ -3517,8 +3538,8 @@ function guardarVacaciones(){
   renderDiasTrabajo();
 
   let toast = "🏖️ " + fechasAñadir.length + " día(s) de vacaciones añadido(s)";
-  if(festivosAContar.length > 0){
-    toast += " (incluye " + festivosAContar.length + " festivo" + (festivosAContar.length !== 1 ? "s" : "") + ")";
+  if(festivosANoTrabajados.length > 0){
+    toast += " · " + festivosANoTrabajados.length + " festivo(s) marcado(s) como No trabajado";
   }
   mostrarToast(toast);
 }

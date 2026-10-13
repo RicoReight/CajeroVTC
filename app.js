@@ -2749,59 +2749,116 @@ function setFestivoSolicitado(v){
   if(!f) return;
 
   if(v){
-    // Pedir fecha de disfrute
-    const hoy = new Date();
-    const sugerido = hoy.getFullYear() + "-" +
-                     String(hoy.getMonth()+1).padStart(2,"0") + "-" +
-                     String(hoy.getDate()).padStart(2,"0");
+    // Si ya estaba solicitado, editar la fecha directamente
+    pedirFechaDisfrute(f, (resp) => {
+      if(resp === null) return;
 
-    const resp = prompt(
-      "¿Qué día vas a DISFRUTAR esta fiesta?\n\n" +
-      "(Puede ser este año o el que viene)\n\n" +
-      "Formato: AAAA-MM-DD",
-      f.fechaDisfrute || sugerido
-    );
+      const hoy = new Date();
+      const sugerido = hoy.getFullYear() + "-" +
+                       String(hoy.getMonth()+1).padStart(2,"0") + "-" +
+                       String(hoy.getDate()).padStart(2,"0");
 
-    if(resp === null) return;
+      f.solicitado = true;
+      f.fechaSolicitud = f.fechaSolicitud || sugerido;
+      f.fechaDisfrute = resp;
 
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(resp)){
-      alert("Fecha inválida. Usa AAAA-MM-DD (ej: 2027-01-15)");
-      return;
-    }
+      saveFestivos();
+      abrirModalFestivo(festivoModalFecha);
+      renderDiasTrabajo();
 
-    f.solicitado = true;
-    f.fechaSolicitud = sugerido;
-    f.fechaDisfrute = resp;
+      try{
+        if(archivarAniosAntiguos()) renderDiasTrabajo();
+      }catch(e){}
+    });
   } else {
     f.solicitado = false;
     f.fechaSolicitud = null;
     f.fechaDisfrute = null;
+    saveFestivos();
+    abrirModalFestivo(festivoModalFecha);
+    renderDiasTrabajo();
   }
-
-  saveFestivos();
-  abrirModalFestivo(festivoModalFecha);
-  renderDiasTrabajo();
-
-  try{
-    if(archivarAniosAntiguos()) renderDiasTrabajo();
-  }catch(e){}
 }
+
+/* ==================== MODAL FECHA DE DISFRUTE ==================== */
+function pedirFechaDisfrute(f, callback){
+  const prev = document.getElementById("modalFechaDisfrute");
+  if(prev) prev.remove();
+
+  const hoy = new Date();
+  const sugerido = f.fechaDisfrute || (hoy.getFullYear() + "-" +
+                   String(hoy.getMonth()+1).padStart(2,"0") + "-" +
+                   String(hoy.getDate()).padStart(2,"0"));
+
+  const m = document.createElement("div");
+  m.id = "modalFechaDisfrute";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px";
+
+  m.innerHTML = `
+    <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:380px;width:100%;border:1px solid #334155">
+      <div style="font-size:16px;font-weight:900;color:#22d3ee;text-align:center;margin-bottom:6px">
+        🎉 Día de disfrute
+      </div>
+      <div style="font-size:12px;color:#94a3b8;text-align:center;margin-bottom:18px;line-height:1.4">
+        ¿Qué día vas a disfrutar esta fiesta?<br>
+        <span style="color:#64748b;font-size:11px">${f.nombre} · ${formatearFechaBonita(f.fecha)}</span>
+      </div>
+
+      <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">FECHA DE DISFRUTE</div>
+      <input type="date" id="fdFecha" value="${sugerido}"
+        style="width:100%;font-size:18px;padding:14px;border-radius:10px;
+               border:2px solid #0891b2;background:#0f172a;color:#fff;
+               margin-bottom:16px;outline:none">
+
+      <div style="font-size:11px;color:#22d3ee;font-weight:700;padding:10px 12px;background:#164e63;border-radius:8px;margin-bottom:16px;line-height:1.4;text-align:center">
+        💡 Puede ser este año o el que viene
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button type="button" id="fdCancelar"
+          style="flex:1;background:#334155;color:#fff;border:none;padding:12px;
+                 border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">
+          Cancelar
+        </button>
+        <button type="button" id="fdGuardar"
+          style="flex:1;background:#0891b2;color:#fff;border:none;padding:12px;
+                 border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">
+          ✅ Guardar
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(m);
+
+  const cerrar = () => m.remove();
+  m.addEventListener("click", (e) => { if(e.target === m){ cerrar(); callback(null); } });
+
+  document.getElementById("fdCancelar").onclick = () => { cerrar(); callback(null); };
+  document.getElementById("fdGuardar").onclick = () => {
+    const v = document.getElementById("fdFecha").value;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(v)){
+      alert("Selecciona una fecha válida");
+      return;
+    }
+    cerrar();
+    callback(v);
+  };
+}
+/* ==================== FIN MODAL FECHA DE DISFRUTE ==================== */
 
 function editarFechaDisfrute(){
   if(!festivoModalFecha) return;
   const f = festivos.find(x => x.fecha === festivoModalFecha);
   if(!f) return;
 
-  const resp = prompt("Nuevo día de disfrute (AAAA-MM-DD):", f.fechaDisfrute || "");
-  if(resp === null) return;
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(resp)){
-    alert("Formato inválido");
-    return;
-  }
-  f.fechaDisfrute = resp;
-  saveFestivos();
-  abrirModalFestivo(festivoModalFecha);
-  renderDiasTrabajo();
+  pedirFechaDisfrute(f, (resp) => {
+    if(resp === null) return;
+    f.fechaDisfrute = resp;
+    saveFestivos();
+    abrirModalFestivo(festivoModalFecha);
+    renderDiasTrabajo();
+  });
 }
 
 function borrarFestivo(fecha){

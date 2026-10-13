@@ -2215,7 +2215,7 @@ function loadFestivos(){
     try{
       const arr = JSON.parse(s);
       if(Array.isArray(arr)){
-        return arr.map(f => ({ fechaDisfrute: null, sacrificado: false, ...f }));
+        return arr.map(f => ({ fechaDisfrute: null, sacrificado: false, aprobado: false, ...f }));
       }
     }catch(e){}
   }
@@ -2226,9 +2226,10 @@ function loadFestivos(){
       nombre: FESTIVOS_DEFAULT[fecha],
       trabajado: true,
       solicitado: false,
+      aprobado: false,          // 👈 NUEVO
       fechaSolicitud: null,
       fechaDisfrute: null,
-      sacrificado: false   // ← NUEVO
+      sacrificado: false
     });
   });
   lista.sort((a,b) => a.fecha.localeCompare(b.fecha));
@@ -2266,9 +2267,18 @@ function diasHastaCaducar(festivo){
 function estadoFestivo(f){
   if(!f.trabajado) return "libre";
   if(f.sacrificado) return "sacrificado";
-  if(f.solicitado) return "solicitado";
 
-  // 👇 NUEVO: si el día aún no ha pasado, no está acumulado todavía
+  // Solicitado → diferenciar Solicitado / Aprobado / Completado
+  if(f.solicitado){
+    if(!f.aprobado) return "solicitado";
+    if(f.fechaDisfrute){
+      const hoyStr = new Date().toISOString().slice(0,10);
+      if(f.fechaDisfrute < hoyStr) return "completado";
+    }
+    return "aprobado";
+  }
+
+  // No solicitado: futuro / acumulado / por caducar / caducado
   const hoy = new Date();
   hoy.setHours(0,0,0,0);
   const p = f.fecha.split("-");
@@ -2283,13 +2293,15 @@ function estadoFestivo(f){
 
 function colorEstadoFestivo(estado){
   const c = {
-    solicitado:"#4ade80",
+    solicitado:"#a78bfa",     // 👈 violeta
+    aprobado:"#4ade80",       // 👈 verde
+    completado:"#94a3b8",     // 👈 gris claro
     acumulado:"#38bdf8",
     porCaducar:"#fbbf24",
     caducado:"#ef4444",
     libre:"#64748b",
     sacrificado:"#a855f7",
-    futuro:"#475569"          // 👈 gris para "aún no ha pasado"
+    futuro:"#475569"
   };
   return c[estado] || "#64748b";
 }
@@ -2297,12 +2309,14 @@ function colorEstadoFestivo(estado){
 function nombreEstado(est){
   const n = {
     solicitado:"Solicitado",
+    aprobado:"Aprobado",       // 👈
+    completado:"Completado",   // 👈
     acumulado:"Acumulado",
     porCaducar:"Por caducar",
     caducado:"Caducado",
     libre:"No trabajado",
     sacrificado:"Sacrificado",
-    futuro:"Pendiente"        // 👈
+    futuro:"Pendiente"
   };
   return n[est] || est;
 }
@@ -2373,10 +2387,8 @@ function renderDiasTrabajo(){
   const anioSiguiente = anioActual + 1;
   const hoyStr = new Date().toISOString().slice(0,10);
 
-  // --- 1) Años que SIEMPRE se muestran ---
   const aniosBase = [anioActual, anioSiguiente];
 
-  // --- 2) Años anteriores SOLO si tienen pendientes ---
   const aniosConPendientes = [];
   const aniosConFestivos = [...new Set(festivos.map(f => parseInt(f.fecha.slice(0,4))))];
   aniosConFestivos.forEach(a => {
@@ -2385,7 +2397,6 @@ function renderDiasTrabajo(){
     if(lista.some(estaPendiente)) aniosConPendientes.push(a);
   });
 
-  // --- 3) Años con vacaciones/personales en el actual o siguiente ---
   const aniosConPersonales = [...new Set(diasPersonales.map(d => parseInt(d.fecha.slice(0,4))))]
     .filter(a => a >= anioActual);
 
@@ -2393,11 +2404,12 @@ function renderDiasTrabajo(){
 
   if(!anios.includes(diasAnioVista)) diasAnioVista = anioActual;
 
-  // --- Datos del año ---
   const festivosAnio = festivos.filter(f => parseInt(f.fecha.slice(0,4)) === diasAnioVista);
 
-  // 👇 Ahora usamos estadoFestivo para que los futuros no cuenten como acumulados
+  // 👇 Contadores con los 3 estados nuevos
   const solicitados = festivosAnio.filter(f => estadoFestivo(f) === "solicitado").length;
+  const aprobados   = festivosAnio.filter(f => estadoFestivo(f) === "aprobado").length;
+  const completados = festivosAnio.filter(f => estadoFestivo(f) === "completado").length;
   const acumulados  = festivosAnio.filter(f => estadoFestivo(f) === "acumulado").length;
   const porCaducar  = festivosAnio.filter(f => estadoFestivo(f) === "porCaducar").length;
 
@@ -2427,24 +2439,32 @@ function renderDiasTrabajo(){
   });
   html += `</div>`;
 
-  // ===== Contadores =====
+  // ===== Contadores (6 tarjetas) =====
   html += `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px">
-        <div style="font-size:11px;color:#94a3b8;font-weight:700">🔵 ACUMULADOS</div>
-        <div style="font-size:26px;font-weight:900;color:#38bdf8;margin-top:4px">${acumulados}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
+        <div style="font-size:10px;color:#94a3b8;font-weight:700">🔵 ACUMULADOS</div>
+        <div style="font-size:22px;font-weight:900;color:#38bdf8;margin-top:4px">${acumulados}</div>
       </div>
-      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px">
-        <div style="font-size:11px;color:#94a3b8;font-weight:700">🟢 SOLICITADOS</div>
-        <div style="font-size:26px;font-weight:900;color:#4ade80;margin-top:4px">${solicitados}</div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
+        <div style="font-size:10px;color:#94a3b8;font-weight:700">🟣 SOLICITADOS</div>
+        <div style="font-size:22px;font-weight:900;color:#a78bfa;margin-top:4px">${solicitados}</div>
       </div>
-      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px">
-        <div style="font-size:11px;color:#94a3b8;font-weight:700">🟡 POR CADUCAR</div>
-        <div style="font-size:26px;font-weight:900;color:#fbbf24;margin-top:4px">${porCaducar}</div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
+        <div style="font-size:10px;color:#94a3b8;font-weight:700">🟢 APROBADOS</div>
+        <div style="font-size:22px;font-weight:900;color:#4ade80;margin-top:4px">${aprobados}</div>
       </div>
-      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px">
-        <div style="font-size:11px;color:#94a3b8;font-weight:700">👤 PERSONALES</div>
-        <div style="font-size:26px;font-weight:900;color:#a78bfa;margin-top:4px">${personalesRestantes}/2</div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
+        <div style="font-size:10px;color:#94a3b8;font-weight:700">⚪ COMPLETADOS</div>
+        <div style="font-size:22px;font-weight:900;color:#94a3b8;margin-top:4px">${completados}</div>
+      </div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
+        <div style="font-size:10px;color:#94a3b8;font-weight:700">🟡 POR CADUCAR</div>
+        <div style="font-size:22px;font-weight:900;color:#fbbf24;margin-top:4px">${porCaducar}</div>
+      </div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
+        <div style="font-size:10px;color:#94a3b8;font-weight:700">👤 PERSONALES</div>
+        <div style="font-size:22px;font-weight:900;color:#a78bfa;margin-top:4px">${personalesRestantes}/2</div>
       </div>
     </div>
   `;
@@ -2489,8 +2509,8 @@ function renderDiasTrabajo(){
   }
 
   // ===== Aviso caducidad =====
-  // 👇 Solo festivos ya pasados y por caducar (los futuros no cuentan)
-  const urgentes = festivosAnio.filter(f => estadoFestivo(f) === "porCaducar");  if(urgentes.length > 0){
+  const urgentes = festivosAnio.filter(f => estadoFestivo(f) === "porCaducar");
+  if(urgentes.length > 0){
     html += `<div style="background:#7c2d12;border:2px solid #ea580c;border-radius:12px;padding:12px;margin-bottom:14px">`;
     html += `<div style="font-size:13px;color:#fed7aa;font-weight:900;margin-bottom:6px">⚠️ A PUNTO DE CADUCAR</div>`;
     urgentes.forEach(f => {
@@ -2519,8 +2539,10 @@ function renderDiasTrabajo(){
       </div>
       <div style="margin-top:12px;padding-top:10px;border-top:1px solid #334155;display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:#94a3b8">
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#475569"></div>Pendiente</div>
-        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#4ade80"></div>Solicitado</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#38bdf8"></div>Acumulado</div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#a78bfa"></div>Solicitado</div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#4ade80"></div>Aprobado</div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#94a3b8"></div>Completado</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#fbbf24"></div>Por caducar</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#ef4444"></div>Caducado</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#a855f7"></div>Sacrificado</div>
@@ -2547,11 +2569,12 @@ function renderDiasTrabajo(){
       if(est === "porCaducar") txtDias = `<span style="color:#fbbf24;font-weight:900;font-size:11px">${dl}d</span>`;
       else if(est === "caducado") txtDias = `<span style="color:#ef4444;font-weight:900;font-size:11px">caducado</span>`;
       else if(est === "acumulado") txtDias = `<span style="color:#64748b;font-weight:700;font-size:11px">${dl}d</span>`;
-      // 👇 En "futuro" no mostramos cuenta atrás
 
       if(f.solicitado && f.fechaDisfrute && !f.sacrificado){
         const disfrutado = f.fechaDisfrute < hoyStr;
-        txtDisfrute = `<div style="font-size:10px;color:${disfrutado?'#64748b':'#22d3ee'};margin-top:2px">${disfrutado?'✓':'🎉'} Disfrute: ${formatearFechaBonita(f.fechaDisfrute)}</div>`;
+        const icono = disfrutado ? '✓' : (f.aprobado ? '✅' : '⏳');
+        const colorTxt = disfrutado ? '#64748b' : (f.aprobado ? '#4ade80' : '#a78bfa');
+        txtDisfrute = `<div style="font-size:10px;color:${colorTxt};margin-top:2px">${icono} Disfrute: ${formatearFechaBonita(f.fechaDisfrute)}</div>`;
       }
       if(f.sacrificado){
         txtDisfrute = `<div style="font-size:10px;color:#e9d5ff;margin-top:2px">🔥 Sacrificado por la empresa</div>`;
@@ -2605,7 +2628,7 @@ function renderDiasTrabajo(){
   }
   html += `</div>`;
 
-  // ===== Lista de vacaciones del año =====
+  // ===== Lista de vacaciones =====
   if(vacacionesAnio.length > 0){
     html += `<div style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">`;
     html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -2627,10 +2650,8 @@ function renderDiasTrabajo(){
     html += `</div>`;
   }
 
-  // ===== Botón añadir vacaciones =====
   html += `<button type="button" onclick="abrirModalVacaciones()" style="width:100%;margin-bottom:8px;background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:800;font-size:14px;cursor:pointer">🏖️ AÑADIR VACACIONES</button>`;
 
-  // ===== Botones extra =====
   html += `
     <div style="display:flex;gap:8px;margin-bottom:14px">
       <button type="button" onclick="importarICS()" style="flex:1;background:#0e7490;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">📥 Importar .ics</button>
@@ -2727,10 +2748,10 @@ function abrirModalFestivo(fechaStr){
         <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:8px">¿LO HAS SOLICITADO?</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
           <button type="button" onclick="setFestivoSolicitado(true)"
-            style="padding:14px 8px;border-radius:10px;border:2px solid ${f.solicitado&&!f.sacrificado?'#22c55e':'#475569'};
-                   background:${f.solicitado&&!f.sacrificado?'linear-gradient(135deg,#14532d,#15803d)':'#0f172a'};
-                   color:${f.solicitado&&!f.sacrificado?'#4ade80':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px">
-            🟢 Sí
+            style="padding:14px 8px;border-radius:10px;border:2px solid ${f.solicitado&&!f.sacrificado?'#a78bfa':'#475569'};
+                   background:${f.solicitado&&!f.sacrificado?'linear-gradient(135deg,#4c1d95,#6d28d9)':'#0f172a'};
+                   color:${f.solicitado&&!f.sacrificado?'#c4b5fd':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px">
+            🟣 Sí
           </button>
           <button type="button" onclick="setFestivoSolicitado(false)"
             style="padding:14px 8px;border-radius:10px;border:2px solid ${!f.solicitado&&!f.sacrificado?'#fbbf24':'#475569'};
@@ -2739,6 +2760,24 @@ function abrirModalFestivo(fechaStr){
             🟡 No
           </button>
         </div>
+
+        ${f.solicitado && !f.sacrificado ? `
+          <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:8px">APROBACIÓN DE LA EMPRESA</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+            <button type="button" onclick="setFestivoAprobado(true)"
+              style="padding:14px 8px;border-radius:10px;border:2px solid ${f.aprobado?'#22c55e':'#475569'};
+                     background:${f.aprobado?'linear-gradient(135deg,#14532d,#15803d)':'#0f172a'};
+                     color:${f.aprobado?'#4ade80':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px">
+              🟢 Aprobado
+            </button>
+            <button type="button" onclick="setFestivoAprobado(false)"
+              style="padding:14px 8px;border-radius:10px;border:2px solid ${!f.aprobado?'#a78bfa':'#475569'};
+                     background:${!f.aprobado?'#4c1d95':'#0f172a'};
+                     color:${!f.aprobado?'#c4b5fd':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px">
+              🟣 Pendiente
+            </button>
+          </div>
+        ` : ""}
 
         <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:8px">O SACRIFICADO POR LA EMPRESA</div>
         <button type="button" onclick="setFestivoSacrificado(${!f.sacrificado})"
@@ -2756,8 +2795,9 @@ function abrirModalFestivo(fechaStr){
         ` : ""}
 
         ${!f.sacrificado && f.solicitado && f.fechaDisfrute ? `
-          <div style="background:#164e63;border:1px solid #0891b2;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:#a5f3fc;line-height:1.5;text-align:center">
-            🎉 Día de disfrute:<br><b style="font-size:15px;color:#fff">${formatearFechaBonita(f.fechaDisfrute)}</b>
+          <div style="background:${f.aprobado ? '#064e3b' : '#4c1d95'};border:1px solid ${f.aprobado ? '#059669' : '#8b5cf6'};border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:${f.aprobado ? '#a7f3d0' : '#e9d5ff'};line-height:1.5;text-align:center">
+            ${f.aprobado ? '✅ Aprobado por la empresa' : '⏳ Pendiente de aprobación'}<br>
+            🎉 Disfrute: <b style="font-size:15px;color:#fff">${formatearFechaBonita(f.fechaDisfrute)}</b>
             ${f.fechaDisfrute < new Date().toISOString().slice(0,10) ? `<br><span style="color:#64748b">(ya disfrutado)</span>` : ""}
           </div>
           <button type="button" onclick="editarFechaDisfrute()" style="width:100%;margin-bottom:10px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer">✏️ Cambiar fecha de disfrute</button>
@@ -2797,13 +2837,23 @@ function setFestivoTrabajado(v){
   renderDiasTrabajo();
 }
 
+function setFestivoAprobado(v){
+  if(!festivoModalFecha) return;
+  const f = festivos.find(x => x.fecha === festivoModalFecha);
+  if(!f) return;
+
+  f.aprobado = !!v;
+  saveFestivos();
+  abrirModalFestivo(festivoModalFecha);
+  renderDiasTrabajo();
+}
+
 function setFestivoSolicitado(v){
   if(!festivoModalFecha) return;
   const f = festivos.find(x => x.fecha === festivoModalFecha);
   if(!f) return;
 
   if(v){
-    // Si ya estaba solicitado, editar la fecha directamente
     pedirFechaDisfrute(f, (resp) => {
       if(resp === null) return;
 
@@ -2826,6 +2876,7 @@ function setFestivoSolicitado(v){
     });
   } else {
     f.solicitado = false;
+    f.aprobado = false;          // 👈 NUEVO: al quitar solicitud, quitar aprobación
     f.fechaSolicitud = null;
     f.fechaDisfrute = null;
     saveFestivos();
@@ -2849,6 +2900,7 @@ function setFestivoSacrificado(v){
 
     f.sacrificado = true;
     f.solicitado = false;
+    f.aprobado = false;          // 👈 NUEVO
     f.fechaSolicitud = null;
     f.fechaDisfrute = null;
     mostrarToast("🔥 Marcado como sacrificado");
@@ -3274,9 +3326,11 @@ function onICSSeleccionado(e){
               festivosActualizados++;
             }
           } else {
+            // 👇 AQUÍ estaba el Sitio A
             festivos.push({
               fecha: ev.fecha, nombre: ev.nombre,
               trabajado: true, solicitado: false,
+              aprobado: false,                    // 👈 NUEVO
               fechaSolicitud: null, fechaDisfrute: null,
               sacrificado: false
             });
@@ -3303,9 +3357,11 @@ function onICSSeleccionado(e){
               festivosActualizados++;
             }
           } else {
+            // 👇 AQUÍ estaba el Sitio B
             festivos.push({
               fecha: ev.fecha, nombre: ev.nombre,
               trabajado: true, solicitado: false,
+              aprobado: false,                    // 👈 NUEVO
               fechaSolicitud: null, fechaDisfrute: null,
               sacrificado: false
             });
@@ -3394,9 +3450,12 @@ function abrirModalFestivoNuevo(){
   if(festivos.find(f => f.fecha === fecha)){ alert("Ya existe un festivo en esa fecha."); return; }
   const nombre = prompt("Nombre del festivo:");
   if(!nombre) return;
+
+  // 👇 AQUÍ estaba el Sitio C
   festivos.push({
     fecha, nombre,
     trabajado: true, solicitado: false,
+    aprobado: false,                          // 👈 NUEVO
     fechaSolicitud: null, fechaDisfrute: null,
     sacrificado: false
   });

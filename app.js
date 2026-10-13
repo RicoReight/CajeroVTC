@@ -2598,7 +2598,7 @@ function renderDiasTrabajo(){
     <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <button type="button" onclick="cambiarMesVista(-1)" style="background:#334155;color:#fff;border:none;width:36px;height:36px;border-radius:10px;font-size:18px;font-weight:900;cursor:pointer">◀</button>
-        <div style="font-size:16px;font-weight:900;color:#38bdf8">${nombresMes[diasMesVista]} ${diasAnioVista}</div>
+        <div style="font-size:16px;font-weight:900;color:#38bdf8">${nombresMes[diasMesVista]} (${diasMesVista+1}) ${diasAnioVista}</div>
         <button type="button" onclick="cambiarMesVista(1)" style="background:#334155;color:#fff;border:none;width:36px;height:36px;border-radius:10px;font-size:18px;font-weight:900;cursor:pointer">▶</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px">
@@ -3237,7 +3237,7 @@ function renderVacCalendario(){
     <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <button type="button" onclick="cambiarMesVacCal(-1)" style="background:#334155;color:#fff;border:none;width:34px;height:34px;border-radius:8px;font-size:16px;font-weight:900;cursor:pointer">◀</button>
-        <div style="font-size:15px;font-weight:900;color:#38bdf8">${nombresMes[vacCalMes]} ${vacCalAnio}</div>
+        <div style="font-size:15px;font-weight:900;color:#38bdf8">${nombresMes[vacCalMes]} (${vacCalMes+1}) ${vacCalAnio}</div>
         <button type="button" onclick="cambiarMesVacCal(1)" style="background:#334155;color:#fff;border:none;width:34px;height:34px;border-radius:8px;font-size:16px;font-weight:900;cursor:pointer">▶</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px">

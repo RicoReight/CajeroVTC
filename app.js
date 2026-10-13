@@ -2215,7 +2215,7 @@ function loadFestivos(){
     try{
       const arr = JSON.parse(s);
       if(Array.isArray(arr)){
-        return arr.map(f => ({ fechaDisfrute: null, ...f }));
+        return arr.map(f => ({ fechaDisfrute: null, sacrificado: false, ...f }));
       }
     }catch(e){}
   }
@@ -2227,7 +2227,8 @@ function loadFestivos(){
       trabajado: true,
       solicitado: false,
       fechaSolicitud: null,
-      fechaDisfrute: null
+      fechaDisfrute: null,
+      sacrificado: false   // ← NUEVO
     });
   });
   lista.sort((a,b) => a.fecha.localeCompare(b.fecha));
@@ -2264,18 +2265,35 @@ function diasHastaCaducar(festivo){
 }
 function estadoFestivo(f){
   if(!f.trabajado) return "libre";
+  if(f.sacrificado) return "sacrificado";   // ← NUEVO
   if(f.solicitado) return "solicitado";
   const d = diasHastaCaducar(f);
   if(d < 0) return "caducado";
   if(d <= 15) return "porCaducar";
   return "acumulado";
 }
+
 function colorEstadoFestivo(estado){
-  const c = { solicitado:"#4ade80", acumulado:"#38bdf8", porCaducar:"#fbbf24", caducado:"#ef4444", libre:"#64748b" };
+  const c = {
+    solicitado:"#4ade80",
+    acumulado:"#38bdf8",
+    porCaducar:"#fbbf24",
+    caducado:"#ef4444",
+    libre:"#64748b",
+    sacrificado:"#a855f7"      // ← NUEVO (violeta)
+  };
   return c[estado] || "#64748b";
 }
+
 function nombreEstado(est){
-  const n = { solicitado:"Solicitado", acumulado:"Acumulado", porCaducar:"Por caducar", caducado:"Caducado", libre:"No trabajado" };
+  const n = {
+    solicitado:"Solicitado",
+    acumulado:"Acumulado",
+    porCaducar:"Por caducar",
+    caducado:"Caducado",
+    libre:"No trabajado",
+    sacrificado:"Sacrificado"  // ← NUEVO
+  };
   return n[est] || est;
 }
 function formatearFechaBonita(fechaStr){
@@ -2285,6 +2303,7 @@ function formatearFechaBonita(fechaStr){
 }
 function estaPendiente(f){
   if(!f.trabajado) return false;
+  if(f.sacrificado) return false;   // ← NUEVO: sacrificado nunca bloquea
   if(!f.solicitado) return diasHastaCaducar(f) >= 0;
   if(!f.fechaDisfrute) return true;
   const hoyStr = new Date().toISOString().slice(0,10);
@@ -2355,20 +2374,19 @@ function renderDiasTrabajo(){
     if(lista.some(estaPendiente)) aniosConPendientes.push(a);
   });
 
-  // --- 3) Años con vacaciones/personales en el actual o siguiente (para no perder pestaña) ---
+  // --- 3) Años con vacaciones/personales en el actual o siguiente ---
   const aniosConPersonales = [...new Set(diasPersonales.map(d => parseInt(d.fecha.slice(0,4))))]
     .filter(a => a >= anioActual);
 
   const anios = [...new Set([...aniosBase, ...aniosConPendientes, ...aniosConPersonales])].sort();
 
-  // Ajustar diasAnioVista si ya no está disponible
   if(!anios.includes(diasAnioVista)) diasAnioVista = anioActual;
 
-  // --- Datos del año que estamos viendo ---
+  // --- Datos del año ---
   const festivosAnio = festivos.filter(f => parseInt(f.fecha.slice(0,4)) === diasAnioVista);
-  const solicitados = festivosAnio.filter(f => f.trabajado && f.solicitado).length;
-  const acumulados = festivosAnio.filter(f => f.trabajado && !f.solicitado && diasHastaCaducar(f) >= 0).length;
-  const porCaducar = festivosAnio.filter(f => f.trabajado && !f.solicitado && diasHastaCaducar(f) >= 0 && diasHastaCaducar(f) <= 15).length;
+  const solicitados = festivosAnio.filter(f => f.trabajado && f.solicitado && !f.sacrificado).length;
+  const acumulados = festivosAnio.filter(f => f.trabajado && !f.solicitado && !f.sacrificado && diasHastaCaducar(f) >= 0).length;
+  const porCaducar = festivosAnio.filter(f => f.trabajado && !f.solicitado && !f.sacrificado && diasHastaCaducar(f) >= 0 && diasHastaCaducar(f) <= 15).length;
 
   const personalesAnio = diasPersonales.filter(d =>
     parseInt(d.fecha.slice(0,4)) === diasAnioVista &&
@@ -2458,7 +2476,7 @@ function renderDiasTrabajo(){
   }
 
   // ===== Aviso caducidad =====
-  const urgentes = festivosAnio.filter(f => f.trabajado && !f.solicitado && diasHastaCaducar(f) >= 0 && diasHastaCaducar(f) <= 15);
+  const urgentes = festivosAnio.filter(f => f.trabajado && !f.solicitado && !f.sacrificado && diasHastaCaducar(f) >= 0 && diasHastaCaducar(f) <= 15);
   if(urgentes.length > 0){
     html += `<div style="background:#7c2d12;border:2px solid #ea580c;border-radius:12px;padding:12px;margin-bottom:14px">`;
     html += `<div style="font-size:13px;color:#fed7aa;font-weight:900;margin-bottom:6px">⚠️ A PUNTO DE CADUCAR</div>`;
@@ -2491,6 +2509,7 @@ function renderDiasTrabajo(){
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#38bdf8"></div>Acumulado</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#fbbf24"></div>Por caducar</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#ef4444"></div>Caducado</div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#a855f7"></div>Sacrificado</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#a78bfa"></div>Personal</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#22d3ee"></div>Vacaciones</div>
       </div>
@@ -2513,9 +2532,12 @@ function renderDiasTrabajo(){
       if(est === "porCaducar") txtDias = `<span style="color:#fbbf24;font-weight:900;font-size:11px">${dl}d</span>`;
       else if(est === "caducado") txtDias = `<span style="color:#ef4444;font-weight:900;font-size:11px">caducado</span>`;
       else if(est === "acumulado") txtDias = `<span style="color:#64748b;font-weight:700;font-size:11px">${dl}d</span>`;
-      if(f.solicitado && f.fechaDisfrute){
+      if(f.solicitado && f.fechaDisfrute && !f.sacrificado){
         const disfrutado = f.fechaDisfrute < hoyStr;
         txtDisfrute = `<div style="font-size:10px;color:${disfrutado?'#64748b':'#22d3ee'};margin-top:2px">${disfrutado?'✓':'🎉'} Disfrute: ${formatearFechaBonita(f.fechaDisfrute)}</div>`;
+      }
+      if(f.sacrificado){
+        txtDisfrute = `<div style="font-size:10px;color:#e9d5ff;margin-top:2px">🔥 Convertido en vacaciones</div>`;
       }
 
       html += `
@@ -2688,20 +2710,35 @@ function abrirModalFestivo(fechaStr){
         <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:8px">¿LO HAS SOLICITADO?</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
           <button type="button" onclick="setFestivoSolicitado(true)"
-            style="padding:14px 8px;border-radius:10px;border:2px solid ${f.solicitado?'#22c55e':'#475569'};
-                   background:${f.solicitado?'linear-gradient(135deg,#14532d,#15803d)':'#0f172a'};
-                   color:${f.solicitado?'#4ade80':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px">
+            style="padding:14px 8px;border-radius:10px;border:2px solid ${f.solicitado&&!f.sacrificado?'#22c55e':'#475569'};
+                   background:${f.solicitado&&!f.sacrificado?'linear-gradient(135deg,#14532d,#15803d)':'#0f172a'};
+                   color:${f.solicitado&&!f.sacrificado?'#4ade80':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px">
             🟢 Sí
           </button>
           <button type="button" onclick="setFestivoSolicitado(false)"
-            style="padding:14px 8px;border-radius:10px;border:2px solid ${!f.solicitado?'#fbbf24':'#475569'};
-                   background:${!f.solicitado?'#78350f':'#0f172a'};
-                   color:${!f.solicitado?'#fbbf24':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px">
+            style="padding:14px 8px;border-radius:10px;border:2px solid ${!f.solicitado&&!f.sacrificado?'#fbbf24':'#475569'};
+                   background:${!f.solicitado&&!f.sacrificado?'#78350f':'#0f172a'};
+                   color:${!f.solicitado&&!f.sacrificado?'#fbbf24':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px">
             🟡 No
           </button>
         </div>
 
-        ${f.solicitado && f.fechaDisfrute ? `
+        <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:8px">O SACRIFICADO POR LA EMPRESA</div>
+        <button type="button" onclick="setFestivoSacrificado(${!f.sacrificado})"
+          style="width:100%;padding:14px 8px;border-radius:10px;border:2px solid ${f.sacrificado?'#a855f7':'#475569'};
+                 background:${f.sacrificado?'linear-gradient(135deg,#4c1d95,#6d28d9)':'#0f172a'};
+                 color:${f.sacrificado?'#e9d5ff':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px;margin-bottom:16px">
+          🔥 ${f.sacrificado ? "Sacrificado · pulsa para quitar" : "Marcar como sacrificado (→ vacaciones)"}
+        </button>
+
+        ${f.sacrificado ? `
+          <div style="background:#4c1d95;border:1px solid #8b5cf6;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:#e9d5ff;line-height:1.5;text-align:center">
+            🔥 Este festivo se convirtió en <b>vacaciones</b><br>
+            No cuenta como pendiente ni bloquea el año
+          </div>
+        ` : ""}
+
+        ${!f.sacrificado && f.solicitado && f.fechaDisfrute ? `
           <div style="background:#164e63;border:1px solid #0891b2;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:#a5f3fc;line-height:1.5;text-align:center">
             🎉 Día de disfrute:<br><b style="font-size:15px;color:#fff">${formatearFechaBonita(f.fechaDisfrute)}</b>
             ${f.fechaDisfrute < new Date().toISOString().slice(0,10) ? `<br><span style="color:#64748b">(ya disfrutado)</span>` : ""}
@@ -2778,6 +2815,43 @@ function setFestivoSolicitado(v){
     abrirModalFestivo(festivoModalFecha);
     renderDiasTrabajo();
   }
+}
+
+function setFestivoSacrificado(v){
+  if(!festivoModalFecha) return;
+  const f = festivos.find(x => x.fecha === festivoModalFecha);
+  if(!f) return;
+
+  if(v){
+    const anio = parseInt(f.fecha.slice(0,4));
+
+    const resp = confirm(
+      "🔥 MARCAR COMO SACRIFICADO\n\n" +
+      "Este festivo se ha convertido en vacaciones.\n\n" +
+      "👉 Aceptar = sumar +1 día a las VACACIONES de " + anio + "\n" +
+      "👉 Cancelar = solo marcarlo como sacrificado (sin sumar)"
+    );
+
+    if(resp){
+      const actuales = getVacacionesAsignadas(anio);
+      setVacacionesAsignadas(anio, actuales + 1);
+      mostrarToast("🏖️ +1 día añadido a vacaciones " + anio);
+    }
+
+    f.sacrificado = true;
+    f.solicitado = false;
+    f.fechaSolicitud = null;
+    f.fechaDisfrute = null;
+  } else {
+    // Desmarcar sacrificado
+    f.sacrificado = false;
+  }
+
+  saveFestivos();
+  abrirModalFestivo(festivoModalFecha);
+  renderDiasTrabajo();
+
+  try{ if(archivarAniosAntiguos()) renderDiasTrabajo(); }catch(e){}
 }
 
 /* ==================== MODAL FECHA DE DISFRUTE ==================== */
@@ -3194,7 +3268,8 @@ function onICSSeleccionado(e){
             festivos.push({
               fecha: ev.fecha, nombre: ev.nombre,
               trabajado: true, solicitado: false,
-              fechaSolicitud: null, fechaDisfrute: null
+              fechaSolicitud: null, fechaDisfrute: null,
+              sacrificado: false
             });
             festivosAñadidos++;
           }
@@ -3222,7 +3297,8 @@ function onICSSeleccionado(e){
             festivos.push({
               fecha: ev.fecha, nombre: ev.nombre,
               trabajado: true, solicitado: false,
-              fechaSolicitud: null, fechaDisfrute: null
+              fechaSolicitud: null, fechaDisfrute: null,
+              sacrificado: false
             });
             festivosAñadidos++;
           }
@@ -3309,7 +3385,12 @@ function abrirModalFestivoNuevo(){
   if(festivos.find(f => f.fecha === fecha)){ alert("Ya existe un festivo en esa fecha."); return; }
   const nombre = prompt("Nombre del festivo:");
   if(!nombre) return;
-  festivos.push({ fecha, nombre, trabajado: true, solicitado: false, fechaSolicitud: null, fechaDisfrute: null });
+  festivos.push({
+    fecha, nombre,
+    trabajado: true, solicitado: false,
+    fechaSolicitud: null, fechaDisfrute: null,
+    sacrificado: false
+  });
   festivos.sort((a,b) => a.fecha.localeCompare(b.fecha));
   saveFestivos();
   renderDiasTrabajo();
@@ -3322,7 +3403,7 @@ async function checkFestivosCaducidad(){
   if(safeStorage.get("uberCambioUltimoAvisoFestivos") === hoy) return;
 
   const urgentes = festivos.filter(f => {
-    if(!f.trabajado || f.solicitado) return false;
+    if(!f.trabajado || f.solicitado || f.sacrificado) return false;
     const d = diasHastaCaducar(f);
     return d >= 0 && d <= 15;
   });

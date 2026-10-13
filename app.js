@@ -2831,7 +2831,11 @@ function setFestivoTrabajado(v){
   const f = festivos.find(x => x.fecha === festivoModalFecha);
   if(!f) return;
   f.trabajado = v;
-  if(!v){ f.solicitado = false; f.fechaDisfrute = null; }
+  if(!v){
+    f.solicitado = false;
+    f.aprobado = false;          // 👈 añadir
+    f.fechaDisfrute = null;
+  }
   saveFestivos();
   abrirModalFestivo(festivoModalFecha);
   renderDiasTrabajo();
@@ -3105,18 +3109,27 @@ function abrirModalVacaciones(){
       </div>
 
       <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">DESDE</div>
-      <input type="date" id="vacFechaIni" value="${fechaDefault}" style="width:100%;font-size:16px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin-bottom:14px;outline:none">
+      <input type="date" id="vacFechaIni" value="${fechaDefault}"
+        onchange="onVacFechaIniChange()"
+        style="width:100%;font-size:16px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin-bottom:10px;outline:none">
 
-      <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">HASTA <span style="color:#64748b;font-weight:600">(déjalo igual si es 1 día)</span></div>
-      <input type="date" id="vacFechaFin" value="${fechaDefault}" style="width:100%;font-size:16px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin-bottom:14px;outline:none">
+      <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">HASTA <span style="color:#64748b;font-weight:600">(mismo día si es 1 solo)</span></div>
+      <input type="date" id="vacFechaFin" value="${fechaDefault}"
+        onchange="onVacFechaFinChange()"
+        style="width:100%;font-size:16px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin-bottom:10px;outline:none">
+
+      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+        <button type="button" onclick="setRangoRapido(1)" style="flex:1;min-width:60px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">1 día</button>
+        <button type="button" onclick="setRangoRapido(2)" style="flex:1;min-width:60px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">2 días</button>
+        <button type="button" onclick="setRangoRapido(3)" style="flex:1;min-width:60px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">3 días</button>
+        <button type="button" onclick="setRangoRapido(5)" style="flex:1;min-width:60px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">5 días</button>
+        <button type="button" onclick="setRangoRapido(7)" style="flex:1;min-width:60px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">7 días</button>
+      </div>
+
+      <div id="vacPreview" style="font-size:12px;color:#a7f3d0;background:#164e63;padding:10px 12px;border-radius:8px;margin-bottom:14px;line-height:1.4;text-align:center"></div>
 
       <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">NOTA (OPCIONAL)</div>
-      <input type="text" id="vacNota" placeholder="Ej: Verano 2026" style="width:100%;font-size:14px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin-bottom:10px;outline:none">
-
-      <div style="font-size:11px;color:#22d3ee;font-weight:700;padding:10px 12px;background:#164e63;border-radius:8px;margin-bottom:14px;line-height:1.4">
-        💡 Los sábados y domingos no se cuentan.<br>
-        Si el rango incluye un festivo ya en el calendario, se omite.
-      </div>
+      <input type="text" id="vacNota" placeholder="Ej: Verano 2026" style="width:100%;font-size:14px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin-bottom:14px;outline:none">
 
       <div style="display:flex;gap:8px">
         <button type="button" onclick="cerrarModalVacaciones()" style="flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">Cancelar</button>
@@ -3127,11 +3140,108 @@ function abrirModalVacaciones(){
 
   document.body.appendChild(m);
   m.addEventListener("click", (e) => { if(e.target === m) cerrarModalVacaciones(); });
+
+  window.__vacHastaModificado = false;
+  actualizarVacPreview();
 }
 
 function cerrarModalVacaciones(){
   const m = document.getElementById("modalVacaciones");
   if(m) m.remove();
+  window.__vacHastaModificado = false;
+}
+
+function onVacFechaIniChange(){
+  const ini = document.getElementById("vacFechaIni");
+  const fin = document.getElementById("vacFechaFin");
+  if(!ini || !fin) return;
+
+  // Si el usuario no ha tocado "Hasta", se autocompleta con "Desde"
+  if(!window.__vacHastaModificado){
+    fin.value = ini.value;
+  }
+
+  // Si "Hasta" queda antes de "Desde", igualamos a "Desde"
+  if(fin.value < ini.value){
+    fin.value = ini.value;
+    window.__vacHastaModificado = false;
+  }
+  actualizarVacPreview();
+}
+
+function onVacFechaFinChange(){
+  const ini = document.getElementById("vacFechaIni");
+  const fin = document.getElementById("vacFechaFin");
+  if(!ini || !fin) return;
+
+  // Si el usuario iguala Hasta a Desde, no lo marcamos como "modificado"
+  window.__vacHastaModificado = (fin.value !== ini.value);
+
+  // Si es anterior, lo forzamos
+  if(fin.value < ini.value){
+    fin.value = ini.value;
+    window.__vacHastaModificado = false;
+  }
+  actualizarVacPreview();
+}
+
+function setRangoRapido(n){
+  const ini = document.getElementById("vacFechaIni");
+  const fin = document.getElementById("vacFechaFin");
+  if(!ini || !fin || !ini.value) return;
+
+  const d = new Date(ini.value + "T00:00:00");
+  d.setDate(d.getDate() + (n - 1));
+  const y = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+  fin.value = y + "-" + mm + "-" + dd;
+  window.__vacHastaModificado = (n > 1);
+  actualizarVacPreview();
+}
+
+function actualizarVacPreview(){
+  const el = document.getElementById("vacPreview");
+  if(!el) return;
+
+  const ini = document.getElementById("vacFechaIni");
+  const fin = document.getElementById("vacFechaFin");
+  if(!ini || !fin || !ini.value || !fin.value){ el.innerHTML = ""; return; }
+
+  const a = new Date(ini.value + "T00:00:00");
+  const b = new Date(fin.value + "T00:00:00");
+  if(b < a){
+    el.innerHTML = "<span style='color:#f87171'>⚠️ La fecha fin es anterior a la de inicio</span>";
+    el.style.background = "#7f1d1d";
+    return;
+  }
+
+  let nat = 0, lab = 0, fest = 0;
+  const cursor = new Date(a);
+  while(cursor <= b){
+    nat++;
+    const dia = cursor.getDay();
+    if(dia !== 0 && dia !== 6){
+      const s = cursor.getFullYear() + "-" +
+                String(cursor.getMonth()+1).padStart(2,"0") + "-" +
+                String(cursor.getDate()).padStart(2,"0");
+      if(festivos.find(f => f.fecha === s && f.trabajado)) fest++;
+      else lab++;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  let txt;
+  if(nat === 1){
+    txt = "📅 1 día seleccionado";
+  } else {
+    txt = "📅 " + nat + " días naturales";
+  }
+  txt += " · " + lab + " laborable" + (lab !== 1 ? "s" : "");
+  if(fest > 0) txt += " · " + fest + " festivo" + (fest !== 1 ? "s" : "");
+
+  el.innerHTML = txt;
+  el.style.background = "#164e63";
 }
 
 function guardarVacaciones(){
@@ -3151,28 +3261,48 @@ function guardarVacaciones(){
     if(!confirm("⚠️ Has seleccionado " + diasTotales + " días.\n\n¿Seguro?")) return;
   }
 
-  const fechasAñadir = [];
+  // 👇 Recorremos el rango y clasificamos cada día
+  const laborables = [];
+  const festivosEnRango = [];
   const cursor = new Date(ini);
+
   while(cursor <= fin){
     const dia = cursor.getDay();
-    // Saltar sábados (6) y domingos (0)
+    const s = cursor.getFullYear() + "-" +
+              String(cursor.getMonth()+1).padStart(2,"0") + "-" +
+              String(cursor.getDate()).padStart(2,"0");
+
     if(dia !== 0 && dia !== 6){
-      const s = cursor.getFullYear() + "-" +
-                String(cursor.getMonth()+1).padStart(2,"0") + "-" +
-                String(cursor.getDate()).padStart(2,"0");
+      const fest = festivos.find(f => f.fecha === s);
+      const yaEsPersonal = diasPersonales.find(d => d.fecha === s);
 
-      const yaExistePersonal = diasPersonales.find(d => d.fecha === s);
-      const yaExisteFestivo = festivos.find(f => f.fecha === s);
-
-      if(!yaExistePersonal && !yaExisteFestivo){
-        fechasAñadir.push(s);
+      if(fest && fest.trabajado){
+        if(!yaEsPersonal) festivosEnRango.push({ fecha: s, nombre: fest.nombre });
+      } else if(!yaEsPersonal){
+        laborables.push(s);
       }
     }
     cursor.setDate(cursor.getDate() + 1);
   }
 
+  // 👇 Preguntamos si hay festivos dentro
+  let festivosAContar = [];
+  if(festivosEnRango.length > 0){
+    const lista = festivosEnRango.map(f => "· " + formatearFechaBonita(f.fecha) + " (" + f.nombre + ")").join("\n");
+    const msg =
+      "🎉 Hay " + festivosEnRango.length + " festivo" + (festivosEnRango.length !== 1 ? "s" : "") + " dentro del rango:\n\n" +
+      lista + "\n\n" +
+      "¿Quieres contarlos como vacaciones también?\n\n" +
+      "👉 Aceptar = SÍ, contarlos como vacación\n" +
+      "👉 Cancelar = NO, dejarlos como festivo";
+
+    if(confirm(msg)) festivosAContar = festivosEnRango.map(f => f.fecha);
+  }
+
+  const fechasAñadir = [...laborables, ...festivosAContar];
+
   if(fechasAñadir.length === 0){
-    alert("⚠️ No hay días laborables nuevos que añadir en ese rango.\n\n(Puede que ya estuvieran todos o que caigan en finde/festivo)");
+    alert("⚠️ No hay días nuevos que añadir en ese rango.\n\n(Puede que ya estuvieran todos)");
     return;
   }
 
@@ -3184,7 +3314,12 @@ function guardarVacaciones(){
 
   cerrarModalVacaciones();
   renderDiasTrabajo();
-  mostrarToast("🏖️ " + fechasAñadir.length + " día(s) de vacaciones añadido(s)");
+
+  let toast = "🏖️ " + fechasAñadir.length + " día(s) de vacaciones añadido(s)";
+  if(festivosAContar.length > 0){
+    toast += " (incluye " + festivosAContar.length + " festivo" + (festivosAContar.length !== 1 ? "s" : "") + ")";
+  }
+  mostrarToast(toast);
 }
 /* ==================== FIN MODAL VACACIONES ==================== */
 
@@ -3440,28 +3575,123 @@ function parseICS(texto){
 }
 
 function abrirModalFestivoNuevo(){
-  const fecha = prompt("Fecha del festivo (AAAA-MM-DD):");
-  if(!fecha) return;
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)){ alert("Formato incorrecto. Usa AAAA-MM-DD"); return; }
+  const prev = document.getElementById("modalFestivoNuevo");
+  if(prev) prev.remove();
+
+  const hoy = new Date();
+  const fechaDefault = hoy.getFullYear() + "-" +
+                       String(hoy.getMonth()+1).padStart(2,"0") + "-" +
+                       String(hoy.getDate()).padStart(2,"0");
+
+  const m = document.createElement("div");
+  m.id = "modalFestivoNuevo";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px";
+
+  m.innerHTML = `
+    <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:380px;width:100%;border:1px solid #334155">
+      <div style="font-size:16px;font-weight:900;color:#38bdf8;text-align:center;margin-bottom:16px">
+        📅 Nuevo festivo
+      </div>
+
+      <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">FECHA</div>
+      <input type="date" id="nfFecha" value="${fechaDefault}"
+        onchange="onNuevaFechaFestivoChange()"
+        style="width:100%;font-size:16px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin-bottom:12px;outline:none">
+
+      <div id="nfAviso" style="font-size:12px;color:#a7f3d0;background:#164e63;padding:10px 12px;border-radius:8px;margin-bottom:12px;line-height:1.4;text-align:center"></div>
+
+      <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">NOMBRE</div>
+      <input type="text" id="nfNombre" placeholder="Ej: Nochebuena" maxlength="40"
+        style="width:100%;font-size:14px;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin-bottom:16px;outline:none">
+
+      <div style="display:flex;gap:8px">
+        <button type="button" onclick="cerrarModalFestivoNuevo()" style="flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">Cancelar</button>
+        <button type="button" onclick="guardarNuevoFestivo()" style="flex:1;background:#0891b2;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">✅ Guardar</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(m);
+  m.addEventListener("click", (e) => { if(e.target === m) cerrarModalFestivoNuevo(); });
+
+  onNuevaFechaFestivoChange();
+  setTimeout(() => {
+    const inp = document.getElementById("nfNombre");
+    if(inp) inp.focus();
+  }, 150);
+}
+
+function cerrarModalFestivoNuevo(){
+  const m = document.getElementById("modalFestivoNuevo");
+  if(m) m.remove();
+}
+
+function onNuevaFechaFestivoChange(){
+  const el = document.getElementById("nfAviso");
+  const inp = document.getElementById("nfFecha");
+  if(!el || !inp) return;
+
+  const v = inp.value;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v)){ el.innerHTML = ""; el.style.background = "#164e63"; el.style.color = "#a7f3d0"; return; }
+
+  const p = v.split("-");
+  const d = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+  const dia = d.getDay();
+  const dup = festivos.find(f => f.fecha === v);
+
+  if(dia === 0 || dia === 1){
+    el.innerHTML = "⚠️ Cae en " + (dia === 0 ? "Domingo" : "Lunes") + " · no cuenta como laborable";
+    el.style.background = "#7f1d1d";
+    el.style.color = "#fca5a5";
+  } else if(dup){
+    el.innerHTML = "⚠️ Ya existe un festivo ese día (" + dup.nombre + ")";
+    el.style.background = "#78350f";
+    el.style.color = "#fde68a";
+  } else {
+    el.innerHTML = "✅ Día laborable válido";
+    el.style.background = "#164e63";
+    el.style.color = "#a7f3d0";
+  }
+}
+
+function guardarNuevoFestivo(){
+  const fecha = document.getElementById("nfFecha").value;
+  const nombre = (document.getElementById("nfNombre").value || "").trim();
+
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)){
+    alert("Selecciona una fecha válida.");
+    return;
+  }
+  if(!nombre){
+    alert("Escribe un nombre para el festivo.");
+    return;
+  }
+
   const p = fecha.split("-");
   const d = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
   const dia = d.getDay();
-  if(dia === 0 || dia === 1){ alert("⚠️ Ese día cae en Domingo o Lunes, no cuenta como festivo trabajado."); return; }
-  if(festivos.find(f => f.fecha === fecha)){ alert("Ya existe un festivo en esa fecha."); return; }
-  const nombre = prompt("Nombre del festivo:");
-  if(!nombre) return;
+  if(dia === 0 || dia === 1){
+    alert("⚠️ Esa fecha cae en " + (dia === 0 ? "Domingo" : "Lunes") + ".\nNo cuenta como festivo trabajado.");
+    return;
+  }
 
-  // 👇 AQUÍ estaba el Sitio C
+  if(festivos.find(f => f.fecha === fecha)){
+    alert("Ya existe un festivo en esa fecha.");
+    return;
+  }
+
   festivos.push({
     fecha, nombre,
     trabajado: true, solicitado: false,
-    aprobado: false,                          // 👈 NUEVO
+    aprobado: false,
     fechaSolicitud: null, fechaDisfrute: null,
     sacrificado: false
   });
   festivos.sort((a,b) => a.fecha.localeCompare(b.fecha));
   saveFestivos();
+  cerrarModalFestivoNuevo();
   renderDiasTrabajo();
+  mostrarToast("✅ Festivo añadido: " + nombre);
 }
 /* ==================== FIN IMPORTAR ICS ==================== */
 

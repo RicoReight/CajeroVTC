@@ -2448,6 +2448,34 @@ function borrarRangoVacaciones(inicio, fin){
   mostrarToast("🏖️ Vacaciones borradas");
 }
 
+function formatearRangoVacaciones(inicio, fin){
+  const mesesCortos = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+  const pI = inicio.split("-");
+  const pF = fin.split("-");
+
+  const dI = parseInt(pI[2]), mI = parseInt(pI[1]), aI = pI[0];
+  const dF = parseInt(pF[2]), mF = parseInt(pF[1]), aF = pF[0];
+
+  // 1 solo día
+  if(inicio === fin){
+    return dI + "/" + String(mI).padStart(2,"0") + "/" + aI + " (" + mesesCortos[mI-1] + " " + mI + ")";
+  }
+
+  // Mismo año y mismo mes
+  if(aI === aF && mI === mF){
+    return dI + " → " + dF + " " + mesesCortos[mI-1] + " (" + mI + ") " + aI;
+  }
+
+  // Mismo año, distinto mes
+  if(aI === aF){
+    return dI + " " + mesesCortos[mI-1] + " (" + mI + ") → " + dF + " " + mesesCortos[mF-1] + " (" + mF + ") " + aI;
+  }
+
+  // Distintos años
+  return dI + " " + mesesCortos[mI-1] + " (" + mI + ") " + aI + " → " + dF + " " + mesesCortos[mF-1] + " (" + mF + ") " + aF;
+}
+
 /* ==================== RENDER PRINCIPAL ==================== */
 function renderDiasTrabajo(){
   const cont = document.getElementById("diasContenido");
@@ -2709,10 +2737,7 @@ if(vacacionesAnio.length > 0){
   </div>`;
 
   grupos.forEach(g => {
-    const esUnDia = g.inicio === g.fin;
-    const txtFecha = esUnDia
-      ? formatearFechaBonita(g.inicio)
-      : formatearFechaBonita(g.inicio) + " → " + formatearFechaBonita(g.fin);
+    const txtFecha = formatearRangoVacaciones(g.inicio, g.fin);
     const diasLab = contarDiasLaborablesRango(g.inicio, g.fin);
     const txtDias = diasLab + " día" + (diasLab !== 1 ? "s" : "") + " laborable" + (diasLab !== 1 ? "s" : "");
 

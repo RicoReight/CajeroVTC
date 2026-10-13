@@ -2056,6 +2056,8 @@ function mostrarToast(msg){
 /* ==================== FIN OCR ==================== */
 
 async function lanzarNotificacionZona(texto){
+  if(safeStorage.get("uberCambioSonidoZona") === "0") return;
+
   try {
     const Cap = window.Capacitor;
     if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
@@ -2066,7 +2068,7 @@ async function lanzarNotificacionZona(texto){
         id: 1001,
         title: 'Cambio de zona',
         body: texto,
-        schedule: { at: new Date(Date.now() + 100) }
+        schedule: { at: new Date(), allowWhileIdle: true }
       }]
     });
   } catch(e){
@@ -2299,6 +2301,21 @@ setTimeout(async () => {
     console.warn('Error configurando barras:', e);
   }
 }, 500);
+
+/* ==================== MENÚ PRINCIPAL ☰ ==================== */
+function abrirMenuPrincipal(){
+  const m = document.getElementById("menuPrincipal");
+  const o = document.getElementById("menuPrincipalOverlay");
+  if(m) m.style.display = "flex";
+  if(o) o.style.display = "block";
+}
+function cerrarMenuPrincipal(){
+  const m = document.getElementById("menuPrincipal");
+  const o = document.getElementById("menuPrincipalOverlay");
+  if(m) m.style.display = "none";
+  if(o) o.style.display = "none";
+}
+/* ==================== FIN MENÚ ==================== */
 
 /* ==================== MAPA DE ZONAS ==================== */
 let leafletLoaded = false;
@@ -2566,6 +2583,9 @@ async function abrirMapaPantalla(){
 function cerrarMapaPantalla(){
   const p = document.getElementById("mapaPantalla");
   if(p) p.style.display = "none";
+  // Resetear referencias al mapa/marker para que al reabrir se cree uno nuevo
+  mapaInstance = null;
+  mapaMarker = null;
 }
 
 /* ==================== DETECCIÓN DE ZONA ==================== */
@@ -2640,13 +2660,66 @@ function puntoEnPoligono(lat, lon, geojson){
   return false;
 }
 
+// Margen alrededor de la ZBE para evitar falsos "fuera" en los bordes
+const BUFFER_ZONA_METROS = 50;
+
+function distanciaSegmentoMetros(lat, lon, lat1, lon1, lat2, lon2){
+  const latRad = lat * Math.PI / 180;
+  const mPorGradoLat = 111132;
+  const mPorGradoLon = 111320 * Math.cos(latRad);
+
+  const x = (lon - lon1) * mPorGradoLon;
+  const y = (lat - lat1) * mPorGradoLat;
+  const x2 = (lon2 - lon1) * mPorGradoLon;
+  const y2 = (lat2 - lat1) * mPorGradoLat;
+
+  const len2 = x2*x2 + y2*y2;
+  if(len2 === 0) return Math.sqrt(x*x + y*y);
+
+  let t = (x*x2 + y*y2) / len2;
+  t = Math.max(0, Math.min(1, t));
+
+  const dx = x - t*x2;
+  const dy = y - t*y2;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+function distanciaAlPoligono(lat, lon, geojson){
+  if(!geojson) return Infinity;
+  const features = geojson.type === "FeatureCollection" ? geojson.features : [geojson];
+  let min = Infinity;
+  for(const f of features){
+    const g = f.geometry || f;
+    if(!g || !g.type) continue;
+    let anillos = [];
+    if(g.type === "Polygon") anillos = [g.coordinates[0]];
+    else if(g.type === "MultiPolygon") anillos = g.coordinates.map(p => p[0]);
+    for(const anillo of anillos){
+      for(let i = 0; i < anillo.length - 1; i++){
+        const d = distanciaSegmentoMetros(lat, lon, anillo[i][1], anillo[i][0], anillo[i+1][1], anillo[i+1][0]);
+        if(d < min) min = d;
+        if(min < 1) return min; // atajo: ya estamos pegados al borde
+      }
+    }
+  }
+  return min;
+}
+
 function detectarZona(lat, lon){
-  if(puntoEnPoligono(lat, lon, geoZBE)){
-    return { codigo: "bcn", nombre: "🟢 Zona de trabajo", color: "#4ade80" };
+  const enZBE = puntoEnPoligono(lat, lon, geoZBE);
+  const enAMB = puntoEnLineStrings(lat, lon, geoAMB);
+
+  if(enZBE) return { codigo: "bcn", nombre: "🟢 Zona de trabajo", color: "#4ade80" };
+  if(enAMB) return { codigo: "amb", nombre: "🟡 Zona AMB", color: "#fbbf24" };
+
+  // Buffer solo en la ZBE (lo importante es no perder la zona de trabajo por el borde)
+  if(!enZBE){
+    const d = distanciaAlPoligono(lat, lon, geoZBE);
+    if(d < BUFFER_ZONA_METROS){
+      return { codigo: "bcn", nombre: "🟢 Zona de trabajo", color: "#4ade80" };
+    }
   }
-  if(puntoEnLineStrings(lat, lon, geoAMB)){
-    return { codigo: "amb", nombre: "🟡 Zona AMB", color: "#fbbf24" };
-  }
+
   return { codigo: "fuera", nombre: "🔴 Fuera de zona AMB", color: "#ef4444" };
 }
 

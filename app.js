@@ -2792,7 +2792,7 @@ function renderCalendarioMes(){
 
     const bg = esHoy ? "#1e40af" : "#0f172a";
     const border = esHoy ? "#3b82f6" : "#334155";
-    const click = diaPersonal ? `onclick="borrarDiaPersonal('${fechaStr}')"` : (festivo ? `onclick="abrirModalFestivo('${fechaStr}')"` : ""); "");
+    const click = diaPersonal ? `onclick="borrarDiaPersonal('${fechaStr}')"` : (festivo ? `onclick="abrirModalFestivo('${fechaStr}')"` : "");
 
     html += `
       <div ${click} style="aspect-ratio:1;background:${bg};border:1px solid ${border};border-radius:8px;

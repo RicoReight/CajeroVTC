@@ -2128,6 +2128,59 @@ async function lanzarNotificacionZona(texto){
         id: 1001,
         title: 'Cambio de zona',
         body: texto,
+        channelId: 'zona-cambio',              // 👈 canal propio
+        smallIcon: 'ic_stat_icon_config_sample',
+        sound: 'default',                       // 👈 sonido del sistema
+        vibrate: true,                          // 👈 vibración
+        schedule: { at: new Date(), allowWhileIdle: true }
+      }]
+    });
+  } catch(e){
+    console.warn('Error lanzando notificación:', e);
+  }
+}
+
+async function crearCanalNotificacionesZona(){
+  try {
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
+    const LN = Cap.Plugins.LocalNotifications;
+
+    if(LN.createChannel){
+      await LN.createChannel({
+        id: 'zona-cambio',
+        name: 'Cambios de zona',
+        description: 'Avisa cuando entras o sales de la zona de trabajo',
+        importance: 5,
+        visibility: 1,
+        sound: 'default',
+        vibration: true,
+        lights: true,
+        lightColor: '#4ade80'
+      });
+      console.log('✅ Canal de notificaciones creado');
+    }
+  } catch(e){
+    console.warn('Error creando canal:', e);
+  }
+}
+
+async function lanzarNotificacionZona(texto){
+  if(safeStorage.get("uberCambioSonidoZona") === "0") return;
+
+  try {
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
+    const LN = Cap.Plugins.LocalNotifications;
+
+    await LN.schedule({
+      notifications: [{
+        id: 1001,
+        title: 'Cambio de zona',
+        body: texto,
+        channelId: 'zona-cambio',
+        sound: 'default',
+        vibrate: true,
         schedule: { at: new Date(), allowWhileIdle: true }
       }]
     });
@@ -4033,6 +4086,9 @@ function toggleMenu(){
 function init(){
   solicitarPermisoNotificaciones();
 
+  // 👇 NUEVO: crear canal de notificaciones con sonido y vibración
+  setTimeout(() => { crearCanalNotificacionesZona(); }, 500);
+
   // Notificación de festivos a punto de caducar (1 vez al día)
   setTimeout(() => { checkFestivosCaducidad(); }, 1500);
 
@@ -4705,34 +4761,37 @@ async function reiniciarWatcherConTexto(texto){
 }
 /* ==================== FIN DETECCIÓN DE ZONA ==================== */
 
-
-function actualizarMapaConPosicion(lat, lon, acc){
+function procesarNuevaPosicion(lat, lon, acc){
   ultimaPosicion = { lat, lon };
 
-  if(!mapaInstance){
-    console.warn("actualizarMapaConPosicion: mapaInstance es null");
-    return;
-  }
-
-  if(!mapaMarker){
-    mapaMarker = L.circleMarker([lat, lon], {
-      radius: 8, color: "#fff", weight: 3,
-      fillColor: "#38bdf8", fillOpacity: 1
-    }).addTo(mapaInstance);
-  } else {
-    mapaMarker.setLatLng([lat, lon]);
-  }
-
-  mapaInstance.panTo([lat, lon]);
-
+  // 👇 Detectar zona SIEMPRE (independiente del mapa)
   const zona = detectarZona(lat, lon);
-  const elZona = document.getElementById("mapaZonaActual");
-  if(elZona){
-    elZona.innerHTML = "Zona: " + zona.nombre + "<div style='font-size:11px;color:#94a3b8;margin-top:4px;font-weight:600'>" + lat.toFixed(5) + ", " + lon.toFixed(5) + " · ±" + (acc||0) + "m</div>";
-    elZona.style.color = zona.color;
-  }
 
+  // 👇 Notificar SIEMPRE
   actualizarNotificacionZona(zona);
+
+  // 👇 Actualizar la vista del mapa SOLO si está abierto
+  if(mapaInstance){
+    if(!mapaMarker){
+      mapaMarker = L.circleMarker([lat, lon], {
+        radius: 8, color: "#fff", weight: 3,
+        fillColor: "#38bdf8", fillOpacity: 1
+      }).addTo(mapaInstance);
+    } else {
+      mapaMarker.setLatLng([lat, lon]);
+    }
+    mapaInstance.panTo([lat, lon]);
+
+    const elZona = document.getElementById("mapaZonaActual");
+    if(elZona){
+      elZona.innerHTML = "Zona: " + zona.nombre + "<div style='font-size:11px;color:#94a3b8;margin-top:4px;font-weight:600'>" + lat.toFixed(5) + ", " + lon.toFixed(5) + " · ±" + (acc||0) + "m</div>";
+      elZona.style.color = zona.color;
+    }
+  }
+}
+
+function actualizarMapaConPosicion(lat, lon, acc){
+  procesarNuevaPosicion(lat, lon, acc);
 }
 
 function probarCoordenadasManuales(){

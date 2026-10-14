@@ -2409,7 +2409,7 @@ function sonDiasNoLaborablesEntre(fechaA, fechaB){
   cursor.setDate(cursor.getDate() + 1);
   while(cursor < b){
     const dia = cursor.getDay();
-    if(dia !== 0 && dia !== 6){
+    if(dia !== 0 && dia !== 1){
       const s = cursor.getFullYear() + "-" + String(cursor.getMonth()+1).padStart(2,"0") + "-" + String(cursor.getDate()).padStart(2,"0");
       if(!festivos.find(f => f.fecha === s)) return false;
     }
@@ -2425,7 +2425,7 @@ function contarDiasLaborablesRango(inicio, fin){
   const cursor = new Date(a);
   while(cursor <= b){
     const dia = cursor.getDay();
-    if(dia !== 0 && dia !== 6){
+    if(dia !== 0 && dia !== 1){
       const s = cursor.getFullYear() + "-" + String(cursor.getMonth()+1).padStart(2,"0") + "-" + String(cursor.getDate()).padStart(2,"0");
       if(!festivos.find(f => f.fecha === s)) n++;
     }
@@ -3288,7 +3288,7 @@ function renderVacCalendario(){
   for(let d = 1; d <= totalDias; d++){
     const fechaStr = `${vacCalAnio}-${String(vacCalMes+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
     const dia = new Date(vacCalAnio, vacCalMes, d).getDay();
-    const esFinde = (dia === 0 || dia === 6);
+    const esFinde = (dia === 0 || dia === 1);
     const festivo = festivos.find(f => f.fecha === fechaStr && f.trabajado);
     const festivoNoTrab = festivos.find(f => f.fecha === fechaStr && !f.trabajado);
     const yaEsPersonal = diasPersonales.find(x => x.fecha === fechaStr);
@@ -3346,7 +3346,7 @@ function renderVacCalendario(){
     <div style="display:flex;justify-content:center;gap:12px;font-size:10px;color:#94a3b8;margin-top:8px;flex-wrap:wrap">
       <span style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:10px;height:10px;background:#1e293b;border:1px solid #334155;border-radius:2px"></span>Laborable</span>
       <span style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:10px;height:10px;background:#78350f;border:1px solid #b45309;border-radius:2px"></span>Festivo</span>
-      <span style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:10px;height:10px;background:#0f172a;border:1px solid #1e293b;border-radius:2px"></span>Finde</span>
+      <span style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:10px;height:10px;background:#0f172a;border:1px solid #1e293b;border-radius:2px"></span>Descanso (D-L)</span>
     </div>
   `;
 
@@ -3423,7 +3423,7 @@ function renderVacPreview(){
   while(cursor <= b){
     nat++;
     const dia = cursor.getDay();
-    if(dia !== 0 && dia !== 6){
+    if(dia !== 0 && dia !== 1){
       const s = cursor.getFullYear() + "-" + String(cursor.getMonth()+1).padStart(2,"0") + "-" + String(cursor.getDate()).padStart(2,"0");
       if(festivos.find(f => f.fecha === s && f.trabajado)) fest++;
       else lab++;
@@ -3509,14 +3509,20 @@ function guardarVacaciones(){
               String(cursor.getMonth()+1).padStart(2,"0") + "-" +
               String(cursor.getDate()).padStart(2,"0");
 
-    if(dia !== 0 && dia !== 6){
-      const fest = festivos.find(f => f.fecha === s && f.trabajado);
-      const yaEsPersonal = diasPersonales.find(d => d.fecha === s);
+    const fest = festivos.find(f => f.fecha === s && f.trabajado);
+    const yaEsPersonal = diasPersonales.find(d => d.fecha === s);
 
+    if(dia !== 0 && dia !== 1){
+      // Laborables (incluye sábado) y festivos en L-V-S
       if(fest){
         if(!yaEsPersonal) festivosEnRango.push({ fecha: s, nombre: fest.nombre });
       } else if(!yaEsPersonal){
         laborables.push(s);
+      }
+    } else {
+      // Descanso (domingo y lunes). Si hay festivo, también entra como visual
+      if(fest && !yaEsPersonal){
+        festivosEnRango.push({ fecha: s, nombre: fest.nombre });
       }
     }
     cursor.setDate(cursor.getDate() + 1);

@@ -2570,7 +2570,7 @@ function renderDiasTrabajo(){
   // ===== Cuadro de VACACIONES =====
   {
     const asignadas = getVacacionesAsignadas(diasAnioVista);
-    const usadas = vacacionesAnio.length;
+    const usadas = vacacionesAnio.filter(d => !d.noCuenta).length;
     const restantes = Math.max(0, asignadas - usadas);
     const pasadas = usadas > asignadas && asignadas > 0;
     const color = pasadas ? "#f87171" : (restantes === 0 && asignadas > 0 ? "#fbbf24" : "#22d3ee");
@@ -2735,13 +2735,23 @@ if(vacacionesAnio.length > 0){
   html += `<div style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">`;
   html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
     <div style="font-size:12px;color:#22d3ee;font-weight:900;letter-spacing:1px">🏖️ VACACIONES ${diasAnioVista}</div>
-    <div style="font-size:13px;color:#22d3ee;font-weight:900">${vacacionesAnio.length} día${vacacionesAnio.length !== 1 ? "s" : ""}</div>
+    <div style="font-size:13px;color:#22d3ee;font-weight:900">${vacacionesAnio.filter(d => !d.noCuenta).length} día${vacacionesAnio.filter(d => !d.noCuenta).length !== 1 ? "s" : ""}</div>
   </div>`;
 
   grupos.forEach(g => {
     const txtFecha = formatearRangoVacaciones(g.inicio, g.fin);
-    const diasLab = contarDiasLaborablesRango(g.inicio, g.fin);
-    const txtDias = diasLab + " día" + (diasLab !== 1 ? "s" : "") + " laborable" + (diasLab !== 1 ? "s" : "");
+    const diasCuenta = diasPersonales.filter(d =>
+      d.tipo === "vacacion" && !d.noCuenta &&
+      d.fecha >= g.inicio && d.fecha <= g.fin
+    ).length;
+    const diasSinContar = diasPersonales.filter(d =>
+      d.tipo === "vacacion" && d.noCuenta &&
+      d.fecha >= g.inicio && d.fecha <= g.fin
+    ).length;
+    let txtDias = diasCuenta + " día" + (diasCuenta !== 1 ? "s" : "");
+    if(diasSinContar > 0){
+      txtDias += " · " + diasSinContar + " festivo" + (diasSinContar !== 1 ? "s" : "");
+    }
 
     html += `
       <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1e293b">
@@ -3489,7 +3499,6 @@ function guardarVacaciones(){
   const ini = new Date(vacCalInicio + "T00:00:00");
   const fin = new Date(vacCalFin + "T00:00:00");
 
-  // Días laborables y festivos dentro del rango
   const laborables = [];
   const festivosEnRango = [];
   const cursor = new Date(ini);
@@ -3513,60 +3522,44 @@ function guardarVacaciones(){
     cursor.setDate(cursor.getDate() + 1);
   }
 
-  // Aviso de festivos dentro del rango (solo 1 pregunta)
-  let festivosAContar = [];
+  // Preguntar por festivos dentro del rango
+  let festivosAVisualizar = [];
   if(festivosEnRango.length > 0){
     const lista = festivosEnRango.map(f => "· " + formatearFechaBonita(f.fecha) + " (" + f.nombre + ")").join("\n");
     const msg =
       "🎉 Hay " + festivosEnRango.length + " festivo" + (festivosEnRango.length !== 1 ? "s" : "") + " dentro del rango:\n\n" +
       lista + "\n\n" +
-      "¿Quieres contarlos como vacaciones también?\n\n" +
-      "👉 Aceptar = SÍ, contarlos como vacación\n" +
-      "👉 Cancelar = NO, marcarlos como No trabajados";
+      "¿Quieres marcarlos como vacaciones también?\n\n" +
+      "👉 Aceptar = SÍ (se ven como vacación, pero NO cuentan como día gastado)\n" +
+      "👉 Cancelar = NO (siguen como festivos normales)";
 
-    if(confirm(msg)) festivosAContar = festivosEnRango.map(f => f.fecha);
+    if(confirm(msg)) festivosAVisualizar = festivosEnRango.map(f => f.fecha);
   }
 
-  // 👇 AUTOMÁTICO: los festivos que NO se cuentan como vacación,
-  //    se marcan como NO TRABAJADOS (si no estaban ya tocados)
-  const festivosANoTrabajados = [];
-  festivosEnRango.forEach(f => {
-    if(festivosAContar.includes(f.fecha)) return;   // se cuenta como vacación → no tocar
-    const fest = festivos.find(x => x.fecha === f.fecha);
-    if(!fest) return;
-    // Solo lo tocamos si sigue "virgen" (sin solicitud previa)
-    if(fest.trabajado && !fest.solicitado && !fest.sacrificado){
-      fest.trabajado = false;
-      fest.solicitado = false;
-      fest.aprobado = false;
-      fest.fechaSolicitud = null;
-      fest.fechaDisfrute = null;
-      fest.sacrificado = false;
-      festivosANoTrabajados.push(f.fecha);
-    }
+  // Añadir laborables → CUENTAN
+  laborables.forEach(fecha => {
+    diasPersonales.push({ fecha, nota: notaFinal, tipo: "vacacion" });
   });
-  if(festivosANoTrabajados.length > 0) saveFestivos();
 
-  // Añadir días de vacación
-  const fechasAñadir = [...laborables, ...festivosAContar];
+  // Añadir festivos → NO CUENTAN (solo visual)
+  festivosAVisualizar.forEach(fecha => {
+    diasPersonales.push({ fecha, nota: notaFinal, tipo: "vacacion", noCuenta: true });
+  });
 
-  if(fechasAñadir.length === 0 && festivosANoTrabajados.length === 0){
+  if(laborables.length === 0 && festivosAVisualizar.length === 0){
     alert("⚠️ No hay días nuevos que añadir en ese rango.\n\n(Puede que ya estuvieran todos)");
     return;
   }
 
-  fechasAñadir.forEach(fecha => {
-    diasPersonales.push({ fecha, nota: notaFinal, tipo: "vacacion" });
-  });
   diasPersonales.sort((a,b) => a.fecha.localeCompare(b.fecha));
   saveDiasPersonales();
 
   cerrarModalVacaciones();
   renderDiasTrabajo();
 
-  let toast = "🏖️ " + fechasAñadir.length + " día(s) de vacaciones añadido(s)";
-  if(festivosANoTrabajados.length > 0){
-    toast += " · " + festivosANoTrabajados.length + " festivo(s) marcado(s) como No trabajado";
+  let toast = "🏖️ " + laborables.length + " día(s) de vacaciones añadido(s)";
+  if(festivosAVisualizar.length > 0){
+    toast += " · " + festivosAVisualizar.length + " festivo(s) marcados como vacación (sin contar)";
   }
   mostrarToast(toast);
 }

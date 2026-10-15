@@ -1715,6 +1715,7 @@ async function exportInventory(){
     exportedAt: new Date().toISOString(),
     stock,
     totalTips,
+    pines: pinesLista,
     reservaMinima,
     topesRecibir,
     diaReset,
@@ -1899,7 +1900,10 @@ function importInventory(file){
         diasVacacionesAsignados = data.vacacionesAsignadas;
         saveVacacionesAsignados();
       }
-
+      if(Array.isArray(data.pines)){
+        pinesLista = data.pines.filter(x => x && x.mat && x.pin);
+        savePines();
+      }
       saveStock();saveTips();renderStockList();renderReservaList();renderTopesList();updateCashSummary();renderCierreHistorico();renderResetPanel();
 
       // 👇 Refrescar pantalla de días si está abierta
@@ -5099,5 +5103,231 @@ function detenerAudioActual(){
   } catch(e){}
 }
 /* ==================== FIN MAPA Y GEO ==================== */
+
+/* ==================== PINs TARJETAS ==================== */
+const PINES_DEFAULT = [
+  { mat: "1204NDM", pin: "9611" },
+  { mat: "2921NDH", pin: "1801" },
+  { mat: "7205NDM", pin: "7128" },
+  { mat: "9429NDF", pin: "1622" },
+  { mat: "9433NDF", pin: "0081" },
+  { mat: "9434NDF", pin: "5337" },
+  { mat: "9436NDF", pin: "8387" },
+  { mat: "9437NDF", pin: "3562" },
+  { mat: "9441NDF", pin: "5414" },
+  { mat: "9443NDF", pin: "5415" },
+  { mat: "9444NDF", pin: "0587" },
+  { mat: "9447NDF", pin: "7698" },
+  { mat: "9448NDF", pin: "5486" },
+  { mat: "9449NDF", pin: "7200" },
+  { mat: "9451NDF", pin: "9547" },
+  { mat: "9452NDF", pin: "7563" },
+  { mat: "9454NDF", pin: "8060" },
+  { mat: "9456NDF", pin: "2983" },
+  { mat: "9457NDF", pin: "3323" },
+  { mat: "9459NDF", pin: "3051" },
+  { mat: "9461NDF", pin: "1179" },
+  { mat: "9462NDF", pin: "6052" },
+  { mat: "9463NDF", pin: "3390" },
+  { mat: "9464NDF", pin: "8406" },
+  { mat: "9465NDF", pin: "0402" },
+  { mat: "9466NDF", pin: "0669" },
+  { mat: "9467NDF", pin: "2358" },
+  { mat: "9471NDF", pin: "2510" }
+];
+
+let pinesLista = loadPines();
+
+function loadPines(){
+  const s = safeStorage.get("uberCambioPines");
+  if(s){
+    try{
+      const arr = JSON.parse(s);
+      if(Array.isArray(arr)) return arr;
+    }catch(e){}
+  }
+  return PINES_DEFAULT.map(x => ({ ...x }));
+}
+
+function savePines(){
+  safeStorage.set("uberCambioPines", JSON.stringify(pinesLista));
+}
+
+function abrirPinesPantalla(){
+  const p = document.getElementById("pinesPantalla");
+  if(p) p.style.display = "block";
+  const inp = document.getElementById("pinesBuscador");
+  if(inp){ inp.value = ""; setTimeout(() => inp.focus(), 150); }
+  renderPinesResultados();
+}
+
+function cerrarPinesPantalla(){
+  const p = document.getElementById("pinesPantalla");
+  if(p) p.style.display = "none";
+}
+
+function renderPinesResultados(){
+  const cont = document.getElementById("pinesResultados");
+  if(!cont) return;
+  const inp = document.getElementById("pinesBuscador");
+  const q = (inp ? inp.value : "").trim().toUpperCase();
+
+  let lista = [...pinesLista];
+  if(q){
+    lista = lista.filter(x =>
+      x.mat.toUpperCase().includes(q) ||
+      String(x.pin).includes(q)
+    );
+  }
+  lista.sort((a,b) => a.mat.localeCompare(b.mat));
+
+  if(lista.length === 0){
+    cont.innerHTML = `<div style="text-align:center;color:#64748b;padding:30px;font-size:14px">Sin resultados para "${q}"</div>`;
+    return;
+  }
+
+  const exacto = q ? pinesLista.find(x => x.mat.toUpperCase() === q) : null;
+
+  let html = "";
+
+  if(exacto){
+    html += `
+      <div style="background:linear-gradient(135deg,#064e3b,#065f46);border:2px solid #10b981;border-radius:16px;padding:20px;margin-bottom:14px;text-align:center">
+        <div style="font-size:13px;color:#a7f3d0;font-weight:800;letter-spacing:1px">MATRÍCULA</div>
+        <div style="font-size:28px;font-weight:900;color:#fff;margin:4px 0 14px;letter-spacing:2px">${exacto.mat}</div>
+        <div style="font-size:13px;color:#a7f3d0;font-weight:800;letter-spacing:1px">PIN</div>
+        <div style="font-size:56px;font-weight:900;color:#4ade80;letter-spacing:6px;margin:4px 0 14px;line-height:1">${exacto.pin}</div>
+        <button type="button" onclick="copiarPin('${exacto.pin}')" style="background:#10b981;color:#0f172a;border:none;border-radius:10px;padding:10px 18px;font-weight:900;font-size:14px;cursor:pointer">📋 Copiar PIN</button>
+      </div>
+    `;
+  }
+
+  html += `<div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:6px 12px">`;
+
+  lista.forEach(x => {
+    html += `
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #1e293b">
+        <div style="flex:1;min-width:0;font-size:16px;color:#fff;font-weight:800;letter-spacing:1px">${x.mat}</div>
+        <div style="font-size:20px;font-weight:900;color:#38bdf8;letter-spacing:3px">${x.pin}</div>
+        <button type="button" onclick="editarPin('${x.mat}')" style="background:#334155;color:#94a3b8;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">✏️</button>
+        <button type="button" onclick="borrarPin('${x.mat}')" style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">🗑️</button>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  html += `<div style="text-align:center;font-size:11px;color:#475569;margin-top:14px">${pinesLista.length} matrícula${pinesLista.length !== 1 ? "s" : ""} registrada${pinesLista.length !== 1 ? "s" : ""}</div>`;
+
+  cont.innerHTML = html;
+}
+
+function copiarPin(pin){
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(pin).then(() => {
+        mostrarToast("✅ PIN copiado: " + pin);
+      }).catch(() => {
+        mostrarToast("PIN: " + pin);
+      });
+    } else {
+      mostrarToast("PIN: " + pin);
+    }
+  } catch(e){
+    mostrarToast("PIN: " + pin);
+  }
+}
+
+function editarPin(mat){
+  const item = pinesLista.find(x => x.mat === mat);
+  if(!item) return;
+  abrirModalPin(item);
+}
+
+function abrirModalPinNuevo(){
+  abrirModalPin(null);
+}
+
+function abrirModalPin(existente){
+  const prev = document.getElementById("modalPinEditar");
+  if(prev) prev.remove();
+
+  const esNuevo = !existente;
+  const m = document.createElement("div");
+  m.id = "modalPinEditar";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px";
+
+  m.innerHTML = `
+    <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:380px;width:100%;border:1px solid #334155">
+      <div style="font-size:16px;font-weight:900;color:#38bdf8;text-align:center;margin-bottom:16px">
+        ${esNuevo ? "🔑 Nueva tarjeta" : "🔑 Editar tarjeta"}
+      </div>
+
+      <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">MATRÍCULA</div>
+      <input type="text" id="pinEditMat" value="${existente ? existente.mat : ""}" placeholder="Ej: 9433NDF" maxlength="12" style="width:100%;font-size:18px;font-weight:800;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#fff;margin-bottom:14px;outline:none;box-sizing:border-box;text-transform:uppercase;letter-spacing:2px">
+
+      <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">PIN (4 dígitos)</div>
+      <input type="text" id="pinEditPin" value="${existente ? existente.pin : ""}" placeholder="Ej: 8387" maxlength="4" inputmode="numeric" style="width:100%;font-size:28px;font-weight:900;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#4ade80;margin-bottom:16px;outline:none;box-sizing:border-box;text-align:center;letter-spacing:8px">
+
+      <div style="display:flex;gap:8px">
+        <button type="button" onclick="cerrarModalPin()" style="flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">Cancelar</button>
+        <button type="button" onclick="guardarPin(${existente ? `'${existente.mat}'` : "null"})" style="flex:1;background:#0891b2;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">✅ Guardar</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(m);
+  m.addEventListener("click", (e) => { if(e.target === m) cerrarModalPin(); });
+
+  setTimeout(() => {
+    const inp = document.getElementById("pinEditMat");
+    if(inp) inp.focus();
+  }, 150);
+}
+
+function cerrarModalPin(){
+  const m = document.getElementById("modalPinEditar");
+  if(m) m.remove();
+}
+
+function guardarPin(matOriginal){
+  const matInp = document.getElementById("pinEditMat");
+  const pinInp = document.getElementById("pinEditPin");
+  if(!matInp || !pinInp) return;
+
+  const mat = (matInp.value || "").trim().toUpperCase();
+  const pin = (pinInp.value || "").trim();
+
+  if(!mat){ alert("Escribe una matrícula."); return; }
+  if(!/^\d{4}$/.test(pin)){ alert("El PIN debe ser de 4 dígitos."); return; }
+
+  const dup = pinesLista.find(x => x.mat === mat && x.mat !== matOriginal);
+  if(dup){ alert("⚠️ Ya existe una tarjeta con esa matrícula."); return; }
+
+  if(matOriginal){
+    const idx = pinesLista.findIndex(x => x.mat === matOriginal);
+    if(idx >= 0){
+      pinesLista[idx] = { mat, pin };
+    }
+  } else {
+    pinesLista.push({ mat, pin });
+  }
+
+  pinesLista.sort((a,b) => a.mat.localeCompare(b.mat));
+  savePines();
+  cerrarModalPin();
+  renderPinesResultados();
+  mostrarToast(matOriginal ? "✅ PIN actualizado" : "✅ Tarjeta añadida");
+}
+
+function borrarPin(mat){
+  const item = pinesLista.find(x => x.mat === mat);
+  if(!item) return;
+  if(!confirm("¿Borrar la tarjeta " + mat + " (PIN " + item.pin + ")?")) return;
+  pinesLista = pinesLista.filter(x => x.mat !== mat);
+  savePines();
+  renderPinesResultados();
+  mostrarToast("🗑️ Tarjeta borrada");
+}
+/* ==================== FIN PINs TARJETAS ==================== */
 
 init();

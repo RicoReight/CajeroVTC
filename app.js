@@ -19,6 +19,7 @@ let received=[],pendingTransaction=null,stockInputs=[],reservaInputs=[],summaryT
 let propinasDelCambio = {};
 let tipManual = 0;
 let cambioState={aEntregar:{},aRecibir:{},modo:null,orden:[],ordenRecibir:[],sinDatos:false};
+let __recomendacionCambio = { entregar: {}, pedir: {} };
 let reponerState={viajes:20,colchon:3,marcados:{},modo:"auto",manualAdd:{},importeManual:0};
 let movimientoState={tipo:"entrada",motivo:"propina",piezas:{}};
 
@@ -273,6 +274,14 @@ function confirmTransaction(){
     alert("Introduce un precio y el dinero recibido.");
     return;
   }
+
+  // 👇 Capturar datos ANTES de resetear
+  const rp = parseFloat(document.getElementById("price").value.replace(',','.')) || 0;
+  const precio = Math.round(rp * 100);
+  const dado = received.reduce((a,b) => a+b, 0);
+  const propina = pendingTransaction.tip || 0;
+  const cambio = dado - precio - propina;
+
   for(let i=0;i<stock.length;i++)stock[i]+=pendingTransaction.incoming[i]-pendingTransaction.used[i];
   if(pendingTransaction.tip>0){totalTips+=pendingTransaction.tip;saveTips()}
   statsOps.operations++;
@@ -282,6 +291,16 @@ function confirmTransaction(){
   }
   saveStats();
   saveStock();
+
+  // 👇 Guardar en historial
+  añadirHistorialOp({
+    fecha: new Date().toISOString(),
+    precio,
+    dado,
+    propina,
+    cambio
+  });
+
   renderStockList();
   received=[];
   pendingTransaction=null;
@@ -421,7 +440,38 @@ function saveCambios(c){safeStorage.set("uberCambioCambios",JSON.stringify(c))}
 function loadCierres(){const s=safeStorage.get("uberCambioCierres");if(s){try{return JSON.parse(s)||[]}catch(e){return[]}}return[]}
 function saveCierres(c){safeStorage.set("uberCambioCierres",JSON.stringify(c))}
 
-function checkAutoResetPropinas(){if(!ultimoResetPropinas){ultimoResetPropinas=new Date().toISOString();saveUltimoResetPropinas();return}const last=new Date(ultimoResetPropinas);const now=new Date();const cand=new Date(last.getFullYear(),last.getMonth(),diaReset,0,0,0);if(cand<=last)cand.setMonth(cand.getMonth()+1);if(now>=cand){const h=loadHistoricoResets();h.push({fecha:now.toISOString(),propinas:totalTips});saveHistoricoResets(h);totalTips=0;saveTips();ultimoResetPropinas=now.toISOString();saveUltimoResetPropinas();renderStockList();renderResetPanel()}}
+function checkAutoResetPropinas(){
+  if(!ultimoResetPropinas){
+    ultimoResetPropinas = new Date().toISOString();
+    saveUltimoResetPropinas();
+    return;
+  }
+  const last = new Date(ultimoResetPropinas);
+  const now = new Date();
+  const cand = new Date(last.getFullYear(), last.getMonth(), diaReset, 0, 0, 0);
+  if(cand <= last) cand.setMonth(cand.getMonth() + 1);
+
+  if(now >= cand){
+    // Guardar el reset en el histórico
+    const h = loadHistoricoResets();
+    h.push({ fecha: now.toISOString(), propinas: totalTips });
+    saveHistoricoResets(h);
+
+    // Resetear propinas
+    totalTips = 0;
+    saveTips();
+
+    // 👇 NUEVO: también borra el historial de operaciones
+    saveHistorialOps([]);
+
+    // Actualizar fecha
+    ultimoResetPropinas = now.toISOString();
+    saveUltimoResetPropinas();
+
+    renderStockList();
+    renderResetPanel();
+  }
+}
 
 function renderHistorialPanel(){
   const box=document.getElementById("historialPanel");
@@ -1088,10 +1138,126 @@ function cerrarLimitePantalla(){const p=document.getElementById("limitePantalla"
 function abrirCambioPantalla(){const d=document.getElementById("drawer"),o=document.getElementById("overlay");if(d)d.classList.remove("active");if(o)o.classList.remove("active");const p=document.getElementById("cambioPantalla");if(p)p.style.display="block";cambioState={aEntregar:{},aRecibir:{},modo:null,orden:[],ordenRecibir:[],sinDatos:false};renderCambioInicio()}
 function cerrarCambioPantalla(){const p=document.getElementById("cambioPantalla");if(p)p.style.display="none"}
 
+function renderRecomendacionCambio(){
+  const {sobran, totalSobra} = calcularIntercambiosRecomendados();
+  if(!sobran.length) return "";
+
+  // Calcular qué pedir usando las piezas que te faltan
+  const rec = configuracionRecomendada();
+  const {faltantes} = calcularFaltantes(rec.viajes, rec.colchon);
+
+  let restante = totalSobra;
+  const pedir = {};
+
+  // Repartir el total en piezas que te faltan (de mayor a menor)
+  faltantes.slice().sort((a,b) => b.d.c - a.d.c).forEach(x => {
+    if(restante <= 0) return;
+    const n = Math.min(x.falta, Math.floor(restante / x.d.c));
+    if(n > 0){
+      pedir[x.d.c] = (pedir[x.d.c] || 0) + n;
+      restante -= n * x.d.c;
+    }
+  });
+
+  // Si queda algo, meter en las más grandes posibles
+  if(restante > 0){
+    denominations.slice().sort((a,b) => b.c - a.c).forEach(d => {
+      if(restante <= 0) return;
+      const n = Math.floor(restante / d.c);
+      if(n > 0){
+        pedir[d.c] = (pedir[d.c] || 0) + n;
+        restante -= n * d.c;
+      }
+    });
+  }
+
+  // Guardar para el botón
+  const entregar = {};
+  sobran.forEach(x => { entregar[x.d.c] = x.cantidad; });
+  __recomendacionCambio = { entregar, pedir };
+
+  let html = `<div class="card" style="margin:0 0 12px 0;background:#1e293b;border:2px solid #7c3aed">`;
+  html += `<div style="font-size:12px;color:#c4b5fd;font-weight:900;letter-spacing:1px;margin-bottom:10px">🔄 TE ACONSEJO CAMBIAR</div>`;
+  html += `<div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.4">Estas piezas las acumulas porque las gastas poco. Llévalas al banco y pide las que necesitas. Es el <b>mismo importe</b>, solo cambias formato.</div>`;
+
+  // 📤 ENTREGAS
+  html += `<div style="font-size:11px;color:#f87171;font-weight:800;letter-spacing:0.5px;margin-bottom:6px">📤 ENTREGAS AL BANCO</div>`;
+  html += `<div style="background:#0f172a;border-radius:8px;padding:8px 10px;margin-bottom:12px">`;
+  sobran.forEach(x => {
+    html += `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff"><span>${x.cantidad} × ${x.d.n}</span><span style="color:#f87171;font-weight:700">${moneyText(x.cantidad * x.d.c)}</span></div>`;
+  });
+  html += `<div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:4px;border-top:1px solid #334155;font-size:14px;font-weight:900;color:#fff"><span>TOTAL</span><span>${moneyText(totalSobra)}</span></div>`;
+  html += `</div>`;
+
+  // 📥 PIDES
+  const pedirKeys = Object.keys(pedir).map(k => parseInt(k)).sort((a,b) => b-a);
+  if(pedirKeys.length){
+    let totalPedir = 0;
+    html += `<div style="font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:6px">📥 PIDES AL BANCO</div>`;
+    html += `<div style="background:#0f172a;border-radius:8px;padding:8px 10px;margin-bottom:12px">`;
+    pedirKeys.forEach(c => {
+      const n = pedir[c];
+      const d = denominations.find(x => x.c === c);
+      if(d){
+        totalPedir += n * c;
+        html += `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff"><span>${n} × ${d.n}</span><span style="color:#4ade80;font-weight:700">${moneyText(n * c)}</span></div>`;
+      }
+    });
+    html += `<div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:4px;border-top:1px solid #334155;font-size:14px;font-weight:900;color:#fff"><span>TOTAL</span><span>${moneyText(totalPedir)}</span></div>`;
+    html += `</div>`;
+
+    html += `<button type="button" onclick="aplicarRecomendacionCambio(${totalSobra})" style="width:100%;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer">✅ USAR ESTA RECOMENDACIÓN</button>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+function aplicarRecomendacionCambio(total){
+  const { entregar, pedir } = __recomendacionCambio;
+
+  // Resetear estado actual
+  cambioState.aEntregar = {};
+  cambioState.aRecibir = {};
+  cambioState.orden = [];
+  cambioState.ordenRecibir = [];
+
+  // Aplicar entregas
+  Object.keys(entregar).forEach(k => {
+    const c = parseInt(k);
+    cambioState.aEntregar[c] = entregar[k];
+    for(let i = 0; i < entregar[k]; i++) cambioState.orden.push(c);
+  });
+
+  // Aplicar peticiones
+  Object.keys(pedir).forEach(k => {
+    const c = parseInt(k);
+    cambioState.aRecibir[c] = pedir[k];
+    for(let i = 0; i < pedir[k]; i++) cambioState.ordenRecibir.push(c);
+  });
+
+  // Verificar totales
+  let tE = 0, tR = 0;
+  Object.keys(cambioState.aEntregar).forEach(c => tE += parseInt(c) * cambioState.aEntregar[c]);
+  Object.keys(cambioState.aRecibir).forEach(c => tR += parseInt(c) * cambioState.aRecibir[c]);
+
+  if(tE !== tR){
+    alert("⚠️ Los totales no cuadran (" + moneyText(tE) + " vs " + moneyText(tR) + ").\nAjusta a mano.");
+    return;
+  }
+
+  // Mostrar resumen final con opción de confirmar
+  renderCambioResultado(total);
+}
+
 function renderCambioInicio(){
   const cont=document.getElementById("cambioContenido");
   if(!cont)return;
-  let html="<div class='card' style='margin:0 0 12px 0'>";
+
+  // 👇 Bloque de recomendación si hay piezas de más
+  let html = renderRecomendacionCambio();
+
+  html += "<div class='card' style='margin:0 0 12px 0'>";
   html+="<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>¿QUÉ VAS A CAMBIAR?</div>";
   html+="<div style='font-size:12px;color:#64748b;margin-bottom:10px'>Pulsa las piezas que entregarás. Debajo verás cuántas tienes.</div>";
   html+="<div style='font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>💵 BILLETES</div>";
@@ -1459,34 +1625,13 @@ function actualizarReponerPropuesta(){
     html+="</div>";
   }
 
+  // 👇 AVISO CORTO: solo si hay piezas de más
   if(sobran.length > 0){
     html+="<div class='card' style='margin:0 0 12px 0;background:#1e293b;border:1px solid #7c3aed'>";
-    html+="<div style='font-size:12px;color:#c4b5fd;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>🔄 TE ACONSEJO CAMBIAR</div>";
-    html+="<div style='font-size:12px;color:#94a3b8;margin-bottom:10px;line-height:1.4'>Estas piezas las <b style='color:#c4b5fd'>acumulas porque las gastas poco</b>. Llévalas a <b>Cambiar billete o monedas</b> para conseguir otras más útiles.</div>";
-
-    sobran.slice(0, 8).forEach(x => {
-      const gc = (x.d.type==="bill"?"bill-graphic ":"coin-graphic ")+x.d.class;
-      html += "<div style='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155'>";
-      html += "<div class='"+gc+"' style='flex-shrink:0;font-size:12px'>"+x.d.short+"</div>";
-      html += "<div style='flex:1;min-width:0'>";
-      html += "<div style='font-size:14px;color:#fff;font-weight:800'>"+x.cantidad+" × "+x.d.n+"</div>";
-      html += "<div style='font-size:11px;color:#94a3b8;margin-top:2px'>Tienes "+x.stock+" · objetivo "+x.objetivo+"</div>";
-      html += "</div>";
-      html += "<div style='font-size:13px;font-weight:900;color:#c4b5fd'>"+moneyText(x.cantidad * x.d.c)+"</div>";
-      html += "</div>";
-    });
-
-    if(sobran.length > 8){
-      html += "<div style='text-align:center;font-size:11px;color:#64748b;margin-top:8px'>...y "+(sobran.length-8)+" más</div>";
-    }
-
-    html += "<div style='margin-top:12px;padding:10px;background:#4c1d95;border-radius:8px;text-align:center'>";
-    html += "<div style='font-size:12px;color:#c4b5fd;font-weight:800'>TOTAL A CAMBIAR</div>";
-    html += "<div style='font-size:22px;font-weight:900;color:#fff;margin-top:4px'>"+moneyText(totalSobra)+"</div>";
-    html += "</div>";
-
-    html += "<button type='button' onclick='cerrarReponerPantalla();abrirCambioPantalla()' style='width:100%;margin-top:12px;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer'>🔀 IR A CAMBIAR BILLETE O MONEDAS</button>";
-    html += "</div>";
+    html+="<div style='font-size:12px;color:#c4b5fd;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>🔄 APROVECHA EL VIAJE AL BANCO</div>";
+    html+="<div style='font-size:12px;color:#94a3b8;margin-bottom:10px;line-height:1.4'>Tienes <b style='color:#c4b5fd'>"+moneyText(totalSobra)+"</b> en piezas que acumulas porque las gastas poco. Al ir al banco, cámbialas por otras más útiles.</div>";
+    html+="<button type='button' onclick='cerrarReponerPantalla();abrirCambioPantalla()' style='width:100%;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer'>🔀 IR A CAMBIAR BILLETE O MONEDAS</button>";
+    html+="</div>";
   }
 
   zona.innerHTML = html;
@@ -1727,7 +1872,8 @@ async function exportInventory(){
     // 👇 NUEVO: guardamos también los días de trabajo
     festivos: festivos,
     diasPersonales: diasPersonales,
-    vacacionesAsignadas: diasVacacionesAsignados
+    vacacionesAsignadas: diasVacacionesAsignados,
+    historialOps: loadHistorialOps()
   };
 
   const js = JSON.stringify(data, null, 2);
@@ -1903,6 +2049,9 @@ function importInventory(file){
       if(Array.isArray(data.pines)){
         pinesLista = data.pines.filter(x => x && x.mat && x.pin);
         savePines();
+      }
+      if(Array.isArray(data.historialOps)){
+        saveHistorialOps(data.historialOps);
       }
       saveStock();saveTips();renderStockList();renderReservaList();renderTopesList();updateCashSummary();renderCierreHistorico();renderResetPanel();
 
@@ -5358,5 +5507,130 @@ window.addEventListener('focus', () => {
   activarPantallaSiempreActiva();
 });
 /* ==================== FIN PANTALLA SIEMPRE ACTIVA ==================== */
+
+/* ==================== HISTORIAL DE OPERACIONES ==================== */
+function loadHistorialOps(){
+  const s = safeStorage.get("uberCambioHistorialOps");
+  if(s){
+    try{
+      const arr = JSON.parse(s);
+      if(Array.isArray(arr)) return arr;
+    }catch(e){}
+  }
+  return [];
+}
+
+function saveHistorialOps(h){
+  safeStorage.set("uberCambioHistorialOps", JSON.stringify(h));
+}
+
+function añadirHistorialOp(datos){
+  const h = loadHistorialOps();
+  h.push(datos);
+  // Limitar a las últimas 500 operaciones (no llenar localStorage)
+  if(h.length > 500) h.splice(0, h.length - 500);
+  saveHistorialOps(h);
+}
+
+function abrirHistorialOpsPantalla(){
+  const prev = document.getElementById("modalHistorialOps");
+  if(prev) prev.remove();
+
+  const ops = loadHistorialOps();
+  const total = ops.length;
+  const reverse = [...ops].reverse(); // más recientes arriba
+
+  let html = `
+    <div style="background:#1e293b;border-radius:16px;padding:18px;max-width:480px;width:100%;border:1px solid #334155;max-height:88vh;overflow-y:auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-size:16px;font-weight:900;color:#38bdf8">📋 Historial de operaciones</div>
+        <button type="button" onclick="cerrarHistorialOps()" style="background:#334155;color:#fff;border:none;padding:6px 12px;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">✕</button>
+      </div>
+  `;
+
+  if(!total){
+    html += `
+      <div style="text-align:center;color:#64748b;padding:30px 10px;font-size:14px">
+        Sin operaciones registradas todavía.
+      </div>
+    `;
+  } else {
+    // Contadores resumen
+    let sumaPrecios = 0, sumaPropinas = 0;
+    ops.forEach(o => {
+      sumaPrecios += o.precio || 0;
+      sumaPropinas += o.propina || 0;
+    });
+
+    html += `
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <div style="flex:1;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:#94a3b8;font-weight:700">OPERACIONES</div>
+          <div style="font-size:20px;font-weight:900;color:#38bdf8;margin-top:2px">${total}</div>
+        </div>
+        <div style="flex:1;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:#94a3b8;font-weight:700">TOTAL VIAJES</div>
+          <div style="font-size:16px;font-weight:900;color:#fff;margin-top:2px">${moneyText(sumaPrecios)}</div>
+        </div>
+        <div style="flex:1;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:#94a3b8;font-weight:700">PROPINAS</div>
+          <div style="font-size:16px;font-weight:900;color:#4ade80;margin-top:2px">${moneyText(sumaPropinas)}</div>
+        </div>
+      </div>
+    `;
+
+    // Lista
+    reverse.forEach(o => {
+      const d = new Date(o.fecha);
+      const fecha = d.toLocaleDateString("es-ES", { day:"2-digit", month:"2-digit", year:"2-digit" });
+      const hora = d.toLocaleTimeString("es-ES", { hour:"2-digit", minute:"2-digit" });
+      const conPropina = (o.propina || 0) > 0;
+
+      html += `
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+          <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:6px">📅 ${fecha} · ${hora}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="font-size:13px;color:#e2e8f0">
+              Precio <b style="color:#fff">${moneyText(o.precio || 0)}</b>
+              · Dado <b style="color:#fff">${moneyText(o.dado || 0)}</b>
+            </div>
+            <div style="font-size:14px;font-weight:900;color:#38bdf8">→ Cambio ${moneyText(o.cambio || 0)}</div>
+          </div>
+          ${conPropina ? `<div style="font-size:12px;color:#4ade80;font-weight:700;margin-top:4px">💶 Propina: ${moneyText(o.propina)}</div>` : ""}
+        </div>
+      `;
+    });
+  }
+
+  html += `
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button type="button" onclick="cerrarHistorialOps()" style="flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">Cerrar</button>
+        <button type="button" onclick="borrarHistorialOps()" style="flex:0 0 auto;background:#7f1d1d;color:#fca5a5;border:none;padding:12px 16px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">🗑️</button>
+      </div>
+    </div>
+  `;
+
+  const m = document.createElement("div");
+  m.id = "modalHistorialOps";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px";
+  m.innerHTML = html;
+
+  document.body.appendChild(m);
+  m.addEventListener("click", (e) => { if(e.target === m) cerrarHistorialOps(); });
+}
+
+function cerrarHistorialOps(){
+  const m = document.getElementById("modalHistorialOps");
+  if(m) m.remove();
+}
+
+function borrarHistorialOps(){
+  if(!confirm("¿Borrar TODO el historial de operaciones?\n\nNo afecta a propinas ni a la caja.")) return;
+  saveHistorialOps([]);
+  cerrarHistorialOps();
+  abrirHistorialOpsPantalla();
+  mostrarToast("🗑️ Historial borrado");
+}
+/* ==================== FIN HISTORIAL DE OPERACIONES ==================== */
 
 init();

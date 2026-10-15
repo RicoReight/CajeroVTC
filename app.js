@@ -4090,6 +4090,8 @@ function toggleMenu(){
 function init(){
   solicitarPermisoNotificaciones();
 
+  setTimeout(() => { activarPantallaSiempreActiva(); }, 600);
+
   // 👇 NUEVO: crear canal de notificaciones con sonido y vibración
   setTimeout(() => { crearCanalNotificacionesZona(); }, 500);
 
@@ -5329,5 +5331,32 @@ function borrarPin(mat){
   mostrarToast("🗑️ Tarjeta borrada");
 }
 /* ==================== FIN PINs TARJETAS ==================== */
+
+/* ==================== PANTALLA SIEMPRE ACTIVA ==================== */
+async function activarPantallaSiempreActiva(){
+  try {
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.Plugins || !Cap.Plugins.KeepAwake){
+      console.warn('KeepAwake no disponible');
+      return;
+    }
+    await Cap.Plugins.KeepAwake.keepAwake();
+    console.log('🔆 Pantalla siempre activa');
+  } catch(e){
+    console.warn('Error keepAwake:', e);
+  }
+}
+
+// Reintentar cuando la app vuelve al primer plano (Android suelta el wakelock)
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible'){
+    activarPantallaSiempreActiva();
+  }
+});
+
+window.addEventListener('focus', () => {
+  activarPantallaSiempreActiva();
+});
+/* ==================== FIN PANTALLA SIEMPRE ACTIVA ==================== */
 
 init();

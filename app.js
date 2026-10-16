@@ -5093,19 +5093,32 @@ async function probarDeepLinksGeotab(){
   log.innerHTML = "";
   log.style.display = "block";
 
-  const packageName = "com.geotab.androidCheckmate";
-
   const intentos = [
-    { nombre: "Abrir app (base)",            url: `intent://#Intent;package=${packageName};end` },
+    // Básicos (ya sabemos que el 1 funciona)
     { nombre: "geotabdrive://",              url: `geotabdrive://` },
-    { nombre: "geotabdrive://unlock",        url: `geotabdrive://unlock` },
-    { nombre: "geotabdrive://vehicle",       url: `geotabdrive://vehicle` },
+    { nombre: "geotabdrive://home",          url: `geotabdrive://home` },
     { nombre: "geotabdrive://main",          url: `geotabdrive://main` },
+    { nombre: "geotabdrive://menu",          url: `geotabdrive://menu` },
     { nombre: "geotabdrive://checkmate",     url: `geotabdrive://checkmate` },
+    { nombre: "geotabdrive://checkmate/home",url: `geotabdrive://checkmate/home` },
+    // Vehículo
+    { nombre: "geotabdrive://vehicle",       url: `geotabdrive://vehicle` },
+    { nombre: "geotabdrive://vehicles",      url: `geotabdrive://vehicles` },
+    { nombre: "geotabdrive://trip",          url: `geotabdrive://trip` },
     { nombre: "geotabdrive://inspect",       url: `geotabdrive://inspect` },
-    { nombre: "Intent scheme geotabdrive",   url: `intent://unlock#Intent;scheme=geotabdrive;package=${packageName};end` },
-    { nombre: "Intent scheme geotabdrive v2",url: `intent://vehicle#Intent;scheme=geotabdrive;package=${packageName};end` },
-    { nombre: "Intent scheme checkmate",     url: `intent://main#Intent;scheme=geotabdrive;package=${packageName};end` }
+    { nombre: "geotabdrive://inspection",    url: `geotabdrive://inspection` },
+    { nombre: "geotabdrive://dvir",          url: `geotabdrive://dvir` },
+    // Unlock explícito
+    { nombre: "geotabdrive://unlock",        url: `geotabdrive://unlock` },
+    { nombre: "geotabdrive://lock",          url: `geotabdrive://lock` },
+    { nombre: "geotabdrive://door",          url: `geotabdrive://door` },
+    { nombre: "geotabdrive://doors",         url: `geotabdrive://doors` },
+    // Con parámetros
+    { nombre: "?screen=unlock",              url: `geotabdrive://?screen=unlock` },
+    { nombre: "?action=unlock",              url: `geotabdrive://?action=unlock` },
+    { nombre: "?page=vehicle",               url: `geotabdrive://?page=vehicle` },
+    { nombre: "#unlock",                     url: `geotabdrive://#unlock` },
+    { nombre: "#vehicle",                    url: `geotabdrive://#vehicle` }
   ];
 
   for(let i = 0; i < intentos.length; i++){
@@ -5123,43 +5136,35 @@ async function probarDeepLinksGeotab(){
       continue;
     }
 
-    // Esperamos 1.8s. Si la app se abre, visibilityState pasa a hidden
     await new Promise(r => setTimeout(r, 1800));
 
     if(document.visibilityState !== "visible"){
-      line.innerHTML = `<b style="color:#38bdf8">${i+1}.</b> ${nombre} → <span style="color:#4ade80">✅ abrió la app</span>`;
-      log.appendChild(Object.assign(document.createElement("div"), {
-        style: "padding:8px;margin-top:8px;background:#064e3b;border:1px solid #059669;border-radius:8px;font-size:12px;color:#a7f3d0;text-align:center",
-        innerHTML: `🎯 Este link <b>FUNCIONA</b>:<br><code style="font-size:11px;color:#fff">${url}</code><br><br>Dime este y lo dejo fijo.`
-      }));
-      break;
+      line.innerHTML = `<b style="color:#38bdf8">${i+1}.</b> ${nombre} → <span style="color:#4ade80">✅ abrió</span>`;
+      // Esperamos a que vuelva el usuario
+      await new Promise(r => setTimeout(r, 3000));
     } else {
       line.innerHTML = `<b style="color:#38bdf8">${i+1}.</b> ${nombre} → <span style="color:#ef4444">❌ no abre</span>`;
     }
   }
 
-  if(document.visibilityState === "visible"){
-    const fin = document.createElement("div");
-    fin.style.cssText = "padding:8px;margin-top:8px;background:#7f1d1d;border:1px solid #b91c1c;border-radius:8px;font-size:12px;color:#fecaca;text-align:center";
-    fin.innerHTML = "😢 Ningún deep link funcionó.<br>Solo podemos abrir la app en su pantalla de inicio.";
-    log.appendChild(fin);
-  }
+  const fin = document.createElement("div");
+  fin.style.cssText = "padding:10px;margin-top:10px;background:#0c4a6e;border:1px solid #0ea5e9;border-radius:8px;font-size:12px;color:#bae6fd;text-align:center;line-height:1.5";
+  fin.innerHTML = "📋 <b>Test terminado</b><br>Copia este log y pásamelo";
+  log.appendChild(fin);
 
   btn.disabled = false;
   btn.textContent = "🧪 Probar deep links";
 }
 
 function abrirGeotabDrive(){
-  // Cerramos el audio por si está sonando
   try { detenerAudioActual(); } catch(e){}
 
-  const packageName = "com.geotab.androidCheckmate";
-  const intentUrl = `intent://#Intent;package=${packageName};end`;
+  // El scheme correcto es geotabdrive://
+  const url = "geotabdrive://";
 
   try{
-    window.location.href = intentUrl;
+    window.location.href = url;
 
-    // Si tras 1.5s seguimos en nuestra app, Geotab no se abrió
     setTimeout(() => {
       if(document.visibilityState === "visible"){
         alert("⚠️ No se pudo abrir Geotab Drive.\n\n¿Está instalada?");

@@ -4906,7 +4906,18 @@ async function reiniciarWatcherConTexto(texto){
       backgroundTitle: 'Cambio VTC',
       requestPermissions: false,
       stale: false,
-      distanceFilter: 15
+      distanceFilter: 15,
+
+      // 🔥 Mismas opciones anti-dormido
+      desiredAccuracy: 20,
+      stationaryRadius: 25,
+      stopOnTerminate: false,
+      startOnBoot: true,
+      preventSuspend: true,
+      heartbeatInterval: 60,
+      foregroundService: true,
+      debug: false,
+      pausesLocationUpdatesAutomatically: false
     }, onLocation);
 
     zonaPendiente = null;
@@ -4972,13 +4983,10 @@ async function iniciarGeolocalizacion(){
     }
     const BG = Cap.Plugins.BackgroundGeolocation;
 
+    // Pedir permisos (ubicación + ubicación background)
     try {
-      const permisos = await BG.requestPermissions({ permissions: ['location'] });
-      console.log('Permisos:', JSON.stringify(permisos));
-      if(permisos && permisos.location === 'denied'){
-        alert('❌ Permiso de ubicación denegado.\nActívalo en Ajustes → Apps → Permisos → Ubicación.');
-        return;
-      }
+      await BG.requestPermissions({ permissions: ['location'] });
+      await BG.requestPermissions({ permissions: ['location', 'backgroundLocation'] });
     } catch(e){
       console.warn('Error pidiendo permisos:', e);
     }
@@ -4987,7 +4995,6 @@ async function iniciarGeolocalizacion(){
     zonaActual = null;
     zonaPendiente = null;
 
-    // Posición inicial con navigator.geolocation (best-effort)
     mostrarToast("🔎 Buscando tu posición...");
     if(navigator.geolocation){
       navigator.geolocation.getCurrentPosition(
@@ -4995,7 +5002,6 @@ async function iniciarGeolocalizacion(){
           const lat = pos.coords.latitude;
           const lon = pos.coords.longitude;
           const acc = Math.round(pos.coords.accuracy || 0);
-          console.log('📍 Posición inicial navigator:', lat, lon, acc);
           actualizarMapaConPosicion(lat, lon, acc);
           mostrarToast("📍 Posición capturada");
         },
@@ -5013,27 +5019,34 @@ async function iniciarGeolocalizacion(){
     const onLocation = (location, error) => {
       if(error){
         console.warn('Error geolocalización:', error);
-        mostrarToast('⚠️ Error ubicación');
         return;
       }
       if(!location) return;
-      console.log('📍 Watcher:', location.latitude, location.longitude);
       actualizarMapaConPosicion(location.latitude, location.longitude, Math.round(location.accuracy));
     };
 
     geoWatcherId = await BG.addWatcher({
-      backgroundMessage: 'Localizando zona...',
-      backgroundTitle: 'Cambio VTC',
+      backgroundMessage: 'Cambio VTC activo',
+      backgroundTitle: 'Detectando zona',
       requestPermissions: false,
       stale: false,
-      distanceFilter: 30
+      distanceFilter: 30,
+
+      // 🔥 CLAVES PARA QUE NO SE DUERMA
+      desiredAccuracy: 20,
+      stationaryRadius: 25,
+      stopOnTerminate: false,
+      startOnBoot: true,
+      preventSuspend: true,
+      heartbeatInterval: 60,
+      foregroundService: true,
+      debug: false,
+      pausesLocationUpdatesAutomatically: false
     }, onLocation);
 
-    console.log('✅ Watcher arrancado:', geoWatcherId);
     geoActivo = true;
     actualizarEstadoGeo();
 
-    // Si mientras se creaba el watcher ya se detectó una zona, la aplicamos ahora
     if(zonaPendiente){
       const zp = zonaPendiente;
       zonaPendiente = null;
@@ -5069,6 +5082,94 @@ async function detenerGeolocalizacion(){
 
 let listaSonidos = null;   // caché del manifest
 let audioActual = null;
+
+async function probarDeepLinksGeotab(){
+  const log = document.getElementById("geotabTestLog");
+  const btn = document.getElementById("geotabTestBtn");
+  if(!log || !btn) return;
+
+  btn.disabled = true;
+  btn.textContent = "⏳ Probando…";
+  log.innerHTML = "";
+  log.style.display = "block";
+
+  const packageName = "com.geotab.androidCheckmate";
+
+  const intentos = [
+    { nombre: "Abrir app (base)",            url: `intent://#Intent;package=${packageName};end` },
+    { nombre: "geotabdrive://",              url: `geotabdrive://` },
+    { nombre: "geotabdrive://unlock",        url: `geotabdrive://unlock` },
+    { nombre: "geotabdrive://vehicle",       url: `geotabdrive://vehicle` },
+    { nombre: "geotabdrive://main",          url: `geotabdrive://main` },
+    { nombre: "geotabdrive://checkmate",     url: `geotabdrive://checkmate` },
+    { nombre: "geotabdrive://inspect",       url: `geotabdrive://inspect` },
+    { nombre: "Intent scheme geotabdrive",   url: `intent://unlock#Intent;scheme=geotabdrive;package=${packageName};end` },
+    { nombre: "Intent scheme geotabdrive v2",url: `intent://vehicle#Intent;scheme=geotabdrive;package=${packageName};end` },
+    { nombre: "Intent scheme checkmate",     url: `intent://main#Intent;scheme=geotabdrive;package=${packageName};end` }
+  ];
+
+  for(let i = 0; i < intentos.length; i++){
+    const { nombre, url } = intentos[i];
+    const line = document.createElement("div");
+    line.style.cssText = "padding:6px 0;border-bottom:1px solid #334155;font-size:12px;color:#94a3b8";
+    line.innerHTML = `<b style="color:#38bdf8">${i+1}.</b> ${nombre} → <span style="color:#fbbf24">probando…</span>`;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+
+    try{
+      window.location.href = url;
+    }catch(e){
+      line.innerHTML = `<b style="color:#38bdf8">${i+1}.</b> ${nombre} → <span style="color:#ef4444">❌ error</span>`;
+      continue;
+    }
+
+    // Esperamos 1.8s. Si la app se abre, visibilityState pasa a hidden
+    await new Promise(r => setTimeout(r, 1800));
+
+    if(document.visibilityState !== "visible"){
+      line.innerHTML = `<b style="color:#38bdf8">${i+1}.</b> ${nombre} → <span style="color:#4ade80">✅ abrió la app</span>`;
+      log.appendChild(Object.assign(document.createElement("div"), {
+        style: "padding:8px;margin-top:8px;background:#064e3b;border:1px solid #059669;border-radius:8px;font-size:12px;color:#a7f3d0;text-align:center",
+        innerHTML: `🎯 Este link <b>FUNCIONA</b>:<br><code style="font-size:11px;color:#fff">${url}</code><br><br>Dime este y lo dejo fijo.`
+      }));
+      break;
+    } else {
+      line.innerHTML = `<b style="color:#38bdf8">${i+1}.</b> ${nombre} → <span style="color:#ef4444">❌ no abre</span>`;
+    }
+  }
+
+  if(document.visibilityState === "visible"){
+    const fin = document.createElement("div");
+    fin.style.cssText = "padding:8px;margin-top:8px;background:#7f1d1d;border:1px solid #b91c1c;border-radius:8px;font-size:12px;color:#fecaca;text-align:center";
+    fin.innerHTML = "😢 Ningún deep link funcionó.<br>Solo podemos abrir la app en su pantalla de inicio.";
+    log.appendChild(fin);
+  }
+
+  btn.disabled = false;
+  btn.textContent = "🧪 Probar deep links";
+}
+
+function abrirGeotabDrive(){
+  // Cerramos el audio por si está sonando
+  try { detenerAudioActual(); } catch(e){}
+
+  const packageName = "com.geotab.androidCheckmate";
+  const intentUrl = `intent://#Intent;package=${packageName};end`;
+
+  try{
+    window.location.href = intentUrl;
+
+    // Si tras 1.5s seguimos en nuestra app, Geotab no se abrió
+    setTimeout(() => {
+      if(document.visibilityState === "visible"){
+        alert("⚠️ No se pudo abrir Geotab Drive.\n\n¿Está instalada?");
+      }
+    }, 1500);
+  } catch(e){
+    console.warn("Error abriendo Geotab Drive:", e);
+    alert("No se pudo abrir Geotab Drive.");
+  }
+}
 
 function abrirSonidosPantalla(){
   const d=document.getElementById("drawer"),o=document.getElementById("overlay");
@@ -5149,17 +5250,38 @@ async function renderSonidosPanel(){
     return;
   }
 
-  // Botón PARAR arriba
+  // Botón PARAR + botón Geotab
   let html = `
     <button type="button" onclick="detenerAudioActual()"
       style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
              background:linear-gradient(135deg,#7f1d1d,#991b1b);
              border:2px solid #ef4444;border-radius:14px;
              padding:16px;color:#fca5a5;font-size:16px;font-weight:900;
-             letter-spacing:0.5px;cursor:pointer;margin-bottom:16px">
+             letter-spacing:0.5px;cursor:pointer;margin-bottom:12px">
       <span style="font-size:22px">⏹</span>
       <span>PARAR AUDIO</span>
     </button>
+
+    <button type="button" onclick="abrirGeotabDrive()"
+      style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
+             background:linear-gradient(135deg,#0c4a6e,#075985);
+             border:2px solid #0ea5e9;border-radius:14px;
+             padding:16px;color:#7dd3fc;font-size:16px;font-weight:900;
+             letter-spacing:0.5px;cursor:pointer;margin-bottom:12px">
+      <span style="font-size:22px">🚗</span>
+      <span>ABRIR GEOTAB DRIVE</span>
+    </button>
+
+    <button type="button" id="geotabTestBtn" onclick="probarDeepLinksGeotab()"
+      style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
+             background:#1e293b;border:1px dashed #475569;border-radius:14px;
+             padding:12px;color:#64748b;font-size:13px;font-weight:700;
+             letter-spacing:0.5px;cursor:pointer;margin-bottom:16px">
+      <span>🧪</span>
+      <span>Probar deep links</span>
+    </button>
+
+    <div id="geotabTestLog" style="display:none;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;margin-bottom:16px;max-height:300px;overflow-y:auto"></div>
   `;
 
   gruposOrdenados.forEach(grupo => {

@@ -104,6 +104,75 @@ function setAllTip(){
     calculate();
   }
 }
+async function enviarPrecioAAndroidAuto(){
+  if(precioActual <= 0){
+    mostrarToast("⚠️ No hay precio para enviar");
+    return;
+  }
+
+  const texto = moneyText(precioActual);
+  const btnText = document.getElementById("btnEnviarAAText");
+  if(btnText) btnText.textContent = "ENVIANDO…";
+
+  try {
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications){
+      mostrarToast("⚠️ Notificaciones no disponibles");
+      if(btnText) btnText.textContent = "MOSTRAR EN ANDROID AUTO";
+      return;
+    }
+    const LN = Cap.Plugins.LocalNotifications;
+
+    // 1. Permisos (Android 13+)
+    let perm = await LN.checkPermissions();
+    if(perm.display !== 'granted'){
+      await LN.requestPermissions();
+      perm = await LN.checkPermissions();
+      if(perm.display !== 'granted'){
+        mostrarToast("❌ Sin permiso de notificaciones");
+        if(btnText) btnText.textContent = "MOSTRAR EN ANDROID AUTO";
+        return;
+      }
+    }
+
+    // 2. Canal silencioso (no interrumpe música ni audio)
+    try {
+      await LN.createChannel({
+        id: 'precio-viaje',
+        name: 'Precio del Viaje',
+        description: 'Precio a pagar mostrado en Android Auto',
+        importance: 4,     // HUN: aparece como aviso flotante
+        visibility: 1,     // Público (visible en pantalla bloqueada)
+        sound: null,       // Sin sonido
+        vibration: false
+      });
+    } catch(e){ /* canal ya existe */ }
+
+    // 3. Enviar notificación
+    await LN.schedule({
+      notifications: [{
+        id: 3001,                          // ID fijo → se sobrescribe si repites
+        title: 'Precio del viaje',
+        body: `A pagar: ${texto}`,
+        channelId: 'precio-viaje',
+        smallIcon: 'ic_stat_icon_config_sample',
+        schedule: { at: new Date(), allowWhileIdle: true }
+      }]
+    });
+
+    mostrarToast("✅ Enviado a Android Auto");
+    if(btnText) btnText.textContent = "✅ ENVIADO";
+
+    setTimeout(() => {
+      if(btnText) btnText.textContent = "MOSTRAR EN ANDROID AUTO";
+    }, 2500);
+
+  } catch(e){
+    console.warn("Error enviando a Android Auto:", e);
+    mostrarToast("❌ Error al enviar");
+    if(btnText) btnText.textContent = "MOSTRAR EN ANDROID AUTO";
+  }
+}
 function mostrarPrecio(){const inp=document.getElementById("price");if(!inp)return;const raw=parseFloat(inp.value.replace(',','.'))||0;if(raw<=0){alert("Escribe primero el precio del viaje.");return}precioActual=Math.round(raw*100);const el=document.getElementById("precioGrande");if(el)el.textContent=moneyText(precioActual);const p=document.getElementById("precioPantalla");if(p)p.style.display="flex";iniciarAlternanciaPrecio()}
 function iniciarAlternanciaPrecio(){detenerAlternanciaPrecio();const t=document.getElementById("precioTitulo");if(!t)return;let en=false;t.textContent="A PAGAR";precioInterval=setInterval(()=>{en=!en;t.textContent=en?"TO PAY":"A PAGAR"},3000)}
 function detenerAlternanciaPrecio(){if(precioInterval){clearInterval(precioInterval);precioInterval=null}}
@@ -5083,77 +5152,39 @@ async function detenerGeolocalizacion(){
 let listaSonidos = null;   // caché del manifest
 let audioActual = null;
 
-async function probarDeepLinksGeotab(){
-  const log = document.getElementById("geotabTestLog");
-  const btn = document.getElementById("geotabTestBtn");
-  if(!log || !btn) return;
 
-  btn.disabled = true;
-  btn.textContent = "⏳ Probando…";
-  log.innerHTML = "";
-  log.style.display = "block";
 
-  const intentos = [
-    // Básicos (ya sabemos que el 1 funciona)
-    { nombre: "geotabdrive://",              url: `geotabdrive://` },
-    { nombre: "geotabdrive://home",          url: `geotabdrive://home` },
-    { nombre: "geotabdrive://main",          url: `geotabdrive://main` },
-    { nombre: "geotabdrive://menu",          url: `geotabdrive://menu` },
-    { nombre: "geotabdrive://checkmate",     url: `geotabdrive://checkmate` },
-    { nombre: "geotabdrive://checkmate/home",url: `geotabdrive://checkmate/home` },
-    // Vehículo
-    { nombre: "geotabdrive://vehicle",       url: `geotabdrive://vehicle` },
-    { nombre: "geotabdrive://vehicles",      url: `geotabdrive://vehicles` },
-    { nombre: "geotabdrive://trip",          url: `geotabdrive://trip` },
-    { nombre: "geotabdrive://inspect",       url: `geotabdrive://inspect` },
-    { nombre: "geotabdrive://inspection",    url: `geotabdrive://inspection` },
-    { nombre: "geotabdrive://dvir",          url: `geotabdrive://dvir` },
-    // Unlock explícito
-    { nombre: "geotabdrive://unlock",        url: `geotabdrive://unlock` },
-    { nombre: "geotabdrive://lock",          url: `geotabdrive://lock` },
-    { nombre: "geotabdrive://door",          url: `geotabdrive://door` },
-    { nombre: "geotabdrive://doors",         url: `geotabdrive://doors` },
-    // Con parámetros
-    { nombre: "?screen=unlock",              url: `geotabdrive://?screen=unlock` },
-    { nombre: "?action=unlock",              url: `geotabdrive://?action=unlock` },
-    { nombre: "?page=vehicle",               url: `geotabdrive://?page=vehicle` },
-    { nombre: "#unlock",                     url: `geotabdrive://#unlock` },
-    { nombre: "#vehicle",                    url: `geotabdrive://#vehicle` }
-  ];
+function lanzarIntentoGeotab(n, url){
+  const res = document.getElementById("geoRes" + n);
+  if(res) res.innerHTML = `<span style="color:#fbbf24">⏳ lanzado… mira Geotab</span>`;
 
-  for(let i = 0; i < intentos.length; i++){
-    const { nombre, url } = intentos[i];
-    const line = document.createElement("div");
-    line.style.cssText = "padding:6px 0;border-bottom:1px solid #334155;font-size:12px;color:#94a3b8";
-    line.innerHTML = `<b style="color:#38bdf8">${i+1}.</b> ${nombre} → <span style="color:#fbbf24">probando…</span>`;
-    log.appendChild(line);
-    log.scrollTop = log.scrollHeight;
-
-    try{
-      window.location.href = url;
-    }catch(e){
-      line.innerHTML = `<b style="color:#38bdf8">${i+1}.</b> ${nombre} → <span style="color:#ef4444">❌ error</span>`;
-      continue;
-    }
-
-    await new Promise(r => setTimeout(r, 1800));
-
-    if(document.visibilityState !== "visible"){
-      line.innerHTML = `<b style="color:#38bdf8">${i+1}.</b> ${nombre} → <span style="color:#4ade80">✅ abrió</span>`;
-      // Esperamos a que vuelva el usuario
-      await new Promise(r => setTimeout(r, 3000));
-    } else {
-      line.innerHTML = `<b style="color:#38bdf8">${i+1}.</b> ${nombre} → <span style="color:#ef4444">❌ no abre</span>`;
-    }
+  try {
+    window.location.href = url;
+  } catch(e){
+    if(res) res.innerHTML = `<span style="color:#ef4444">❌ error al lanzar</span>`;
+    return;
   }
 
-  const fin = document.createElement("div");
-  fin.style.cssText = "padding:10px;margin-top:10px;background:#0c4a6e;border:1px solid #0ea5e9;border-radius:8px;font-size:12px;color:#bae6fd;text-align:center;line-height:1.5";
-  fin.innerHTML = "📋 <b>Test terminado</b><br>Copia este log y pásamelo";
-  log.appendChild(fin);
+  // Cuando el usuario vuelve a la app, marcamos que "abrió"
+  const onVisible = () => {
+    if(document.visibilityState === "visible"){
+      document.removeEventListener("visibilitychange", onVisible);
+      if(res){
+        res.innerHTML = `
+          <span style="color:#4ade80;font-weight:800">✅ abrió Geotab</span><br>
+          <span style="color:#fbbf24;font-size:11px">👀 ¿Qué pantalla viste? Anótalo y pasa al siguiente</span>
+        `;
+      }
+    }
+  };
+  document.addEventListener("visibilitychange", onVisible);
+}
 
-  btn.disabled = false;
-  btn.textContent = "🧪 Probar deep links";
+function cerrarTestGeotab(){
+  const log = document.getElementById("geotabTestLog");
+  const btn = document.getElementById("geotabTestBtn");
+  if(log){ log.innerHTML = ""; log.style.display = "none"; }
+  if(btn){ btn.style.display = "inline-block"; btn.disabled = false; }
 }
 
 function abrirGeotabDrive(){
@@ -5285,8 +5316,6 @@ async function renderSonidosPanel(){
       <span>🧪</span>
       <span>Probar deep links</span>
     </button>
-
-    <div id="geotabTestLog" style="display:none;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;margin-bottom:16px;max-height:300px;overflow-y:auto"></div>
   `;
 
   gruposOrdenados.forEach(grupo => {

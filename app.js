@@ -27,7 +27,10 @@ function loadStock(){const s=safeStorage.get("uberCambioStock");if(s){try{const 
 function loadTips(){return parseInt(safeStorage.get("uberCambioTips"))||0}
 function loadReserva(){const b=Object.assign({},RESERVA_DEFAULT);const s=safeStorage.get("uberCambioReserva");if(s){try{const o=JSON.parse(s);if(o&&typeof o==="object")denominations.forEach(d=>{if(typeof o[d.c]==="number")b[d.c]=Math.max(0,parseInt(o[d.c])||0)})}catch(e){}}return b}
 function loadTopes(){const b=Object.assign({},TOPES_DEFAULT);const s=safeStorage.get("uberCambioTopes");if(s){try{const o=JSON.parse(s);if(o&&typeof o==="object")denominations.forEach(d=>{if(typeof o[d.c]==="number")b[d.c]=Math.max(0,parseInt(o[d.c])||0)})}catch(e){}}return b}
-function loadDiaReset(){const n=parseInt(safeStorage.get("uberCambioDiaReset"));return(n>=1&&n<=31)?n:20}
+function loadDiaReset(){
+  const n = parseInt(safeStorage.get("uberCambioDiaReset"));
+  return (n >= 0 && n <= 31) ? n : 20;
+}
 function saveDiaReset(){safeStorage.set("uberCambioDiaReset",String(diaReset))}
 function loadUltimoResetPropinas(){return safeStorage.get("uberCambioUltimoResetPropinas")||null}
 function saveUltimoResetPropinas(){safeStorage.set("uberCambioUltimoResetPropinas",ultimoResetPropinas||"")}
@@ -471,17 +474,57 @@ function updateTopeVal(c,v){topesRecibir[c]=Math.max(0,v);saveTopes();renderTope
 function resetTopes(){if(!confirm("¿Restaurar los topes máximos a los valores por defecto?"))return;topesRecibir=Object.assign({},TOPES_DEFAULT);saveTopes();renderTopesList()}
 
 function renderResetPanel(){
-  const inp=document.getElementById("resetDia");
-  if(inp)inp.value=diaReset;
-  const el=document.getElementById("resetUltimaVez");
-  if(el){
-    if(ultimoResetPropinas){
-      const d=new Date(ultimoResetPropinas);
-      el.textContent="Última vez: "+d.toLocaleDateString("es-ES")+" "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})
+  const inp = document.getElementById("resetDia");
+  if(inp) inp.value = diaReset;
+
+  // 🎨 Pintar el bloque según estado
+  const box = document.getElementById("resetPanelBox");
+  const title = document.getElementById("resetPanelTitle");
+  const sub = document.getElementById("resetPanelSub");
+  const foot = document.getElementById("resetPanelFoot");
+
+  if(box && title && sub && foot){
+    if(diaReset === 0){
+      // 🔴 DESACTIVADO
+      box.style.background = "linear-gradient(135deg,#7f1d1d,#991b1b)";
+      box.style.borderColor = "#ef4444";
+      title.textContent = "🔕 RESET AUTOMÁTICO DESACTIVADO";
+      title.style.color = "#fca5a5";
+      sub.textContent = "Las propinas no se resetearán solas";
+      sub.style.color = "#fecaca";
+      foot.innerHTML = "Pon un día (1-31) para activarlo";
+      foot.style.color = "#fecaca";
+      if(inp){
+        inp.style.borderColor = "#ef4444";
+        inp.style.color = "#f87171";
+      }
     } else {
-      el.textContent="Última vez: —"
+      // 🟢 ACTIVO
+      box.style.background = "#064e3b";
+      box.style.borderColor = "#059669";
+      title.textContent = "🔄 RESET AUTOMÁTICO DE PROPINAS";
+      title.style.color = "#4ade80";
+      sub.textContent = "Se reseteará el día";
+      sub.style.color = "#a7f3d0";
+      foot.innerHTML = "de cada mes · <b style='color:#fbbf24'>0 = desactivado</b>";
+      foot.style.color = "#a7f3d0";
+      if(inp){
+        inp.style.borderColor = "#059669";
+        inp.style.color = "#4ade80";
+      }
     }
   }
+
+  const el = document.getElementById("resetUltimaVez");
+  if(el){
+    if(ultimoResetPropinas){
+      const d = new Date(ultimoResetPropinas);
+      el.textContent = "Última vez: " + d.toLocaleDateString("es-ES") + " " + d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+    } else {
+      el.textContent = "Última vez: —";
+    }
+  }
+
   const btnDbg = document.getElementById("btnDebugToggle");
   if(btnDbg){
     if(safeStorage.get("uberCambioDebug") === "1"){
@@ -496,7 +539,74 @@ function renderResetPanel(){
   }
   renderHistorialPanel();
 }
-function guardarDiaReset(){const el=document.getElementById("resetDia");if(!el)return;const n=parseInt(el.value)||20;diaReset=Math.max(1,Math.min(31,n));saveDiaReset();el.value=diaReset}
+function guardarDiaReset(){
+  const el = document.getElementById("resetDia");
+  if(!el) return;
+
+  const n = parseInt(el.value);
+  const nuevoDia = (isNaN(n) || n < 0) ? 0 : Math.min(31, n);
+
+  // 🔕 CASO 0 → desactivar
+  if(nuevoDia === 0){
+    if(!confirm(
+      "🔕 DESACTIVAR RESET AUTOMÁTICO\n\n" +
+      "Las propinas NO se resetearán solas.\n\n" +
+      "Podrás resetearlas a mano cuando quieras.\n\n" +
+      "¿Desactivar?"
+    )){
+      el.value = diaReset;
+      return;
+    }
+    diaReset = 0;
+    saveDiaReset();
+    el.value = 0;
+    renderResetPanel();
+    mostrarToast("🔕 Reset automático desactivado");
+    return;
+  }
+
+  // ⚠️ CASO DÍA YA PASADO ESTE MES
+  const now = new Date();
+  const cand = new Date(now.getFullYear(), now.getMonth(), nuevoDia, 0, 0, 0);
+  const yaPasoEsteMes = (cand <= now);
+
+  if(yaPasoEsteMes && nuevoDia !== diaReset){
+    if(!confirm(
+      "⚠️ El día " + nuevoDia + " ya ha pasado este mes.\n\n" +
+      "Si guardas, NO se reseteará ahora.\n" +
+      "El próximo reset será el día " + nuevoDia + " del mes que viene.\n\n" +
+      "¿Continuar?"
+    )){
+      el.value = diaReset;
+      return;
+    }
+    ultimoResetPropinas = now.toISOString();
+    saveUltimoResetPropinas();
+  }
+
+  diaReset = nuevoDia;
+  saveDiaReset();
+  el.value = diaReset;
+  renderResetPanel();
+  mostrarToast("✅ Día de reset: " + diaReset);
+}
+function saltarProximoReset(){
+  if(diaReset === 0){
+    mostrarToast("ℹ️ El reset ya está desactivado");
+    return;
+  }
+  if(!confirm(
+    "⏭️ SALTAR PRÓXIMO RESET\n\n" +
+    "Las propinas NO se resetearán hasta el mes que viene.\n\n" +
+    "Útil si este mes no quieres resetear (vacaciones, mes corto, etc)."
+  )) return;
+
+  ultimoResetPropinas = new Date().toISOString();
+  saveUltimoResetPropinas();
+  renderResetPanel();
+  mostrarToast("⏭️ Reset saltado hasta el mes que viene");
+}
+
 function resetCuenta(){if(!confirm("¿Poner el INVENTARIO (caja) a CERO?\nLas propinas NO se tocan."))return;stock=new Array(denominations.length).fill(0);saveStock();renderStockList();if(received.length)calculate()}
 function resetPropinas(){if(!confirm("¿Poner las PROPINAS a CERO?\nEl inventario NO se toca."))return;totalTips=0;saveTips();renderStockList();renderResetPanel()}
 function resetHistorialDepositos(){if(!confirm("¿Borrar el HISTORIAL de depósitos?\n\nEl aprendizaje (stats) NO se toca."))return;safeStorage.remove("uberCambioCierres");renderHistorialPanel();renderCierreHistorico();const hc=document.getElementById("cierreHistorico");if(hc){hc.innerHTML="";hc.style.display="none"}alert("✅ Historial de depósitos borrado.")}
@@ -513,6 +623,9 @@ function loadCierres(){const s=safeStorage.get("uberCambioCierres");if(s){try{re
 function saveCierres(c){safeStorage.set("uberCambioCierres",JSON.stringify(c))}
 
 function checkAutoResetPropinas(){
+  // 🔕 Si está desactivado, no hacer nada
+  if(diaReset === 0) return;
+
   if(!ultimoResetPropinas){
     ultimoResetPropinas = new Date().toISOString();
     saveUltimoResetPropinas();
@@ -524,19 +637,14 @@ function checkAutoResetPropinas(){
   if(cand <= last) cand.setMonth(cand.getMonth() + 1);
 
   if(now >= cand){
-    // Guardar el reset en el histórico
     const h = loadHistoricoResets();
     h.push({ fecha: now.toISOString(), propinas: totalTips });
     saveHistoricoResets(h);
 
-    // Resetear propinas
     totalTips = 0;
     saveTips();
-
-    // 👇 NUEVO: también borra el historial de operaciones
     saveHistorialOps([]);
 
-    // Actualizar fecha
     ultimoResetPropinas = now.toISOString();
     saveUltimoResetPropinas();
 
@@ -544,7 +652,6 @@ function checkAutoResetPropinas(){
     renderResetPanel();
   }
 }
-
 function renderHistorialPanel(){
   const box=document.getElementById("historialPanel");
   if(!box)return;

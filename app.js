@@ -552,6 +552,7 @@ function renderResetPanel(){
     }
   }
 
+  // 📅 PRÓXIMO RESET + SIGUIENTE
   const proxEl = document.getElementById("resetProximo");
   if(proxEl){
     if(diaReset === 0){
@@ -573,9 +574,17 @@ function renderResetPanel(){
         const inminente = dias <= 1;
         const color = inminente ? "#fbbf24" : "#4ade80";
 
-        let texto = "📅 Próximo reset: <b style='color:" + color + ";font-size:14px'>" +
-          prox.getDate() + " de " + meses[prox.getMonth()] + " de " + prox.getFullYear() +
-          "</b>";
+        // Calcular el siguiente si saltas
+        const sig = new Date(prox.getTime());
+        sig.setMonth(sig.getMonth() + 1);
+        // Ajustar por día 31 en meses cortos
+        const ultimoDiaSig = new Date(sig.getFullYear(), sig.getMonth() + 1, 0).getDate();
+        if(sig.getDate() > ultimoDiaSig) sig.setDate(ultimoDiaSig);
+
+        const fechaProx = prox.getDate() + " de " + meses[prox.getMonth()] + " de " + prox.getFullYear();
+        const fechaSig = sig.getDate() + " de " + meses[sig.getMonth()] + " de " + sig.getFullYear();
+
+        let texto = "📅 Próximo reset: <b style='color:" + color + ";font-size:14px'>" + fechaProx + "</b>";
 
         if(dias >= 0){
           texto += " <span style='color:#94a3b8;font-size:11px'>· en " + dias + " día" + (dias !== 1 ? "s" : "") + "</span>";
@@ -587,6 +596,9 @@ function renderResetPanel(){
           texto += " <span style='color:#a78bfa;font-size:11px'>· ⏭️ saltado x" + resetSkip + "</span>";
         }
 
+        // Segunda línea con el siguiente
+        texto += "<br><span style='color:#a78bfa;font-size:11px;font-weight:700'>⏭️ Si saltas ahora → <b style='color:#c4b5fd'>" + fechaSig + "</b></span>";
+
         proxEl.innerHTML = texto;
         proxEl.style.color = "#e2e8f0";
         proxEl.style.background = "#0f172a";
@@ -595,6 +607,7 @@ function renderResetPanel(){
     }
   }
 
+  // Última vez
   const el = document.getElementById("resetUltimaVez");
   if(el){
     if(ultimoResetPropinas){

@@ -89,9 +89,29 @@ function calcularProximoReset(){
   if(!ultimoResetPropinas) return null;
 
   const last = new Date(ultimoResetPropinas);
-  let cand = new Date(last.getFullYear(), last.getMonth(), diaReset, 0, 0, 0);
-  if(cand <= last) cand.setMonth(cand.getMonth() + 1);
-  cand.setMonth(cand.getMonth() + resetSkip);   // Aplicar saltos pendientes
+
+  let y = last.getFullYear();
+  let m = last.getMonth();
+
+  const diaReal = (year, month, dia) => {
+    const ultimoDia = new Date(year, month + 1, 0).getDate();
+    return Math.min(dia, ultimoDia);
+  };
+
+  let cand = new Date(y, m, diaReal(y, m, diaReset), 0, 0, 0);
+
+  if(cand <= last){
+    m++;
+    if(m > 11){ m = 0; y++; }
+    cand = new Date(y, m, diaReal(y, m, diaReset), 0, 0, 0);
+  }
+
+  for(let i = 0; i < resetSkip; i++){
+    m++;
+    if(m > 11){ m = 0; y++; }
+    cand = new Date(y, m, diaReal(y, m, diaReset), 0, 0, 0);
+  }
+
   return cand;
 }
 
@@ -100,6 +120,15 @@ function saveTips(){safeStorage.set("uberCambioTips",String(totalTips))}
 function saveReserva(){safeStorage.set("uberCambioReserva",JSON.stringify(reservaMinima));scheduleCashSummary();if(received.length)calculate()}
 function saveTopes(){safeStorage.set("uberCambioTopes",JSON.stringify(topesRecibir))}
 function moneyText(c){return(c/100).toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})+" €"}
+
+// 👇 NUEVA: helper de fecha local (fix del bug de un día antes)
+function fechaLocalStr(d){
+  if(!d) d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return y + "-" + m + "-" + dd;
+}
 
 function scheduleCashSummary(){if(summaryTimer)clearTimeout(summaryTimer);summaryTimer=setTimeout(()=>{summaryTimer=null;updateCashSummary()},120)}
 function updateCashSummary(){let t=0;denominations.forEach((d,i)=>{t+=d.c*stock[i]});const el=document.getElementById("totalCashDisplay");if(el)el.textContent=moneyText(t);const checks=[["status20",2000],["status30",3000],["status50",5000],["status80",8000],["status100",10000]];const disp=stockDisponible();const cache={};checks.forEach(([id,tg])=>{if(!(tg in cache))cache[tg]=estadoPara(tg,disp);setStatusBadge(id,cache[tg])})}
@@ -142,7 +171,6 @@ async function enviarPrecioAAndroidAuto(){
     }
     const LN = Cap.Plugins.LocalNotifications;
 
-    // 1. Permisos (Android 13+)
     let perm = await LN.checkPermissions();
     if(perm.display !== 'granted'){
       await LN.requestPermissions();
@@ -154,20 +182,18 @@ async function enviarPrecioAAndroidAuto(){
       }
     }
 
-        // 2. Canal nuevo con importancia MÁXIMA (necesario para Android Auto)
     try {
       await LN.createChannel({
-        id: 'precio-viaje-v2',          // ID NUEVO para forzar la creación
+        id: 'precio-viaje-v2',
         name: 'Precio del Viaje',
         description: 'Precio a pagar mostrado en Android Auto',
-        importance: 5,                  // 5 = IMPORTANCE_HIGH → HUN en el coche
+        importance: 5,
         visibility: 1,
         sound: null,
         vibration: false
       });
-    } catch(e){ /* canal ya existe (no debería, es nuevo) */ }
+    } catch(e){ /* canal ya existe */ }
 
-    // 3. Borrar la anterior y enviar con el canal nuevo
     try { await LN.cancel({ notifications: [{ id: 3001 }] }); } catch(e){}
     await new Promise(r => setTimeout(r, 200));
 
@@ -176,7 +202,7 @@ async function enviarPrecioAAndroidAuto(){
         id: 3001,
         title: 'Precio del viaje',
         body: `A pagar: ${texto}`,
-        channelId: 'precio-viaje-v2',   // 👈 canal nuevo
+        channelId: 'precio-viaje-v2',
         smallIcon: 'ic_stat_icon_config_sample',
         schedule: { at: new Date(), allowWhileIdle: true }
       }]
@@ -366,7 +392,6 @@ function confirmTransaction(){
     return;
   }
 
-  // 👇 Capturar datos ANTES de resetear
   const rp = parseFloat(document.getElementById("price").value.replace(',','.')) || 0;
   const precio = Math.round(rp * 100);
   const dado = received.reduce((a,b) => a+b, 0);
@@ -383,7 +408,6 @@ function confirmTransaction(){
   saveStats();
   saveStock();
 
-  // 👇 Guardar en historial
   añadirHistorialOp({
     fecha: new Date().toISOString(),
     precio,
@@ -493,7 +517,6 @@ function renderResetPanel(){
   const inp = document.getElementById("resetDia");
   if(inp) inp.value = diaReset;
 
-  // 🎨 Pintar el bloque según estado
   const box = document.getElementById("resetPanelBox");
   const title = document.getElementById("resetPanelTitle");
   const sub = document.getElementById("resetPanelSub");
@@ -529,7 +552,6 @@ function renderResetPanel(){
     }
   }
 
-  // 📅 PRÓXIMO RESET
   const proxEl = document.getElementById("resetProximo");
   if(proxEl){
     if(diaReset === 0){
@@ -573,7 +595,6 @@ function renderResetPanel(){
     }
   }
 
-  // Última vez
   const el = document.getElementById("resetUltimaVez");
   if(el){
     if(ultimoResetPropinas){
@@ -605,7 +626,6 @@ function guardarDiaReset(){
   const n = parseInt(el.value);
   const nuevoDia = (isNaN(n) || n < 0) ? 0 : Math.min(31, n);
 
-  // 🔕 CASO 0 → desactivar
   if(nuevoDia === 0){
     if(!confirm(
       "🔕 DESACTIVAR RESET AUTOMÁTICO\n\n" +
@@ -624,7 +644,6 @@ function guardarDiaReset(){
     return;
   }
 
-  // ⚠️ CASO DÍA YA PASADO ESTE MES
   const now = new Date();
   const cand = new Date(now.getFullYear(), now.getMonth(), nuevoDia, 0, 0, 0);
   const yaPasoEsteMes = (cand <= now);
@@ -719,7 +738,6 @@ function checkAutoResetPropinas(){
     ultimoResetPropinas = now.toISOString();
     saveUltimoResetPropinas();
 
-    // Resetear skip counter (ya se aplicó)
     resetSkip = 0;
     saveResetSkip();
 
@@ -1396,14 +1414,12 @@ function renderRecomendacionCambio(){
   const {sobran, totalSobra} = calcularIntercambiosRecomendados();
   if(!sobran.length) return "";
 
-  // Calcular qué pedir usando las piezas que te faltan
   const rec = configuracionRecomendada();
   const {faltantes} = calcularFaltantes(rec.viajes, rec.colchon);
 
   let restante = totalSobra;
   const pedir = {};
 
-  // Repartir el total en piezas que te faltan (de mayor a menor)
   faltantes.slice().sort((a,b) => b.d.c - a.d.c).forEach(x => {
     if(restante <= 0) return;
     const n = Math.min(x.falta, Math.floor(restante / x.d.c));
@@ -1413,7 +1429,6 @@ function renderRecomendacionCambio(){
     }
   });
 
-  // Si queda algo, meter en las más grandes posibles
   if(restante > 0){
     denominations.slice().sort((a,b) => b.c - a.c).forEach(d => {
       if(restante <= 0) return;
@@ -1425,7 +1440,6 @@ function renderRecomendacionCambio(){
     });
   }
 
-  // Guardar para el botón
   const entregar = {};
   sobran.forEach(x => { entregar[x.d.c] = x.cantidad; });
   __recomendacionCambio = { entregar, pedir };
@@ -1434,7 +1448,6 @@ function renderRecomendacionCambio(){
   html += `<div style="font-size:12px;color:#c4b5fd;font-weight:900;letter-spacing:1px;margin-bottom:10px">🔄 TE ACONSEJO CAMBIAR</div>`;
   html += `<div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.4">Estas piezas las acumulas porque las gastas poco. Llévalas al banco y pide las que necesitas. Es el <b>mismo importe</b>, solo cambias formato.</div>`;
 
-  // 📤 ENTREGAS
   html += `<div style="font-size:11px;color:#f87171;font-weight:800;letter-spacing:0.5px;margin-bottom:6px">📤 ENTREGAS AL BANCO</div>`;
   html += `<div style="background:#0f172a;border-radius:8px;padding:8px 10px;margin-bottom:12px">`;
   sobran.forEach(x => {
@@ -1443,7 +1456,6 @@ function renderRecomendacionCambio(){
   html += `<div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:4px;border-top:1px solid #334155;font-size:14px;font-weight:900;color:#fff"><span>TOTAL</span><span>${moneyText(totalSobra)}</span></div>`;
   html += `</div>`;
 
-  // 📥 PIDES
   const pedirKeys = Object.keys(pedir).map(k => parseInt(k)).sort((a,b) => b-a);
   if(pedirKeys.length){
     let totalPedir = 0;
@@ -1470,27 +1482,23 @@ function renderRecomendacionCambio(){
 function aplicarRecomendacionCambio(total){
   const { entregar, pedir } = __recomendacionCambio;
 
-  // Resetear estado actual
   cambioState.aEntregar = {};
   cambioState.aRecibir = {};
   cambioState.orden = [];
   cambioState.ordenRecibir = [];
 
-  // Aplicar entregas
   Object.keys(entregar).forEach(k => {
     const c = parseInt(k);
     cambioState.aEntregar[c] = entregar[k];
     for(let i = 0; i < entregar[k]; i++) cambioState.orden.push(c);
   });
 
-  // Aplicar peticiones
   Object.keys(pedir).forEach(k => {
     const c = parseInt(k);
     cambioState.aRecibir[c] = pedir[k];
     for(let i = 0; i < pedir[k]; i++) cambioState.ordenRecibir.push(c);
   });
 
-  // Verificar totales
   let tE = 0, tR = 0;
   Object.keys(cambioState.aEntregar).forEach(c => tE += parseInt(c) * cambioState.aEntregar[c]);
   Object.keys(cambioState.aRecibir).forEach(c => tR += parseInt(c) * cambioState.aRecibir[c]);
@@ -1500,7 +1508,6 @@ function aplicarRecomendacionCambio(total){
     return;
   }
 
-  // Mostrar resumen final con opción de confirmar
   renderCambioResultado(total);
 }
 
@@ -1508,7 +1515,6 @@ function renderCambioInicio(){
   const cont=document.getElementById("cambioContenido");
   if(!cont)return;
 
-  // 👇 Bloque de recomendación si hay piezas de más
   let html = renderRecomendacionCambio();
 
   html += "<div class='card' style='margin:0 0 12px 0'>";
@@ -1879,7 +1885,6 @@ function actualizarReponerPropuesta(){
     html+="</div>";
   }
 
-  // 👇 AVISO CORTO: solo si hay piezas de más
   if(sobran.length > 0){
     html+="<div class='card' style='margin:0 0 12px 0;background:#1e293b;border:1px solid #7c3aed'>";
     html+="<div style='font-size:12px;color:#c4b5fd;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>🔄 APROVECHA EL VIAJE AL BANCO</div>";
@@ -2118,12 +2123,12 @@ async function exportInventory(){
     reservaMinima,
     topesRecibir,
     diaReset,
+    resetSkip,
     ultimoResetPropinas,
     stats: statsOps,
     cierres: loadCierres(),
     historicoResets: loadHistoricoResets(),
     cambios: loadCambios(),
-    // 👇 NUEVO: guardamos también los días de trabajo
     festivos: festivos,
     diasPersonales: diasPersonales,
     vacacionesAsignadas: diasVacacionesAsignados,
@@ -2268,7 +2273,15 @@ function importInventory(file){
       if(typeof data.totalTips==="number")totalTips=Math.max(0,data.totalTips);
       if(data.reservaMinima&&typeof data.reservaMinima==="object"){reservaMinima=Object.assign({},RESERVA_DEFAULT);denominations.forEach(d=>{if(typeof data.reservaMinima[d.c]==="number")reservaMinima[d.c]=Math.max(0,parseInt(data.reservaMinima[d.c])||0)});safeStorage.set("uberCambioReserva",JSON.stringify(reservaMinima))}
       if(data.topesRecibir&&typeof data.topesRecibir==="object"){topesRecibir=Object.assign({},TOPES_DEFAULT);denominations.forEach(d=>{if(typeof data.topesRecibir[d.c]==="number")topesRecibir[d.c]=Math.max(0,parseInt(data.topesRecibir[d.c])||0)});saveTopes()}
-      if(typeof data.diaReset==="number"){diaReset=Math.max(1,Math.min(31,parseInt(data.diaReset)||20));saveDiaReset()}
+      if(typeof data.diaReset === "number"){
+        const n = parseInt(data.diaReset);
+        diaReset = (isNaN(n) || n < 0) ? 20 : Math.min(31, n);
+        saveDiaReset();
+      }
+      if(typeof data.resetSkip === "number"){
+        resetSkip = Math.max(0, parseInt(data.resetSkip) || 0);
+        saveResetSkip();
+      }
       if(typeof data.ultimoResetPropinas==="string"){ultimoResetPropinas=data.ultimoResetPropinas;saveUltimoResetPropinas()}
       if(data.stats&&typeof data.stats==="object"){
         statsOps={
@@ -2287,7 +2300,6 @@ function importInventory(file){
       if(Array.isArray(data.historicoResets))saveHistoricoResets(data.historicoResets);
       if(Array.isArray(data.cambios))saveCambios(data.cambios);
 
-      // 👇 NUEVO: restaurar días de trabajo
       if(Array.isArray(data.festivos)){
         festivos = data.festivos.map(f => ({ fechaDisfrute: null, ...f }));
         saveFestivos();
@@ -2309,7 +2321,6 @@ function importInventory(file){
       }
       saveStock();saveTips();renderStockList();renderReservaList();renderTopesList();updateCashSummary();renderCierreHistorico();renderResetPanel();
 
-      // 👇 Refrescar pantalla de días si está abierta
       try{ renderDiasTrabajo(); }catch(e){}
 
       alert("✅ Copia restaurada.");
@@ -2535,10 +2546,10 @@ async function lanzarNotificacionZona(texto){
         id: 1001,
         title: 'Cambio de zona',
         body: texto,
-        channelId: 'zona-cambio',              // 👈 canal propio
+        channelId: 'zona-cambio',
         smallIcon: 'ic_stat_icon_config_sample',
-        sound: 'default',                       // 👈 sonido del sistema
-        vibrate: true,                          // 👈 vibración
+        sound: 'default',
+        vibrate: true,
         schedule: { at: new Date(), allowWhileIdle: true }
       }]
     });
@@ -2569,30 +2580,6 @@ async function crearCanalNotificacionesZona(){
     }
   } catch(e){
     console.warn('Error creando canal:', e);
-  }
-}
-
-async function lanzarNotificacionZona(texto){
-  if(safeStorage.get("uberCambioSonidoZona") === "0") return;
-
-  try {
-    const Cap = window.Capacitor;
-    if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
-    const LN = Cap.Plugins.LocalNotifications;
-
-    await LN.schedule({
-      notifications: [{
-        id: 1001,
-        title: 'Cambio de zona',
-        body: texto,
-        channelId: 'zona-cambio',
-        sound: 'default',
-        vibrate: true,
-        schedule: { at: new Date(), allowWhileIdle: true }
-      }]
-    });
-  } catch(e){
-    console.warn('Error lanzando notificación:', e);
   }
 }
 
@@ -2643,10 +2630,10 @@ let diasVacacionesAsignados = loadVacacionesAsignados();
 let diasAnioVista = new Date().getFullYear();
 let diasMesVista = new Date().getMonth();
 let festivoModalFecha = null;
-let vacCalAnio = new Date().getFullYear();   // 👈 NUEVA
-let vacCalMes = new Date().getMonth();       // 👈 NUEVA
-let vacCalInicio = null;                     // 👈 NUEVA
-let vacCalFin = null;                        // 👈 NUEVA
+let vacCalAnio = new Date().getFullYear();
+let vacCalMes = new Date().getMonth();
+let vacCalInicio = null;
+let vacCalFin = null;
 
 /* ==================== VACACIONES ASIGNADAS ==================== */
 function loadVacacionesAsignados(){
@@ -2690,7 +2677,7 @@ function loadFestivos(){
       nombre: FESTIVOS_DEFAULT[fecha],
       trabajado: true,
       solicitado: false,
-      aprobado: false,          // 👈 NUEVO
+      aprobado: false,
       fechaSolicitud: null,
       fechaDisfrute: null,
       sacrificado: false
@@ -2732,17 +2719,15 @@ function estadoFestivo(f){
   if(!f.trabajado) return "libre";
   if(f.sacrificado) return "sacrificado";
 
-  // Solicitado → diferenciar Solicitado / Aprobado / Completado
   if(f.solicitado){
     if(!f.aprobado) return "solicitado";
     if(f.fechaDisfrute){
-      const hoyStr = new Date().toISOString().slice(0,10);
+      const hoyStr = fechaLocalStr();
       if(f.fechaDisfrute < hoyStr) return "completado";
     }
     return "aprobado";
   }
 
-  // No solicitado: futuro / acumulado / por caducar / caducado
   const hoy = new Date();
   hoy.setHours(0,0,0,0);
   const p = f.fecha.split("-");
@@ -2757,15 +2742,15 @@ function estadoFestivo(f){
 
 function colorEstadoFestivo(estado){
   const c = {
-    solicitado:"#a78bfa",     // violeta
-    aprobado:"#4ade80",       // verde
-    completado:"#94a3b8",     // gris claro
-    acumulado:"#38bdf8",      // azul
-    porCaducar:"#fbbf24",     // amarillo
-    caducado:"#ef4444",       // rojo
-    libre:"#fb923c",          // 🟠 naranja (No trabajado)
-    sacrificado:"#a855f7",    // violeta oscuro
-    futuro:"#fcd34d"          // 🟡 amarillo claro (Pendiente)
+    solicitado:"#a78bfa",
+    aprobado:"#4ade80",
+    completado:"#94a3b8",
+    acumulado:"#38bdf8",
+    porCaducar:"#fbbf24",
+    caducado:"#ef4444",
+    libre:"#fb923c",
+    sacrificado:"#a855f7",
+    futuro:"#fcd34d"
   };
   return c[estado] || "#64748b";
 }
@@ -2773,8 +2758,8 @@ function colorEstadoFestivo(estado){
 function nombreEstado(est){
   const n = {
     solicitado:"Solicitado",
-    aprobado:"Aprobado",       // 👈
-    completado:"Completado",   // 👈
+    aprobado:"Aprobado",
+    completado:"Completado",
     acumulado:"Acumulado",
     porCaducar:"Por caducar",
     caducado:"Caducado",
@@ -2794,10 +2779,10 @@ function formatearFechaBonita(fechaStr){
 }
 function estaPendiente(f){
   if(!f.trabajado) return false;
-  if(f.sacrificado) return false;   // ← NUEVO: sacrificado nunca bloquea
+  if(f.sacrificado) return false;
   if(!f.solicitado) return diasHastaCaducar(f) >= 0;
   if(!f.fechaDisfrute) return true;
-  const hoyStr = new Date().toISOString().slice(0,10);
+  const hoyStr = fechaLocalStr();
   return f.fechaDisfrute >= hoyStr;
 }
 /* ==================== FIN UTILIDADES ==================== */
@@ -2817,7 +2802,7 @@ function archivarAniosAntiguos(){
 
   Object.keys(porAnio).forEach(aStr => {
     const a = parseInt(aStr);
-    if(a >= anioActual) return;  // nunca el actual ni futuros
+    if(a >= anioActual) return;
     const lista = porAnio[a];
     const pendientes = lista.filter(estaPendiente);
     if(pendientes.length === 0) aniosABorrar.push(a);
@@ -2917,22 +2902,18 @@ function formatearRangoVacaciones(inicio, fin){
   const dI = parseInt(pI[2]), mI = parseInt(pI[1]), aI = pI[0];
   const dF = parseInt(pF[2]), mF = parseInt(pF[1]), aF = pF[0];
 
-  // 1 solo día
   if(inicio === fin){
     return dI + "/" + String(mI).padStart(2,"0") + "/" + aI + " (" + mesesCortos[mI-1] + " " + mI + ")";
   }
 
-  // Mismo año y mismo mes
   if(aI === aF && mI === mF){
     return dI + " → " + dF + " " + mesesCortos[mI-1] + " (" + mI + ") " + aI;
   }
 
-  // Mismo año, distinto mes
   if(aI === aF){
     return dI + " " + mesesCortos[mI-1] + " (" + mI + ") → " + dF + " " + mesesCortos[mF-1] + " (" + mF + ") " + aI;
   }
 
-  // Distintos años
   return dI + " " + mesesCortos[mI-1] + " (" + mI + ") " + aI + " → " + dF + " " + mesesCortos[mF-1] + " (" + mF + ") " + aF;
 }
 
@@ -2943,7 +2924,7 @@ function renderDiasTrabajo(){
 
   const anioActual = new Date().getFullYear();
   const anioSiguiente = anioActual + 1;
-  const hoyStr = new Date().toISOString().slice(0,10);
+  const hoyStr = fechaLocalStr();
 
   const aniosBase = [anioActual, anioSiguiente];
 
@@ -2964,7 +2945,6 @@ function renderDiasTrabajo(){
 
   const festivosAnio = festivos.filter(f => parseInt(f.fecha.slice(0,4)) === diasAnioVista);
 
-  // 👇 Contadores con los 3 estados nuevos
   const solicitados = festivosAnio.filter(f => estadoFestivo(f) === "solicitado").length;
   const aprobados   = festivosAnio.filter(f => estadoFestivo(f) === "aprobado").length;
   const completados = festivosAnio.filter(f => estadoFestivo(f) === "completado").length;
@@ -2983,7 +2963,6 @@ function renderDiasTrabajo(){
 
   let html = "";
 
-  // ===== Pestañas de años =====
   html += `<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">`;
   anios.forEach(a => {
     const act = a === diasAnioVista;
@@ -2997,7 +2976,6 @@ function renderDiasTrabajo(){
   });
   html += `</div>`;
 
-  // ===== Contadores (6 tarjetas) =====
   html += `
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
       <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
@@ -3027,7 +3005,6 @@ function renderDiasTrabajo(){
     </div>
   `;
 
-  // ===== Cuadro de VACACIONES =====
   {
     const asignadas = getVacacionesAsignadas(diasAnioVista);
     const usadas = vacacionesAnio.filter(d => !d.noCuenta).length;
@@ -3066,7 +3043,6 @@ function renderDiasTrabajo(){
     `;
   }
 
-  // ===== Aviso caducidad =====
   const urgentes = festivosAnio.filter(f => estadoFestivo(f) === "porCaducar");
   if(urgentes.length > 0){
     html += `<div style="background:#7c2d12;border:2px solid #ea580c;border-radius:12px;padding:12px;margin-bottom:14px">`;
@@ -3080,7 +3056,6 @@ function renderDiasTrabajo(){
     html += `</div>`;
   }
 
-  // ===== Calendario =====
   const nombresMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   html += `
     <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
@@ -3111,7 +3086,6 @@ function renderDiasTrabajo(){
     </div>
   `;
 
-  // ===== Lista festivos =====
   html += `<div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">`;
   html += `<div style="font-size:12px;color:#94a3b8;font-weight:900;letter-spacing:1px;margin-bottom:10px">📅 FESTIVOS ${diasAnioVista}</div>`;
 
@@ -3158,7 +3132,6 @@ function renderDiasTrabajo(){
   }
   html += `</div>`;
 
-  // ===== Días personales =====
   html += `<div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">`;
   html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
     <div style="font-size:12px;color:#94a3b8;font-weight:900;letter-spacing:1px">👤 DÍAS PERSONALES ${diasAnioVista}</div>
@@ -3188,44 +3161,42 @@ function renderDiasTrabajo(){
   }
   html += `</div>`;
 
-  // ===== Lista de vacaciones =====
-// ===== Lista de vacaciones (agrupadas por rangos) =====
-if(vacacionesAnio.length > 0){
-  const grupos = agruparVacaciones(vacacionesAnio);
-  html += `<div style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">`;
-  html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-    <div style="font-size:12px;color:#22d3ee;font-weight:900;letter-spacing:1px">🏖️ VACACIONES ${diasAnioVista}</div>
-    <div style="font-size:13px;color:#22d3ee;font-weight:900">${vacacionesAnio.filter(d => !d.noCuenta).length} día${vacacionesAnio.filter(d => !d.noCuenta).length !== 1 ? "s" : ""}</div>
-  </div>`;
+  if(vacacionesAnio.length > 0){
+    const grupos = agruparVacaciones(vacacionesAnio);
+    html += `<div style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">`;
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:12px;color:#22d3ee;font-weight:900;letter-spacing:1px">🏖️ VACACIONES ${diasAnioVista}</div>
+      <div style="font-size:13px;color:#22d3ee;font-weight:900">${vacacionesAnio.filter(d => !d.noCuenta).length} día${vacacionesAnio.filter(d => !d.noCuenta).length !== 1 ? "s" : ""}</div>
+    </div>`;
 
-  grupos.forEach(g => {
-    const txtFecha = formatearRangoVacaciones(g.inicio, g.fin);
-    const diasCuenta = diasPersonales.filter(d =>
-      d.tipo === "vacacion" && !d.noCuenta &&
-      d.fecha >= g.inicio && d.fecha <= g.fin
-    ).length;
-    const diasSinContar = diasPersonales.filter(d =>
-      d.tipo === "vacacion" && d.noCuenta &&
-      d.fecha >= g.inicio && d.fecha <= g.fin
-    ).length;
-    let txtDias = diasCuenta + " día" + (diasCuenta !== 1 ? "s" : "");
-    if(diasSinContar > 0){
-      txtDias += " · " + diasSinContar + " festivo" + (diasSinContar !== 1 ? "s" : "");
-    }
+    grupos.forEach(g => {
+      const txtFecha = formatearRangoVacaciones(g.inicio, g.fin);
+      const diasCuenta = diasPersonales.filter(d =>
+        d.tipo === "vacacion" && !d.noCuenta &&
+        d.fecha >= g.inicio && d.fecha <= g.fin
+      ).length;
+      const diasSinContar = diasPersonales.filter(d =>
+        d.tipo === "vacacion" && d.noCuenta &&
+        d.fecha >= g.inicio && d.fecha <= g.fin
+      ).length;
+      let txtDias = diasCuenta + " día" + (diasCuenta !== 1 ? "s" : "");
+      if(diasSinContar > 0){
+        txtDias += " · " + diasSinContar + " festivo" + (diasSinContar !== 1 ? "s" : "");
+      }
 
-    html += `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1e293b">
-        <div style="width:12px;height:12px;border-radius:50%;background:#22d3ee;flex-shrink:0"></div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:14px;color:#fff;font-weight:700">${txtFecha}</div>
-          <div style="font-size:11px;color:#94a3b8;margin-top:2px">${txtDias}${g.nota ? " · " + g.nota : ""}</div>
+      html += `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1e293b">
+          <div style="width:12px;height:12px;border-radius:50%;background:#22d3ee;flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;color:#fff;font-weight:700">${txtFecha}</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:2px">${txtDias}${g.nota ? " · " + g.nota : ""}</div>
+          </div>
+          <button type="button" onclick="borrarRangoVacaciones('${g.inicio}','${g.fin}')" style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">🗑️</button>
         </div>
-        <button type="button" onclick="borrarRangoVacaciones('${g.inicio}','${g.fin}')" style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">🗑️</button>
-      </div>
-    `;
-  });
-  html += `</div>`;
-}
+      `;
+    });
+    html += `</div>`;
+  }
 
   html += `<button type="button" onclick="abrirModalVacaciones()" style="width:100%;margin-bottom:8px;background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:800;font-size:14px;cursor:pointer">🏖️ AÑADIR VACACIONES</button>`;
 
@@ -3375,13 +3346,13 @@ function abrirModalFestivo(fechaStr){
           <div style="background:${f.aprobado ? '#064e3b' : '#4c1d95'};border:1px solid ${f.aprobado ? '#059669' : '#8b5cf6'};border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:${f.aprobado ? '#a7f3d0' : '#e9d5ff'};line-height:1.5;text-align:center">
             ${f.aprobado ? '✅ Aprobado por la empresa' : '⏳ Pendiente de aprobación'}<br>
             🎉 Disfrute: <b style="font-size:15px;color:#fff">${formatearFechaBonita(f.fechaDisfrute)}</b>
-            ${f.fechaDisfrute < new Date().toISOString().slice(0,10) ? `<br><span style="color:#64748b">(ya disfrutado)</span>` : ""}
+            ${f.fechaDisfrute < fechaLocalStr() ? `<br><span style="color:#64748b">(ya disfrutado)</span>` : ""}
           </div>
           <button type="button" onclick="editarFechaDisfrute()" style="width:100%;margin-bottom:10px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer">✏️ Cambiar fecha de disfrute</button>
         ` : ""}
 
         <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:#94a3b8;line-height:1.5">
-          📅 Caduca el <b style="color:#fff">${formatearFechaBonita(fechaCaducidad(f.fecha).toISOString().slice(0,10))}</b>
+          📅 Caduca el <b style="color:#fff">${formatearFechaBonita(fechaLocalStr(fechaCaducidad(f.fecha)))}</b>
           ${diasHastaCaducar(f) >= 0 ? `<br>Quedan <b style="color:${diasHastaCaducar(f)<=15?'#fbbf24':'#4ade80'}">${diasHastaCaducar(f)} días</b>` : `<br><b style="color:#ef4444">Ya ha caducado</b>`}
         </div>
       ` : ""}
@@ -3410,7 +3381,7 @@ function setFestivoTrabajado(v){
   f.trabajado = v;
   if(!v){
     f.solicitado = false;
-    f.aprobado = false;          // 👈 añadir
+    f.aprobado = false;
     f.fechaDisfrute = null;
   }
   saveFestivos();
@@ -3457,7 +3428,7 @@ function setFestivoSolicitado(v){
     });
   } else {
     f.solicitado = false;
-    f.aprobado = false;          // 👈 NUEVO: al quitar solicitud, quitar aprobación
+    f.aprobado = false;
     f.fechaSolicitud = null;
     f.fechaDisfrute = null;
     saveFestivos();
@@ -3481,7 +3452,7 @@ function setFestivoSacrificado(v){
 
     f.sacrificado = true;
     f.solicitado = false;
-    f.aprobado = false;          // 👈 NUEVO
+    f.aprobado = false;
     f.fechaSolicitud = null;
     f.fechaDisfrute = null;
     mostrarToast("🔥 Marcado como sacrificado");
@@ -3670,7 +3641,6 @@ function abrirModalVacaciones(){
   const prev = document.getElementById("modalVacaciones");
   if(prev) prev.remove();
 
-  // Empezamos en el mes actual
   const hoy = new Date();
   vacCalAnio = hoy.getFullYear();
   vacCalMes = hoy.getMonth();
@@ -3753,7 +3723,6 @@ function renderVacCalendario(){
     const festivoNoTrab = festivos.find(f => f.fecha === fechaStr && !f.trabajado);
     const yaEsPersonal = diasPersonales.find(x => x.fecha === fechaStr);
 
-    // ¿Está en el rango seleccionado?
     let enRango = false;
     let esExtremo = false;
     if(vacCalInicio && vacCalFin){
@@ -3764,7 +3733,6 @@ function renderVacCalendario(){
       esExtremo = true;
     }
 
-    // Colores
     let bg, color, border;
     if(esExtremo){
       bg = "#22d3ee"; color = "#0f172a"; border = "#0891b2";
@@ -3801,7 +3769,6 @@ function renderVacCalendario(){
 
   html += `</div></div>`;
 
-  // Leyenda rápida
   html += `
     <div style="display:flex;justify-content:center;gap:12px;font-size:10px;color:#94a3b8;margin-top:8px;flex-wrap:wrap">
       <span style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:10px;height:10px;background:#1e293b;border:1px solid #334155;border-radius:2px"></span>Laborable</span>
@@ -3821,7 +3788,6 @@ function cambiarMesVacCal(delta){
 }
 
 function clickDiaVac(fechaStr){
-  // Sin inicio → marcamos inicio
   if(!vacCalInicio){
     vacCalInicio = fechaStr;
     vacCalFin = null;
@@ -3831,13 +3797,10 @@ function clickDiaVac(fechaStr){
     return;
   }
 
-  // Con inicio, sin fin → marcamos fin
   if(vacCalInicio && !vacCalFin){
     if(fechaStr === vacCalInicio){
-      // Mismo día = 1 solo día, cerramos rango
       vacCalFin = fechaStr;
     } else if(fechaStr < vacCalInicio){
-      // Es anterior → hacemos swap
       vacCalFin = vacCalInicio;
       vacCalInicio = fechaStr;
     } else {
@@ -3849,7 +3812,6 @@ function clickDiaVac(fechaStr){
     return;
   }
 
-  // Con rango completo → empezamos de nuevo desde este día
   vacCalInicio = fechaStr;
   vacCalFin = null;
   renderVacCalendario();
@@ -3875,7 +3837,6 @@ function renderVacPreview(){
     return;
   }
 
-  // Rango completo → contamos
   const a = new Date(vacCalInicio + "T00:00:00");
   const b = new Date(vacCalFin + "T00:00:00");
   let nat = 0, lab = 0, fest = 0;
@@ -3914,7 +3875,6 @@ function renderVacRapidos(){
     return;
   }
 
-  // Botones de "desde el inicio actual"
   box.innerHTML = `
     <div style="font-size:10px;color:#64748b;font-weight:800;width:100%;margin-bottom:2px">ATAJOS · CUENTAN DESDE EL INICIO</div>
     <button type="button" onclick="vacRangoDesdeInicio(1)" style="flex:1;min-width:60px;background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:8px;font-weight:800;font-size:12px;cursor:pointer">1 día</button>
@@ -3973,14 +3933,12 @@ function guardarVacaciones(){
     const yaEsPersonal = diasPersonales.find(d => d.fecha === s);
 
     if(dia !== 0 && dia !== 1){
-      // Laborables (incluye sábado) y festivos en L-V-S
       if(fest){
         if(!yaEsPersonal) festivosEnRango.push({ fecha: s, nombre: fest.nombre });
       } else if(!yaEsPersonal){
         laborables.push(s);
       }
     } else {
-      // Descanso (domingo y lunes). Si hay festivo, también entra como visual
       if(fest && !yaEsPersonal){
         festivosEnRango.push({ fecha: s, nombre: fest.nombre });
       }
@@ -3988,7 +3946,6 @@ function guardarVacaciones(){
     cursor.setDate(cursor.getDate() + 1);
   }
 
-  // Preguntar por festivos dentro del rango
   let festivosAVisualizar = [];
   if(festivosEnRango.length > 0){
     const lista = festivosEnRango.map(f => "· " + formatearFechaBonita(f.fecha) + " (" + f.nombre + ")").join("\n");
@@ -4002,12 +3959,10 @@ function guardarVacaciones(){
     if(confirm(msg)) festivosAVisualizar = festivosEnRango.map(f => f.fecha);
   }
 
-  // Añadir laborables → CUENTAN
   laborables.forEach(fecha => {
     diasPersonales.push({ fecha, nota: notaFinal, tipo: "vacacion" });
   });
 
-  // Añadir festivos → NO CUENTAN (solo visual)
   festivosAVisualizar.forEach(fecha => {
     diasPersonales.push({ fecha, nota: notaFinal, tipo: "vacacion", noCuenta: true });
   });
@@ -4117,7 +4072,6 @@ function onICSSeleccionado(e){
       const eventos = parseICS(rd.result);
       if(!eventos.length){ alert("⚠️ El archivo .ics no contiene eventos."); return; }
 
-      // Filtrar Domingos y Lunes
       const eventosFiltrados = eventos.filter(ev => {
         const p = ev.fecha.split("-");
         const d = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
@@ -4127,7 +4081,6 @@ function onICSSeleccionado(e){
 
       if(!eventosFiltrados.length){ alert("⚠️ Todos los eventos caían en Domingo o Lunes."); return; }
 
-      // Separar festivos vs personales por palabras clave
       const clavesPersonal = /vacacion|vacación|personal|asunto|libre|permiso/i;
       const nuevosFestivos = [];
       const nuevosPersonales = [];
@@ -4169,11 +4122,10 @@ function onICSSeleccionado(e){
               festivosActualizados++;
             }
           } else {
-            // 👇 AQUÍ estaba el Sitio A
             festivos.push({
               fecha: ev.fecha, nombre: ev.nombre,
               trabajado: true, solicitado: false,
-              aprobado: false,                    // 👈 NUEVO
+              aprobado: false,
               fechaSolicitud: null, fechaDisfrute: null,
               sacrificado: false
             });
@@ -4200,11 +4152,10 @@ function onICSSeleccionado(e){
               festivosActualizados++;
             }
           } else {
-            // 👇 AQUÍ estaba el Sitio B
             festivos.push({
               fecha: ev.fecha, nombre: ev.nombre,
               trabajado: true, solicitado: false,
-              aprobado: false,                    // 👈 NUEVO
+              aprobado: false,
               fechaSolicitud: null, fechaDisfrute: null,
               sacrificado: false
             });
@@ -4213,7 +4164,6 @@ function onICSSeleccionado(e){
         });
       }
 
-      // Aplicar personales
       nuevosPersonales.forEach(ev => {
         const yaExiste = diasPersonales.find(d => d.fecha === ev.fecha);
         if(yaExiste){
@@ -4405,7 +4355,7 @@ function guardarNuevoFestivo(){
 
 /* ==================== AVISO CADUCIDAD ==================== */
 async function checkFestivosCaducidad(){
-  const hoy = new Date().toISOString().slice(0,10);
+  const hoy = fechaLocalStr();
   if(safeStorage.get("uberCambioUltimoAvisoFestivos") === hoy) return;
 
   const urgentes = festivos.filter(f => {
@@ -4495,13 +4445,10 @@ function init(){
 
   setTimeout(() => { activarPantallaSiempreActiva(); }, 600);
 
-  // 👇 NUEVO: crear canal de notificaciones con sonido y vibración
   setTimeout(() => { crearCanalNotificacionesZona(); }, 500);
 
-  // Notificación de festivos a punto de caducar (1 vez al día)
   setTimeout(() => { checkFestivosCaducidad(); }, 1500);
 
-  // Archivar años antiguos sin pendientes (silencioso, tras el splash)
   setTimeout(() => {
     try{
       if(archivarAniosAntiguos()) renderDiasTrabajo();
@@ -4728,6 +4675,12 @@ let geoActivo = false;
 let ultimaPosicion = null;
 let zonaActual = null;
 let zonaPendiente = null;
+
+// 👇 NUEVO: control de concurrencia para no perder notificaciones en el gap
+let procesandoZona = false;
+let zonaCandidata = null;
+let zonaCandidataCount = 0;
+const ZONA_CONFIRMACION_MUESTRAS = 2;
 
 function actualizarEstadoGeo(){
   const badge = document.getElementById("geoEstadoBadge");
@@ -4966,7 +4919,6 @@ async function abrirMapaPantalla(){
       setTimeout(() => { if(mapaInstance) mapaInstance.invalidateSize(); }, 200);
       actualizarEstadoGeo();
 
-      // Si ya teníamos una posición guardada, la aplicamos ahora
       if(ultimaPosicion){
         actualizarMapaConPosicion(ultimaPosicion.lat, ultimaPosicion.lon, 0);
       }
@@ -4980,7 +4932,6 @@ async function abrirMapaPantalla(){
 function cerrarMapaPantalla(){
   const p = document.getElementById("mapaPantalla");
   if(p) p.style.display = "none";
-  // Resetear referencias al mapa/marker para que al reabrir se cree uno nuevo
   mapaInstance = null;
   mapaMarker = null;
 }
@@ -5057,7 +5008,6 @@ function puntoEnPoligono(lat, lon, geojson){
   return false;
 }
 
-// Margen alrededor de la ZBE para evitar falsos "fuera" en los bordes
 const BUFFER_ZONA_METROS = 50;
 
 function distanciaSegmentoMetros(lat, lon, lat1, lon1, lat2, lon2){
@@ -5095,7 +5045,7 @@ function distanciaAlPoligono(lat, lon, geojson){
       for(let i = 0; i < anillo.length - 1; i++){
         const d = distanciaSegmentoMetros(lat, lon, anillo[i][1], anillo[i][0], anillo[i+1][1], anillo[i+1][0]);
         if(d < min) min = d;
-        if(min < 1) return min; // atajo: ya estamos pegados al borde
+        if(min < 1) return min;
       }
     }
   }
@@ -5109,7 +5059,6 @@ function detectarZona(lat, lon){
   if(enZBE) return { codigo: "bcn", nombre: "🟢 Zona de trabajo", color: "#4ade80" };
   if(enAMB) return { codigo: "amb", nombre: "🟡 Zona AMB", color: "#fbbf24" };
 
-  // Buffer solo en la ZBE (lo importante es no perder la zona de trabajo por el borde)
   if(!enZBE){
     const d = distanciaAlPoligono(lat, lon, geoZBE);
     if(d < BUFFER_ZONA_METROS){
@@ -5120,19 +5069,57 @@ function detectarZona(lat, lon){
   return { codigo: "fuera", nombre: "🔴 Fuera de zona AMB", color: "#ef4444" };
 }
 
+// 👇 NUEVO: versión robusta (no pierde notificaciones en el gap del watcher)
 async function actualizarNotificacionZona(nuevaZona){
-  if(zonaActual === nuevaZona.codigo) return;
-  const esPrimeraVez = (zonaActual === null);
-  zonaActual = nuevaZona.codigo;
-
-  if(!geoWatcherId){ zonaPendiente = nuevaZona; return; }
-
-  if(!esPrimeraVez){
-    // mostrarToast("Has cambiado a: " + nuevaZona.nombre);  // ❌ ELIMINAR ESTA LÍNEA
-    lanzarNotificacionZona(nuevaZona.nombre);
+  // Si ya estamos procesando un cambio, guardar como pendiente
+  if(procesandoZona){
+    zonaPendiente = nuevaZona;
+    return;
   }
 
-  await reiniciarWatcherConTexto(nuevaZona.nombre);
+  // Si la zona es la actual, resetear candidata
+  if(zonaActual === nuevaZona.codigo){
+    zonaCandidata = null;
+    zonaCandidataCount = 0;
+    return;
+  }
+
+  // Acumular candidata (evita oscilaciones del GPS)
+  if(zonaCandidata === nuevaZona.codigo){
+    zonaCandidataCount++;
+  } else {
+    zonaCandidata = nuevaZona.codigo;
+    zonaCandidataCount = 1;
+  }
+
+  // ¿Tenemos suficientes muestras para confirmar el cambio?
+  if(zonaCandidataCount < ZONA_CONFIRMACION_MUESTRAS) return;
+
+  // ✅ Confirmar cambio
+  procesandoZona = true;
+  try {
+    const esPrimeraVez = (zonaActual === null);
+    zonaActual = nuevaZona.codigo;
+    zonaCandidata = null;
+    zonaCandidataCount = 0;
+
+    if(!esPrimeraVez){
+      lanzarNotificacionZona(nuevaZona.nombre);
+    }
+
+    await reiniciarWatcherConTexto(nuevaZona.nombre);
+  } finally {
+    procesandoZona = false;
+
+    // Si llegó una zona pendiente durante el proceso, procesarla
+    if(zonaPendiente){
+      const zp = zonaPendiente;
+      zonaPendiente = null;
+      if(zp.codigo !== zonaActual){
+        actualizarNotificacionZona(zp);
+      }
+    }
+  }
 }
 
 async function reiniciarWatcherConTexto(texto){
@@ -5157,8 +5144,6 @@ async function reiniciarWatcherConTexto(texto){
       requestPermissions: false,
       stale: false,
       distanceFilter: 15,
-
-      // 🔥 Mismas opciones anti-dormido
       desiredAccuracy: 20,
       stationaryRadius: 25,
       stopOnTerminate: false,
@@ -5180,13 +5165,10 @@ async function reiniciarWatcherConTexto(texto){
 function procesarNuevaPosicion(lat, lon, acc){
   ultimaPosicion = { lat, lon };
 
-  // 👇 Detectar zona SIEMPRE (independiente del mapa)
   const zona = detectarZona(lat, lon);
 
-  // 👇 Notificar SIEMPRE
   actualizarNotificacionZona(zona);
 
-  // 👇 Actualizar la vista del mapa SOLO si está abierto
   if(mapaInstance){
     if(!mapaMarker){
       mapaMarker = L.circleMarker([lat, lon], {
@@ -5233,7 +5215,6 @@ async function iniciarGeolocalizacion(){
     }
     const BG = Cap.Plugins.BackgroundGeolocation;
 
-    // Pedir permisos (ubicación + ubicación background)
     try {
       await BG.requestPermissions({ permissions: ['location'] });
       await BG.requestPermissions({ permissions: ['location', 'backgroundLocation'] });
@@ -5241,9 +5222,11 @@ async function iniciarGeolocalizacion(){
       console.warn('Error pidiendo permisos:', e);
     }
 
-    // Reset zona al arrancar
     zonaActual = null;
     zonaPendiente = null;
+    zonaCandidata = null;
+    zonaCandidataCount = 0;
+    procesandoZona = false;
 
     mostrarToast("🔎 Buscando tu posición...");
     if(navigator.geolocation){
@@ -5260,7 +5243,6 @@ async function iniciarGeolocalizacion(){
       );
     }
 
-    // Parar watcher previo si existe
     if(geoWatcherId){
       try { await BG.removeWatcher({ id: geoWatcherId }); } catch(e){}
       geoWatcherId = null;
@@ -5281,8 +5263,6 @@ async function iniciarGeolocalizacion(){
       requestPermissions: false,
       stale: false,
       distanceFilter: 30,
-
-      // 🔥 CLAVES PARA QUE NO SE DUERMA
       desiredAccuracy: 20,
       stationaryRadius: 25,
       stopOnTerminate: false,
@@ -5330,48 +5310,12 @@ async function detenerGeolocalizacion(){
   }
 }
 
-let listaSonidos = null;   // caché del manifest
+let listaSonidos = null;
 let audioActual = null;
-
-
-
-function lanzarIntentoGeotab(n, url){
-  const res = document.getElementById("geoRes" + n);
-  if(res) res.innerHTML = `<span style="color:#fbbf24">⏳ lanzado… mira Geotab</span>`;
-
-  try {
-    window.location.href = url;
-  } catch(e){
-    if(res) res.innerHTML = `<span style="color:#ef4444">❌ error al lanzar</span>`;
-    return;
-  }
-
-  // Cuando el usuario vuelve a la app, marcamos que "abrió"
-  const onVisible = () => {
-    if(document.visibilityState === "visible"){
-      document.removeEventListener("visibilitychange", onVisible);
-      if(res){
-        res.innerHTML = `
-          <span style="color:#4ade80;font-weight:800">✅ abrió Geotab</span><br>
-          <span style="color:#fbbf24;font-size:11px">👀 ¿Qué pantalla viste? Anótalo y pasa al siguiente</span>
-        `;
-      }
-    }
-  };
-  document.addEventListener("visibilitychange", onVisible);
-}
-
-function cerrarTestGeotab(){
-  const log = document.getElementById("geotabTestLog");
-  const btn = document.getElementById("geotabTestBtn");
-  if(log){ log.innerHTML = ""; log.style.display = "none"; }
-  if(btn){ btn.style.display = "inline-block"; btn.disabled = false; }
-}
 
 function abrirGeotabDrive(){
   try { detenerAudioActual(); } catch(e){}
 
-  // El scheme correcto es geotabdrive://
   const url = "geotabdrive://";
 
   try{
@@ -5467,7 +5411,6 @@ async function renderSonidosPanel(){
     return;
   }
 
-  // Botón PARAR + botón Geotab
   let html = `
     <button type="button" onclick="detenerAudioActual()"
       style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
@@ -5524,7 +5467,6 @@ async function renderSonidosPanel(){
 function reproducirAudio(url, boton){
   detenerAudioActual();
 
-  // Pedir foco de audio → pausa Spotify/música
   try {
     if(window.AndroidAudio && window.AndroidAudio.requestAudioFocus){
       window.AndroidAudio.requestAudioFocus();
@@ -5824,7 +5766,6 @@ async function activarPantallaSiempreActiva(){
   }
 }
 
-// Reintentar cuando la app vuelve al primer plano (Android suelta el wakelock)
 document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible'){
     activarPantallaSiempreActiva();
@@ -5855,7 +5796,6 @@ function saveHistorialOps(h){
 function añadirHistorialOp(datos){
   const h = loadHistorialOps();
   h.push(datos);
-  // Limitar a las últimas 500 operaciones (no llenar localStorage)
   if(h.length > 500) h.splice(0, h.length - 500);
   saveHistorialOps(h);
 }
@@ -5866,7 +5806,7 @@ function abrirHistorialOpsPantalla(){
 
   const ops = loadHistorialOps();
   const total = ops.length;
-  const reverse = [...ops].reverse(); // más recientes arriba
+  const reverse = [...ops].reverse();
 
   let html = `
     <div style="background:#1e293b;border-radius:16px;padding:18px;max-width:480px;width:100%;border:1px solid #334155;max-height:88vh;overflow-y:auto">
@@ -5883,7 +5823,6 @@ function abrirHistorialOpsPantalla(){
       </div>
     `;
   } else {
-    // Contadores resumen
     let sumaPrecios = 0, sumaPropinas = 0;
     ops.forEach(o => {
       sumaPrecios += o.precio || 0;
@@ -5907,7 +5846,6 @@ function abrirHistorialOpsPantalla(){
       </div>
     `;
 
-    // Lista
     reverse.forEach(o => {
       const d = new Date(o.fecha);
       const fecha = d.toLocaleDateString("es-ES", { day:"2-digit", month:"2-digit", year:"2-digit" });

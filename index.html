@@ -42,7 +42,6 @@
 </div>
 
 <div class="app">
-  <!-- ⬇️⬇️⬇️ CAMBIO 1: HEADER CON BOTONES PEQUEÑOS ⬇️⬇️⬇️ -->
   <header>
     <h1 class="title">Calculadora de Cambio</h1>
     <div style="display:flex;gap:4px;flex-shrink:0;align-items:center">
@@ -63,7 +62,6 @@
                cursor:pointer;line-height:1;-webkit-tap-highlight-color:transparent">☰</button>
     </div>
   </header>
-  <!-- ⬆️⬆️⬆️ FIN CAMBIO 1 ⬆️⬆️⬆️ -->
 
   <div class="cash-summary-card" onclick="abrirHistorialOpsPantalla()" style="cursor:pointer">
     <div class="summary-top">
@@ -126,7 +124,6 @@
     <button style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer" onclick="toggleMenu()">✕</button>
   </div>
 
-  <!-- ============ PESTAÑAS ============ -->
   <style>
     .drawer-tab{
       flex:1;
@@ -192,7 +189,6 @@
     </button>
   </div>
 
-  <!-- ============ CONTENIDO: CAJA ============ -->
   <div id="drawerTabCaja">
     <div class="tip-total-box" id="totalTipDisplay" style="margin-bottom:10px">💶 Propinas: 0,00 €</div>
 
@@ -209,7 +205,6 @@
     <div id="panelInventario"></div>
   </div>
 
-  <!-- ============ CONTENIDO: HERRAMIENTAS ============ -->
   <div id="drawerTabHerramientas" style="display:none">
     <button type="button" onclick="toggleMenu();abrirCierrePantalla()"
       style="width:100%;display:flex;align-items:center;gap:12px;padding:16px;background:linear-gradient(135deg,#1e293b,#0f172a);border:2px solid #334155;border-radius:12px;color:#fff;cursor:pointer;font-size:15px;font-weight:800;text-align:left;margin-bottom:8px">
@@ -245,10 +240,8 @@
     </button>
   </div>
 
-  <!-- ============ CONTENIDO: SISTEMA ============ -->
   <div id="drawerTabSistema" style="display:none">
 
-    <!-- ⬇️⬇️⬇️ CAMBIO 2: PANEL RESET CON DESACTIVACIÓN (0) ⬇️⬇️⬇️ -->
     <div id="resetPanelBox" style="background:#064e3b;border:2px solid #059669;border-radius:12px;padding:12px;margin-bottom:14px;text-align:center;transition:all 0.3s">
       <div id="resetPanelTitle" style="font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px">🔄 RESET AUTOMÁTICO DE PROPINAS</div>
       <div id="resetPanelSub" style="font-size:12px;color:#a7f3d0;margin-top:6px">Se reseteará el día</div>
@@ -262,7 +255,6 @@
         ⏭️ Saltar próximo reset
       </button>
     </div>
-    <!-- ⬆️⬆️⬆️ FIN CAMBIO 2 ⬆️⬆️⬆️ -->
 
     <div style="font-size:11px;color:#f87171;font-weight:900;letter-spacing:0.8px;text-align:center;margin-bottom:12px">
       ⚠️ ACCIONES PELIGROSAS
@@ -525,14 +517,12 @@
   </div>
 </div>
 
-<!-- ⬇️⬇️⬇️ CAMBIO 3: BOTÓN ANDROID AUTO EN PANTALLA DE PRECIO ⬇️⬇️⬇️ -->
 <div id="precioPantalla" onclick="cerrarPrecio()" style="position:fixed;inset:0;background:#0f172a;z-index:400;display:none;align-items:center;justify-content:center;padding:16px;cursor:pointer;">
   <div style="text-align:center;user-select:none;width:100%;">
     <div id="precioTitulo" style="font-size:clamp(28px, 8vw, 56px);color:#94a3b8;font-weight:900;letter-spacing:6px;margin-bottom:20px;">A PAGAR</div>
     <div id="precioGrande" style="font-size:clamp(90px, 32vw, 260px);font-weight:900;color:#38bdf8;line-height:1;word-break:break-word;margin:0;">0,00 €</div>
     <div style="font-size:clamp(14px, 3.5vw, 22px);color:#64748b;margin-top:28px;">Toca en cualquier sitio para cerrar</div>
 
-    <!-- Botón: enviar notificación a Android Auto -->
     <button type="button" id="btnEnviarAA" onclick="event.stopPropagation(); enviarPrecioAAndroidAuto()"
       style="margin-top:32px;display:inline-flex;align-items:center;gap:10px;
              background:linear-gradient(135deg,#0c4a6e,#075985);
@@ -545,7 +535,6 @@
     </button>
   </div>
 </div>
-<!-- ⬆️⬆️⬆️ FIN CAMBIO 3 ⬆️⬆️⬆️ -->
 
 <script src="app.js"></script>
 <script>

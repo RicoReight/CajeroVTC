@@ -135,26 +135,29 @@ async function enviarPrecioAAndroidAuto(){
       }
     }
 
-    // 2. Canal silencioso (no interrumpe música ni audio)
+        // 2. Canal nuevo con importancia MÁXIMA (necesario para Android Auto)
     try {
       await LN.createChannel({
-        id: 'precio-viaje',
+        id: 'precio-viaje-v2',          // ID NUEVO para forzar la creación
         name: 'Precio del Viaje',
         description: 'Precio a pagar mostrado en Android Auto',
-        importance: 4,     // HUN: aparece como aviso flotante
-        visibility: 1,     // Público (visible en pantalla bloqueada)
-        sound: null,       // Sin sonido
+        importance: 5,                  // 5 = IMPORTANCE_HIGH → HUN en el coche
+        visibility: 1,
+        sound: null,
         vibration: false
       });
-    } catch(e){ /* canal ya existe */ }
+    } catch(e){ /* canal ya existe (no debería, es nuevo) */ }
 
-    // 3. Enviar notificación
+    // 3. Borrar la anterior y enviar con el canal nuevo
+    try { await LN.cancel({ notifications: [{ id: 3001 }] }); } catch(e){}
+    await new Promise(r => setTimeout(r, 200));
+
     await LN.schedule({
       notifications: [{
-        id: 3001,                          // ID fijo → se sobrescribe si repites
+        id: 3001,
         title: 'Precio del viaje',
         body: `A pagar: ${texto}`,
-        channelId: 'precio-viaje',
+        channelId: 'precio-viaje-v2',   // 👈 canal nuevo
         smallIcon: 'ic_stat_icon_config_sample',
         schedule: { at: new Date(), allowWhileIdle: true }
       }]
@@ -4937,17 +4940,13 @@ function detectarZona(lat, lon){
 
 async function actualizarNotificacionZona(nuevaZona){
   if(zonaActual === nuevaZona.codigo) return;
-
   const esPrimeraVez = (zonaActual === null);
   zonaActual = nuevaZona.codigo;
 
-  if(!geoWatcherId){
-    zonaPendiente = nuevaZona;
-    return;
-  }
+  if(!geoWatcherId){ zonaPendiente = nuevaZona; return; }
 
   if(!esPrimeraVez){
-    mostrarToast("Has cambiado a: " + nuevaZona.nombre);
+    // mostrarToast("Has cambiado a: " + nuevaZona.nombre);  // ❌ ELIMINAR ESTA LÍNEA
     lanzarNotificacionZona(nuevaZona.nombre);
   }
 
@@ -5306,15 +5305,6 @@ async function renderSonidosPanel(){
              letter-spacing:0.5px;cursor:pointer;margin-bottom:12px">
       <span style="font-size:22px">🚗</span>
       <span>ABRIR GEOTAB DRIVE</span>
-    </button>
-
-    <button type="button" id="geotabTestBtn" onclick="probarDeepLinksGeotab()"
-      style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
-             background:#1e293b;border:1px dashed #475569;border-radius:14px;
-             padding:12px;color:#64748b;font-size:13px;font-weight:700;
-             letter-spacing:0.5px;cursor:pointer;margin-bottom:16px">
-      <span>🧪</span>
-      <span>Probar deep links</span>
     </button>
   `;
 

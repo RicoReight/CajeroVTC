@@ -14,6 +14,7 @@ const ARRANQUE={10000:0,5000:0,2000:2,1000:3,500:4,200:5,100:8,50:8,20:15,10:15,
 const FACTOR_LLENADO=0.7;
 let stock=loadStock(),totalTips=loadTips(),reservaMinima=loadReserva(),topesRecibir=loadTopes();
 let diaReset=loadDiaReset(),ultimoResetPropinas=loadUltimoResetPropinas(),statsOps=loadStats();
+let resetSkip = parseInt(safeStorage.get("uberCambioResetSkip")) || 0;
 let modoEdicion = safeStorage.get("uberCambioModoEdicion") === "1";
 let received=[],pendingTransaction=null,stockInputs=[],reservaInputs=[],summaryTimer=null,precioInterval=null,precioActual=0;
 let propinasDelCambio = {};
@@ -77,6 +78,21 @@ function resetStats(){
     manualOut:new Array(denominations.length).fill(0)
   };
   saveStats();
+}
+
+function saveResetSkip(){
+  safeStorage.set("uberCambioResetSkip", String(resetSkip));
+}
+
+function calcularProximoReset(){
+  if(diaReset === 0) return null;
+  if(!ultimoResetPropinas) return null;
+
+  const last = new Date(ultimoResetPropinas);
+  let cand = new Date(last.getFullYear(), last.getMonth(), diaReset, 0, 0, 0);
+  if(cand <= last) cand.setMonth(cand.getMonth() + 1);
+  cand.setMonth(cand.getMonth() + resetSkip);   // Aplicar saltos pendientes
+  return cand;
 }
 
 function saveStock(){safeStorage.set("uberCambioStock",JSON.stringify(stock));scheduleCashSummary()}
@@ -485,7 +501,6 @@ function renderResetPanel(){
 
   if(box && title && sub && foot){
     if(diaReset === 0){
-      // 🔴 DESACTIVADO
       box.style.background = "linear-gradient(135deg,#7f1d1d,#991b1b)";
       box.style.borderColor = "#ef4444";
       title.textContent = "🔕 RESET AUTOMÁTICO DESACTIVADO";
@@ -499,7 +514,6 @@ function renderResetPanel(){
         inp.style.color = "#f87171";
       }
     } else {
-      // 🟢 ACTIVO
       box.style.background = "#064e3b";
       box.style.borderColor = "#059669";
       title.textContent = "🔄 RESET AUTOMÁTICO DE PROPINAS";
@@ -515,6 +529,51 @@ function renderResetPanel(){
     }
   }
 
+  // 📅 PRÓXIMO RESET
+  const proxEl = document.getElementById("resetProximo");
+  if(proxEl){
+    if(diaReset === 0){
+      proxEl.innerHTML = "🔕 Sin reset programado";
+      proxEl.style.color = "#fca5a5";
+      proxEl.style.background = "#7f1d1d";
+      proxEl.style.borderColor = "#ef4444";
+    } else {
+      const prox = calcularProximoReset();
+      if(!prox){
+        proxEl.innerHTML = "📅 Sin fecha (configura un día)";
+        proxEl.style.color = "#94a3b8";
+        proxEl.style.background = "#0f172a";
+        proxEl.style.borderColor = "#334155";
+      } else {
+        const meses = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+        const ahora = new Date();
+        const dias = Math.ceil((prox - ahora) / (1000*60*60*24));
+        const inminente = dias <= 1;
+        const color = inminente ? "#fbbf24" : "#4ade80";
+
+        let texto = "📅 Próximo reset: <b style='color:" + color + ";font-size:14px'>" +
+          prox.getDate() + " de " + meses[prox.getMonth()] + " de " + prox.getFullYear() +
+          "</b>";
+
+        if(dias >= 0){
+          texto += " <span style='color:#94a3b8;font-size:11px'>· en " + dias + " día" + (dias !== 1 ? "s" : "") + "</span>";
+        } else {
+          texto += " <span style='color:#f87171;font-size:11px'>· atrasado</span>";
+        }
+
+        if(resetSkip > 0){
+          texto += " <span style='color:#a78bfa;font-size:11px'>· ⏭️ saltado x" + resetSkip + "</span>";
+        }
+
+        proxEl.innerHTML = texto;
+        proxEl.style.color = "#e2e8f0";
+        proxEl.style.background = "#0f172a";
+        proxEl.style.borderColor = inminente ? "#fbbf24" : "#334155";
+      }
+    }
+  }
+
+  // Última vez
   const el = document.getElementById("resetUltimaVez");
   if(el){
     if(ultimoResetPropinas){
@@ -595,16 +654,29 @@ function saltarProximoReset(){
     mostrarToast("ℹ️ El reset ya está desactivado");
     return;
   }
+
+  const prox = calcularProximoReset();
+  if(!prox){
+    mostrarToast("ℹ️ No hay reset programado");
+    return;
+  }
+
+  const meses = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const siguiente = new Date(prox.getTime());
+  siguiente.setMonth(siguiente.getMonth() + 1);
+
   if(!confirm(
     "⏭️ SALTAR PRÓXIMO RESET\n\n" +
-    "Las propinas NO se resetearán hasta el mes que viene.\n\n" +
-    "Útil si este mes no quieres resetear (vacaciones, mes corto, etc)."
+    "Se saltará el de " + prox.getDate() + " de " + meses[prox.getMonth()] + ".\n" +
+    "El siguiente será " + siguiente.getDate() + " de " + meses[siguiente.getMonth()] + ".\n\n" +
+    "Las propinas NO se resetearán hasta entonces.\n\n" +
+    "¿Saltar?"
   )) return;
 
-  ultimoResetPropinas = new Date().toISOString();
-  saveUltimoResetPropinas();
+  resetSkip++;
+  saveResetSkip();
   renderResetPanel();
-  mostrarToast("⏭️ Reset saltado hasta el mes que viene");
+  mostrarToast("⏭️ Reset saltado. Nuevo: " + siguiente.getDate() + " de " + meses[siguiente.getMonth()]);
 }
 
 function resetCuenta(){if(!confirm("¿Poner el INVENTARIO (caja) a CERO?\nLas propinas NO se tocan."))return;stock=new Array(denominations.length).fill(0);saveStock();renderStockList();if(received.length)calculate()}
@@ -623,7 +695,6 @@ function loadCierres(){const s=safeStorage.get("uberCambioCierres");if(s){try{re
 function saveCierres(c){safeStorage.set("uberCambioCierres",JSON.stringify(c))}
 
 function checkAutoResetPropinas(){
-  // 🔕 Si está desactivado, no hacer nada
   if(diaReset === 0) return;
 
   if(!ultimoResetPropinas){
@@ -631,12 +702,12 @@ function checkAutoResetPropinas(){
     saveUltimoResetPropinas();
     return;
   }
-  const last = new Date(ultimoResetPropinas);
-  const now = new Date();
-  const cand = new Date(last.getFullYear(), last.getMonth(), diaReset, 0, 0, 0);
-  if(cand <= last) cand.setMonth(cand.getMonth() + 1);
 
-  if(now >= cand){
+  const prox = calcularProximoReset();
+  if(!prox) return;
+
+  const now = new Date();
+  if(now >= prox){
     const h = loadHistoricoResets();
     h.push({ fecha: now.toISOString(), propinas: totalTips });
     saveHistoricoResets(h);
@@ -647,6 +718,10 @@ function checkAutoResetPropinas(){
 
     ultimoResetPropinas = now.toISOString();
     saveUltimoResetPropinas();
+
+    // Resetear skip counter (ya se aplicó)
+    resetSkip = 0;
+    saveResetSkip();
 
     renderStockList();
     renderResetPanel();

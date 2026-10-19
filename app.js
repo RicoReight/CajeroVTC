@@ -5935,8 +5935,12 @@ function renderHucha(){
       <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1e293b">
         <div class="${gc}" style="flex-shrink:0;font-size:12px">${d.short}</div>
         <div style="flex:1;font-size:14px;color:#fff;font-weight:700">${d.n}</div>
-        <input type="number" min="0" value="${n}" onchange="actualizarHucha(${i}, this.value)" 
-          style="width:70px;font-size:16px;font-weight:900;padding:8px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#4ade80;text-align:center;outline:none">
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <button type="button" onclick="huchaStep(${i}, -1)" style="width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:22px;font-weight:800;cursor:pointer">−</button>
+          <input type="number" min="0" value="${n}" onchange="actualizarHucha(${i}, this.value)" 
+            style="width:56px;font-size:16px;font-weight:900;padding:8px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#4ade80;text-align:center;outline:none">
+          <button type="button" onclick="huchaStep(${i}, 1)" style="width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:22px;font-weight:800;cursor:pointer">+</button>
+        </div>
       </div>
     `;
   });
@@ -5950,8 +5954,12 @@ function renderHucha(){
       <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1e293b">
         <div class="${gc}" style="flex-shrink:0;font-size:12px">${d.short}</div>
         <div style="flex:1;font-size:14px;color:#fff;font-weight:700">${d.n}</div>
-        <input type="number" min="0" value="${n}" onchange="actualizarHucha(${i}, this.value)" 
-          style="width:70px;font-size:16px;font-weight:900;padding:8px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#4ade80;text-align:center;outline:none">
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <button type="button" onclick="huchaStep(${i}, -1)" style="width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:22px;font-weight:800;cursor:pointer">−</button>
+          <input type="number" min="0" value="${n}" onchange="actualizarHucha(${i}, this.value)" 
+            style="width:56px;font-size:16px;font-weight:900;padding:8px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#4ade80;text-align:center;outline:none">
+          <button type="button" onclick="huchaStep(${i}, 1)" style="width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:22px;font-weight:800;cursor:pointer">+</button>
+        </div>
       </div>
     `;
   });
@@ -5968,6 +5976,12 @@ function renderHucha(){
   html += `<button type="button" onclick="cerrarHuchaPantalla()" style="width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:700;font-size:15px;cursor:pointer">✖ Volver</button>`;
 
   cont.innerHTML = html;
+}
+
+function huchaStep(idx, delta){
+  hucha[idx] = Math.max(0, (hucha[idx] || 0) + delta);
+  saveHucha();
+  renderHucha(); // Refrescar para actualizar el número y el total
 }
 
 function actualizarHucha(idx, val){

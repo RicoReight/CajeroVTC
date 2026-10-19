@@ -4826,6 +4826,7 @@ let geoActivo = false;
 let ultimaPosicion = null;
 let zonaActual = null;
 let zonaPendiente = null;
+let burbujaActiva = false; 
 
 // 👇 NUEVO: control de concurrencia para no perder notificaciones en el gap
 let procesandoZona = false;
@@ -5258,6 +5259,10 @@ async function actualizarNotificacionZona(nuevaZona){
       lanzarNotificacionZona(nuevaZona.nombre);
     }
 
+    // 👇 NUEVO: actualizar color de la burbuja
+    const st = estiloDeZona(nuevaZona.codigo);
+    actualizarBurbuja(st.emoji, st.color);
+
     await reiniciarWatcherConTexto(nuevaZona.nombre);
   } finally {
     procesandoZona = false;
@@ -5356,6 +5361,110 @@ function probarCoordenadasManuales(){
   actualizarMapaConPosicion(lat, lon, 0);
 }
 
+/* ==================== BURBUJA FLOTANTE ==================== */
+
+function generarBurbujaBase64(emoji, colorFondo){
+  try {
+    const size = 120;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+
+    ctx.beginPath();
+    ctx.arc(size/2, size/2, size/2 - 3, 0, Math.PI * 2);
+    ctx.fillStyle = colorFondo;
+    ctx.fill();
+
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = "#ffffff";
+    ctx.stroke();
+
+    ctx.font = "bold " + Math.floor(size * 0.55) + "px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(emoji, size/2, size/2 + 4);
+
+    return canvas.toDataURL("image/png").split(",")[1];
+  } catch(e){
+    console.warn("Error generando base64:", e);
+    return null;
+  }
+}
+
+async function crearBurbuja(emojiInicial, colorInicial){
+  try {
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.Plugins || !Cap.Plugins.FloatingBubble){
+      console.warn("FloatingBubble no disponible");
+      return false;
+    }
+    const FB = Cap.Plugins.FloatingBubble;
+
+    try {
+      const perm = await FB.checkPermission();
+      if(perm.floatingBubble !== "granted"){
+        const req = await FB.requestPermission();
+        if(req.floatingBubble !== "granted"){
+          mostrarToast("⚠️ Permiso de burbuja denegado. Actívalo en Ajustes.");
+          return false;
+        }
+      }
+    } catch(e){
+      console.warn("No se pudo comprobar permiso:", e);
+    }
+
+    try { await FB.removeFloatingBubble(); } catch(e){}
+
+    const b64 = generarBurbujaBase64(emojiInicial, colorInicial);
+    const opts = { theme: "dark" };
+    if(b64) opts.imageBase64 = b64;
+    await FB.showFloatingBubble(opts);
+
+    burbujaActiva = true;
+    return true;
+  } catch(e){
+    console.warn("Error creando burbuja:", e);
+    return false;
+  }
+}
+
+async function actualizarBurbuja(emoji, colorFondo){
+  try {
+    if(!burbujaActiva) return;
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.Plugins || !Cap.Plugins.FloatingBubble) return;
+    const FB = Cap.Plugins.FloatingBubble;
+    const b64 = generarBurbujaBase64(emoji, colorFondo);
+    if(b64){
+      await FB.setImage({ imageBase64: b64 });
+    }
+  } catch(e){
+    console.warn("Error actualizando burbuja:", e);
+  }
+}
+
+async function quitarBurbuja(){
+  try {
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.Plugins || !Cap.Plugins.FloatingBubble) return;
+    const FB = Cap.Plugins.FloatingBubble;
+    await FB.removeFloatingBubble();
+    burbujaActiva = false;
+  } catch(e){
+    console.warn("Error quitando burbuja:", e);
+  }
+}
+
+function estiloDeZona(codigo){
+  if(codigo === "bcn") return { emoji: "🟢", color: "#14532d" };
+  if(codigo === "amb") return { emoji: "🟡", color: "#78350f" };
+  return { emoji: "🔴", color: "#7f1d1d" };
+}
+
+/* ==================== FIN BURBUJA ==================== */
+
+
 /* ==================== GEOLOCALIZACIÓN BACKGROUND ==================== */
 async function iniciarGeolocalizacion(){
   try {
@@ -5427,6 +5536,7 @@ async function iniciarGeolocalizacion(){
 
     geoActivo = true;
     actualizarEstadoGeo();
+    await crearBurbuja("🟢", "#14532d");
 
     if(zonaPendiente){
       const zp = zonaPendiente;
@@ -5452,6 +5562,8 @@ async function detenerGeolocalizacion(){
       geoWatcherId = null;
       mostrarToast('⏹️ Rastreo detenido');
     }
+    // 👇 NUEVO: quitar burbuja
+    await quitarBurbuja();
     geoActivo = false;
     actualizarEstadoGeo();
   } catch(e){

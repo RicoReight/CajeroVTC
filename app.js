@@ -5766,6 +5766,18 @@ function renderPinesResultados(){
 
   const exacto = q ? pinesLista.find(x => x.mat.toUpperCase() === q) : null;
 
+  const svgCombustible = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M3 13h10"/><path d="M13 8h2a2 2 0 0 1 2 2v6a2 2 0 0 0 4 0V9l-3-3"/></svg>`;
+  const svgBarca = `<svg viewBox="0 0 20 13" width="18" height="12" style="display:inline-block;vertical-align:middle;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,0.35)"><rect width="20" height="13" fill="#004d98"/><rect x="4" width="4" height="13" fill="#a50044"/><rect x="12" width="4" height="13" fill="#a50044"/></svg>`;
+
+  const styleDefault = "background:#1e293b;border:2px solid #475569;color:#fff";
+  const styleRojo    = "background:#7f1d1d;border:2px solid #ef4444;color:#fff";
+  const styleVerde   = "background:#14532d;border:2px solid #22c55e;color:#fff";
+
+  // Combustible: rojo si NO tiene (lo demás default)
+  // Barça: verde si SÍ tiene (lo demás default)
+  const styleComb  = cb => cb ? styleDefault : styleRojo;
+  const styleBarca = pb => pb ? styleVerde   : styleDefault;
+
   let html = "";
 
   if(exacto){
@@ -5779,12 +5791,12 @@ function renderPinesResultados(){
         <div style="font-size:56px;font-weight:900;color:#4ade80;letter-spacing:6px;margin:4px 0 14px;line-height:1">${exacto.pin}</div>
         <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:14px">
           <button type="button" onclick="togglePinCombustible('${exacto.mat}')"
-            style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;border:2px solid ${cb?'#22c55e':'#475569'};background:${cb?'#14532d':'#0f172a'};color:${cb?'#4ade80':'#94a3b8'};font-weight:800;font-size:13px;cursor:pointer">
-            ⛽ ${cb?'Sí':'No'} combustible
+            style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;${styleComb(cb)};font-weight:900;font-size:14px;cursor:pointer">
+            ${svgCombustible} <span>${cb?'Sí':'NO'} tarjeta combustible</span>
           </button>
           <button type="button" onclick="togglePinBarca('${exacto.mat}')"
-            style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;border:2px solid ${pb?'#ef4444':'#475569'};background:${pb?'#450a0a':'#0f172a'};color:${pb?'#fca5a5':'#94a3b8'};font-weight:800;font-size:13px;cursor:pointer">
-            🔵🔴 ${pb?'Sí':'No'} Barça
+            style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;${styleBarca(pb)};font-weight:900;font-size:14px;cursor:pointer">
+            ${svgBarca} <span>${pb?'Sí':'No'} Barça</span>
           </button>
         </div>
         <button type="button" onclick="copiarPin('${exacto.pin}')" style="background:#10b981;color:#0f172a;border:none;border-radius:10px;padding:10px 18px;font-weight:900;font-size:14px;cursor:pointer">📋 Copiar PIN</button>
@@ -5800,10 +5812,10 @@ function renderPinesResultados(){
     html += `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #1e293b">
         <div style="flex:1;min-width:0;font-size:15px;color:#fff;font-weight:800;letter-spacing:1px">${x.mat}</div>
-        <button type="button" onclick="togglePinCombustible('${x.mat}')" title="Combustible"
-          style="width:34px;height:34px;padding:0;border-radius:8px;border:2px solid ${cb?'#22c55e':'#334155'};background:${cb?'#14532d':'#0f172a'};color:${cb?'#4ade80':'#475569'};font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">${cb?'✓':'⛽'}</button>
-        <button type="button" onclick="togglePinBarca('${x.mat}')" title="Pintura Barça"
-          style="width:34px;height:34px;padding:0;border-radius:8px;border:2px solid ${pb?'#ef4444':'#334155'};background:${pb?'#450a0a':'#0f172a'};color:${pb?'#fca5a5':'#475569'};font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">${pb?'✓':'🎨'}</button>
+        <button type="button" onclick="togglePinCombustible('${x.mat}')" title="Combustible: ${cb?'SÍ':'NO'}"
+          style="width:38px;height:38px;padding:0;border-radius:8px;${styleComb(cb)};cursor:pointer;display:flex;align-items:center;justify-content:center">${svgCombustible}</button>
+        <button type="button" onclick="togglePinBarca('${x.mat}')" title="Pintura Barça: ${pb?'SÍ':'NO'}"
+          style="width:38px;height:38px;padding:0;border-radius:8px;${styleBarca(pb)};cursor:pointer;display:flex;align-items:center;justify-content:center">${svgBarca}</button>
         <div style="font-size:18px;font-weight:900;color:#38bdf8;letter-spacing:3px">${x.pin}</div>
         <button type="button" onclick="editarPin('${x.mat}')" style="background:#334155;color:#94a3b8;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">✏️</button>
         <button type="button" onclick="borrarPin('${x.mat}')" style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">🗑️</button>
@@ -5871,14 +5883,15 @@ function abrirModalPin(existente){
   m.id = "modalPinEditar";
   m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px";
 
-  const renderCheck = (act, kind) => {
-    const isComb = kind === "comb";
-    const on = act;
-    const borderC = isComb ? "#22c55e" : "#ef4444";
-    const bgOn = isComb ? "#14532d" : "#450a0a";
-    const txOn = isComb ? "#4ade80" : "#fca5a5";
-    return `border:2px solid ${on?borderC:'#475569'};background:${on?bgOn:'#0f172a'};color:${on?txOn:'#94a3b8'}`;
-  };
+  const svgCombustible = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M3 13h10"/><path d="M13 8h2a2 2 0 0 1 2 2v6a2 2 0 0 0 4 0V9l-3-3"/></svg>`;
+  const svgBarca = `<svg viewBox="0 0 20 13" width="26" height="17" style="display:inline-block;vertical-align:middle;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,0.35)"><rect width="20" height="13" fill="#004d98"/><rect x="4" width="4" height="13" fill="#a50044"/><rect x="12" width="4" height="13" fill="#a50044"/></svg>`;
+
+  const styleDefault = "background:#1e293b;border:2px solid #475569;color:#fff";
+  const styleRojo    = "background:#7f1d1d;border:2px solid #ef4444;color:#fff";
+  const styleVerde   = "background:#14532d;border:2px solid #22c55e;color:#fff";
+
+  const styleComb  = cb ? styleDefault : styleRojo;   // rojo si NO tiene
+  const styleBarca = pb ? styleVerde   : styleDefault; // verde si SÍ tiene
 
   m.innerHTML = `
     <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:380px;width:100%;border:1px solid #334155">
@@ -5892,15 +5905,17 @@ function abrirModalPin(existente){
       <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">PIN (4 dígitos)</div>
       <input type="text" id="pinEditPin" value="${existente ? existente.pin : ""}" placeholder="Ej: 8387" maxlength="4" inputmode="numeric" style="width:100%;font-size:28px;font-weight:900;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#4ade80;margin-bottom:16px;outline:none;box-sizing:border-box;text-align:center;letter-spacing:8px">
 
-      <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:8px">EXTRAS</div>
+      <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:8px">EXTRAS · pulsa para cambiar</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
         <button type="button" id="pinCombBtn" onclick="toggleModalCheck('comb')"
-          style="padding:14px 8px;border-radius:10px;${renderCheck(cb,'comb')};font-weight:900;cursor:pointer;font-size:14px">
-          ⛽ Combustible
+          style="padding:14px 8px;border-radius:10px;${styleComb};font-weight:900;cursor:pointer;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px">
+          ${svgCombustible}
+          <span>Combustible</span>
         </button>
         <button type="button" id="pinBarcaBtn" onclick="toggleModalCheck('barca')"
-          style="padding:14px 8px;border-radius:10px;${renderCheck(pb,'barca')};font-weight:900;cursor:pointer;font-size:14px">
-          🔵🔴 Barça
+          style="padding:14px 8px;border-radius:10px;${styleBarca};font-weight:900;cursor:pointer;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:6px">
+          ${svgBarca}
+          <span>Barça</span>
         </button>
       </div>
 
@@ -5914,7 +5929,6 @@ function abrirModalPin(existente){
   document.body.appendChild(m);
   m.addEventListener("click", (e) => { if(e.target === m) cerrarModalPin(); });
 
-  // Estado temporal del modal
   window.__pinModalState = { comb: cb, barca: pb };
 
   setTimeout(() => {
@@ -5927,19 +5941,27 @@ function toggleModalCheck(kind){
   if(!window.__pinModalState) window.__pinModalState = { comb:false, barca:false };
   window.__pinModalState[kind] = !window.__pinModalState[kind];
   const st = window.__pinModalState;
+
+  const styleDefault = { bg:'#1e293b', border:'#475569' };
+  const styleRojo    = { bg:'#7f1d1d', border:'#ef4444' };
+  const styleVerde   = { bg:'#14532d', border:'#22c55e' };
+
   const comb = document.getElementById("pinCombBtn");
   const barca = document.getElementById("pinBarcaBtn");
+
   if(comb){
-    const on = st.comb;
-    comb.style.border = `2px solid ${on?'#22c55e':'#475569'}`;
-    comb.style.background = on ? '#14532d' : '#0f172a';
-    comb.style.color = on ? '#4ade80' : '#94a3b8';
+    // Combustible: ON = default · OFF = rojo
+    const s = st.comb ? styleDefault : styleRojo;
+    comb.style.background = s.bg;
+    comb.style.border = `2px solid ${s.border}`;
+    comb.style.color = '#fff';
   }
   if(barca){
-    const on = st.barca;
-    barca.style.border = `2px solid ${on?'#ef4444':'#475569'}`;
-    barca.style.background = on ? '#450a0a' : '#0f172a';
-    barca.style.color = on ? '#fca5a5' : '#94a3b8';
+    // Barça: ON = verde · OFF = default
+    const s = st.barca ? styleVerde : styleDefault;
+    barca.style.background = s.bg;
+    barca.style.border = `2px solid ${s.border}`;
+    barca.style.color = '#fff';
   }
 }
 

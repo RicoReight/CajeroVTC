@@ -2450,12 +2450,13 @@ function importInventory(file){
         saveVacacionesAsignados();
       }
       if(Array.isArray(data.pines)){
+        // 👇 CAMBIO AQUÍ: combustible default TRUE, pinturaBarca default FALSE
         pinesLista = data.pines.filter(x => x && x.mat && x.pin).map(x => ({
-        mat: x.mat,
-        pin: x.pin,
-        combustible: !!x.combustible,
-        pinturaBarca: !!x.pinturaBarca
-      }));
+          mat: x.mat,
+          pin: x.pin,
+          combustible: x.combustible !== false,
+          pinturaBarca: !!x.pinturaBarca
+        }));
         savePines();
       }
       if(Array.isArray(data.historialOps)){
@@ -5677,34 +5678,34 @@ function detenerAudioActual(){
 
 /* ==================== PINs TARJETAS ==================== */
 const PINES_DEFAULT = [
-  { mat:"1204NDM", pin:"9611", combustible:false, pinturaBarca:false },
-  { mat:"2921NDH", pin:"1801", combustible:false, pinturaBarca:false },
-  { mat:"7205NDM", pin:"7128", combustible:false, pinturaBarca:false },
-  { mat:"9429NDF", pin:"1622", combustible:false, pinturaBarca:false },
-  { mat:"9433NDF", pin:"0081", combustible:false, pinturaBarca:false },
-  { mat:"9434NDF", pin:"5337", combustible:false, pinturaBarca:false },
-  { mat:"9436NDF", pin:"8387", combustible:false, pinturaBarca:false },
-  { mat:"9437NDF", pin:"3562", combustible:false, pinturaBarca:false },
-  { mat:"9441NDF", pin:"5414", combustible:false, pinturaBarca:false },
-  { mat:"9443NDF", pin:"5415", combustible:false, pinturaBarca:false },
-  { mat:"9444NDF", pin:"0587", combustible:false, pinturaBarca:false },
-  { mat:"9447NDF", pin:"7698", combustible:false, pinturaBarca:false },
-  { mat:"9448NDF", pin:"5486", combustible:false, pinturaBarca:false },
-  { mat:"9449NDF", pin:"7200", combustible:false, pinturaBarca:false },
-  { mat:"9451NDF", pin:"9547", combustible:false, pinturaBarca:false },
-  { mat:"9452NDF", pin:"7563", combustible:false, pinturaBarca:false },
-  { mat:"9454NDF", pin:"8060", combustible:false, pinturaBarca:false },
-  { mat:"9456NDF", pin:"2983", combustible:false, pinturaBarca:false },
-  { mat:"9457NDF", pin:"3323", combustible:false, pinturaBarca:false },
-  { mat:"9459NDF", pin:"3051", combustible:false, pinturaBarca:false },
-  { mat:"9461NDF", pin:"1179", combustible:false, pinturaBarca:false },
-  { mat:"9462NDF", pin:"6052", combustible:false, pinturaBarca:false },
-  { mat:"9463NDF", pin:"3390", combustible:false, pinturaBarca:false },
-  { mat:"9464NDF", pin:"8406", combustible:false, pinturaBarca:false },
-  { mat:"9465NDF", pin:"0402", combustible:false, pinturaBarca:false },
-  { mat:"9466NDF", pin:"0669", combustible:false, pinturaBarca:false },
-  { mat:"9467NDF", pin:"2358", combustible:false, pinturaBarca:false },
-  { mat:"9471NDF", pin:"2510", combustible:false, pinturaBarca:false }
+  { mat:"1204NDM", pin:"9611", combustible:true, pinturaBarca:false },
+  { mat:"2921NDH", pin:"1801", combustible:true, pinturaBarca:false },
+  { mat:"7205NDM", pin:"7128", combustible:true, pinturaBarca:false },
+  { mat:"9429NDF", pin:"1622", combustible:true, pinturaBarca:false },
+  { mat:"9433NDF", pin:"0081", combustible:true, pinturaBarca:false },
+  { mat:"9434NDF", pin:"5337", combustible:true, pinturaBarca:false },
+  { mat:"9436NDF", pin:"8387", combustible:true, pinturaBarca:false },
+  { mat:"9437NDF", pin:"3562", combustible:true, pinturaBarca:false },
+  { mat:"9441NDF", pin:"5414", combustible:true, pinturaBarca:false },
+  { mat:"9443NDF", pin:"5415", combustible:true, pinturaBarca:false },
+  { mat:"9444NDF", pin:"0587", combustible:true, pinturaBarca:false },
+  { mat:"9447NDF", pin:"7698", combustible:true, pinturaBarca:false },
+  { mat:"9448NDF", pin:"5486", combustible:true, pinturaBarca:false },
+  { mat:"9449NDF", pin:"7200", combustible:true, pinturaBarca:false },
+  { mat:"9451NDF", pin:"9547", combustible:true, pinturaBarca:false },
+  { mat:"9452NDF", pin:"7563", combustible:true, pinturaBarca:false },
+  { mat:"9454NDF", pin:"8060", combustible:true, pinturaBarca:false },
+  { mat:"9456NDF", pin:"2983", combustible:true, pinturaBarca:false },
+  { mat:"9457NDF", pin:"3323", combustible:true, pinturaBarca:false },
+  { mat:"9459NDF", pin:"3051", combustible:true, pinturaBarca:false },
+  { mat:"9461NDF", pin:"1179", combustible:true, pinturaBarca:false },
+  { mat:"9462NDF", pin:"6052", combustible:true, pinturaBarca:false },
+  { mat:"9463NDF", pin:"3390", combustible:true, pinturaBarca:false },
+  { mat:"9464NDF", pin:"8406", combustible:true, pinturaBarca:false },
+  { mat:"9465NDF", pin:"0402", combustible:true, pinturaBarca:false },
+  { mat:"9466NDF", pin:"0669", combustible:true, pinturaBarca:false },
+  { mat:"9467NDF", pin:"2358", combustible:true, pinturaBarca:false },
+  { mat:"9471NDF", pin:"2510", combustible:true, pinturaBarca:false }
 ];
 
 let pinesLista = loadPines();
@@ -5718,8 +5719,8 @@ function loadPines(){
         return arr.map(x => ({
           mat: x.mat,
           pin: x.pin,
-          combustible: !!x.combustible,
-          pinturaBarca: !!x.pinturaBarca
+          combustible: x.combustible !== false,   // ← default TRUE
+          pinturaBarca: !!x.pinturaBarca          // ← default FALSE
         }));
       }
     }catch(e){}
@@ -5876,7 +5877,7 @@ function abrirModalPin(existente){
   if(prev) prev.remove();
 
   const esNuevo = !existente;
-  const cb = existente ? !!existente.combustible : false;
+  const cb = existente ? (existente.combustible !== false) : true;  // ← nuevo = true
   const pb = existente ? !!existente.pinturaBarca : false;
 
   const m = document.createElement("div");
@@ -5890,8 +5891,8 @@ function abrirModalPin(existente){
   const styleRojo    = "background:#7f1d1d;border:2px solid #ef4444;color:#fff";
   const styleVerde   = "background:#14532d;border:2px solid #22c55e;color:#fff";
 
-  const styleComb  = cb ? styleDefault : styleRojo;   // rojo si NO tiene
-  const styleBarca = pb ? styleVerde   : styleDefault; // verde si SÍ tiene
+  const styleComb  = cb ? styleDefault : styleRojo;
+  const styleBarca = pb ? styleVerde   : styleDefault;
 
   m.innerHTML = `
     <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:380px;width:100%;border:1px solid #334155">

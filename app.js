@@ -5091,22 +5091,22 @@ async function abrirMapaPantalla(){
         zoomControl: true,
         maxBounds: limitesTrabajo,
         maxBoundsViscosity: 1.0,
-        minZoom: 7,
+        minZoom: 9,
         maxZoom: 18
       }).setView([41.3874, 2.1686], 11);
       
       // 👇 AQUÍ ESTÁ EL PRINT DE LA CONSOLA PARA EL ZOOM 👇
-      mapaInstance.on('zoomend', function() {
-        const z = mapaInstance.getZoom();
-        console.log("🔍 Nivel de zoom actual: " + z);
-        
-        if (z <= 7) {
-          console.warn("🛑 Has llegado al LÍMITE MÍNIMO de zoom (7). No puedes alejarte más.");
-        }
-        if (z >= 18) {
-          console.warn("🛑 Has llegado al LÍMITE MÁXIMO de zoom (18). No puedes acercarte más.");
-        }
-      });
+      // mapaInstance.on('zoomend', function() {
+      //   const z = mapaInstance.getZoom();
+      //   console.log("🔍 Nivel de zoom actual: " + z);
+      //   
+      //   if (z <= 7) {
+      //     console.warn("🛑 Has llegado al LÍMITE MÍNIMO de zoom (7). No puedes alejarte más.");
+      //   }
+      //   if (z >= 18) {
+      //     console.warn("🛑 Has llegado al LÍMITE MÁXIMO de zoom (18). No puedes acercarte más.");
+      //   }
+      // });
       // 👆 FIN DEL PRINT 👆
 
       L.tileLayer("https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=041dfb21-2b3c-44a9-99cf-2895e73db293", {

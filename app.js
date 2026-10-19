@@ -5082,28 +5082,26 @@ async function abrirMapaPantalla(){
 
   setTimeout(() => {
     try {
-      // 1. Límites ajustados (Cataluña y alrededores, sin llegar a Valencia ni Toulouse)
+      // Capamos más la zona: Recortamos Tarragona, Lleida y Francia
       const limitesTrabajo = L.latLngBounds(
-        [40.50, 0.10], // Suroeste (Sur de Tarragona/Lleida)
-        [43.00, 3.40]  // Noreste (Norte de Girona)
+        [40.80, 0.30], // Suroeste más apretado
+        [42.80, 3.20]  // Noreste más apretado
       );
 
-      // 2. Mapa con los límites y el zoom capado (minZoom: 8)
+      // Zoom uno menos (7 en vez de 8)
       mapaInstance = L.map("mapa-leaflet", {
         zoomControl: true,
         maxBounds: limitesTrabajo,
         maxBoundsViscosity: 1.0,
-        minZoom: 8,
+        minZoom: 7,
         maxZoom: 18
       }).setView([41.3874, 2.1686], 11);
       
-      // 3. Mapa base de Stadia Maps
       L.tileLayer("https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=TU_API_KEY_AQUI", {
         attribution: "&copy; Stadia Maps &copy; OpenMapTiles &copy; OpenStreetMap",
         maxZoom: 20
       }).addTo(mapaInstance);
 
-      // 4. Dibujar las zonas
       if(geoAMB){
         capaAMB = L.geoJSON(geoAMB, {
           style: { color: "#38bdf8", weight: 2, fillColor: "#38bdf8", fillOpacity: 0.15 }
@@ -5120,7 +5118,6 @@ async function abrirMapaPantalla(){
         }).addTo(mapaInstance);
       }
 
-      // 5. Refrescar el mapa
       setTimeout(() => { if(mapaInstance) mapaInstance.invalidateSize(); }, 200);
       actualizarEstadoGeo();
 

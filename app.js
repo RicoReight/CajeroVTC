@@ -360,6 +360,54 @@ function confirmTransaction(){
 }
 function renderRecomendaciones(){const box=document.getElementById("recomendacionesBox");if(!box)return;if(statsOps.operations<10){box.innerHTML="";return}const ops=statsOps.operations;const falt=[],sob=[];denominations.forEach((d,i)=>{const aR=statsOps.received[i]/ops,aS=statsOps.spent[i]/ops;if(aS>0&&statsOps.spent[i]>statsOps.received[i]+2){const r=stock[i]/aS;if(r<30)falt.push({d,falta:Math.max(1,Math.ceil(aS*30)-stock[i])})}if(aR>aS*2&&statsOps.received[i]>8&&stock[i]>8)sob.push({d,exceso:statsOps.received[i]-statsOps.spent[i]})});if(!falt.length&&!sob.length){box.innerHTML="";return}let html="<div style='background:#0f172a;border:1px solid #475569;border-radius:10px;padding:12px;margin-top:14px'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>🤖 SUGERENCIAS · últimas "+ops+" operaciones</div>";if(falt.length){html+="<div style='font-size:11px;color:#fbbf24;font-weight:700;margin-bottom:4px'>⚠️ SE TE AGOTAN</div>";falt.forEach(x=>{html+="<div style='display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff'><span>"+x.d.n+"</span><span style='color:#fbbf24;font-weight:700'>pedir +"+x.falta+"</span></div>"})}if(sob.length){html+="<div style='font-size:11px;color:#4ade80;font-weight:700;margin:10px 0 4px'>💚 ACUMULAS DE MÁS</div>";sob.forEach(x=>{html+="<div style='display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff'><span>"+x.d.n+"</span><span style='color:#4ade80;font-weight:700'>+"+x.exceso+" de más</span></div>"})}html+="</div>";box.innerHTML=html}
 
+function renderAvisoHucha(){
+  const box = document.getElementById("avisoHuchaBox");
+  if(box) box.remove();
+  if(statsOps.operations < 10) return;
+
+  const ops = statsOps.operations;
+  const sobrantes = [];
+  denominations.forEach((d, i) => {
+    if(d.type !== "coin") return;
+    const t = topesRecibir[d.c] || 0;
+    const objetivo = Math.floor(t * FACTOR_LLENADO);
+    if(objetivo < 10) return;
+    const sa = stock[i] || 0;
+    if(sa > objetivo * 1.5){
+      sobrantes.push({ d, index: i, cantidad: sa - objetivo, stock: sa });
+    }
+  });
+  if(!sobrantes.length) return;
+
+  const total = sobrantes.reduce((s,x) => s + x.cantidad * x.d.c, 0);
+  const cont = document.getElementById("stockList");
+  if(!cont) return;
+
+  const div = document.createElement("div");
+  div.id = "avisoHuchaBox";
+  div.style.cssText = "margin-top:12px;padding:12px;background:#2e1065;border:2px solid #7c3aed;border-radius:10px";
+  let html = `<div style="font-size:12px;color:#c4b5fd;font-weight:900;letter-spacing:0.5px;margin-bottom:6px">🐷 MUCHAS MONEDAS EN EL COCHE</div>`;
+  html += `<div style="font-size:12px;color:#e9d5ff;line-height:1.4;margin-bottom:8px">Acumulas <b>${moneyText(total)}</b> en monedas que apenas gastas. Pásalas a la Hucha.</div>`;
+  sobrantes.slice(0, 3).forEach(x => {
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;font-size:13px;color:#fff">
+      <span>Tienes ${x.stock} × ${x.d.n}</span>
+      <button type="button" onclick="abrirModalMoverHucha(${x.index}, ${x.cantidad})" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:5px 10px;font-weight:800;font-size:12px;cursor:pointer">🐷 Mover</button>
+    </div>`;
+  });
+  html += `<button type="button" onclick="moverTodasMonedasAHuchaDesdeCaja()" style="width:100%;margin-top:8px;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:800;font-size:13px;cursor:pointer">🐷 Mover TODAS a la Hucha</button>`;
+  div.innerHTML = html;
+  cont.appendChild(div);
+}
+
+function moverTodasMonedasAHuchaDesdeCaja(){
+  const { monedasSobran } = calcularIntercambiosRecomendados();
+  if(!monedasSobran.length) return;
+  if(!confirm("¿Mover todas las monedas sobrantes a la Hucha?")) return;
+  let movidas = 0;
+  monedasSobran.forEach(x => { movidas += moverAHucha(x.index, x.cantidad); });
+  mostrarToast("🐷 Movidas " + movidas + " piezas a la Hucha");
+}
+
 function renderStockList(){
   const box=document.getElementById("stockList");
   if(!box)return;
@@ -406,6 +454,7 @@ function renderStockList(){
     row.appendChild(ctrl);
     box.appendChild(row);
   });
+  renderAvisoHucha();
   renderRecomendaciones();
   actualizarBotonModoEdicion();
 }
@@ -1355,101 +1404,91 @@ function abrirCambioPantalla(){const d=document.getElementById("drawer"),o=docum
 function cerrarCambioPantalla(){const p=document.getElementById("cambioPantalla");if(p)p.style.display="none"}
 
 function renderRecomendacionCambio(){
-  const {sobran, totalSobra} = calcularIntercambiosRecomendados();
-  if(!sobran.length) return "";
+  const { sobran, totalSobra, monedasSobran, totalMonedasSobra } = calcularIntercambiosRecomendados();
+  if(!sobran.length && !monedasSobran.length) return "";
 
-  // 1. Calcular qué pedir de forma INTELIGENTE (evitando calderilla extrema)
-  let restante = totalSobra;
-  const pedir = {};
+  let html = "";
 
-  // Ordenar denominaciones de mayor a menor
-  const cands = denominations.slice().sort((a,b) => b.c - a.c);
-
-  cands.forEach(d => {
-    if (restante >= d.c) {
-      const n = Math.floor(restante / d.c);
-      
-      // Si es una moneda muy pequeña (< 10c), limitamos la cantidad para no llenar el bolsillo
-      let limite = (d.c < 10 && restante > 50) ? 4 : n;
-      
-      if (limite > 0) {
-        pedir[d.c] = (pedir[d.c] || 0) + limite;
-        restante -= limite * d.c;
-      }
-    }
-  });
-
-  // 2. Guardar entregas iniciales
-  const entregar = {};
-  sobran.forEach(x => { entregar[x.d.c] = x.cantidad; });
-
-  // 3. 🧹 LIMPIEZA: Netear piezas (si doy 10 de 1c y pido 1 de 1c, solo doy 9)
-  Object.keys(pedir).forEach(cStr => {
-    const c = parseInt(cStr);
-    if (entregar[c]) {
-      const restar = Math.min(entregar[c], pedir[c]);
-      entregar[c] -= restar;
-      pedir[c] -= restar;
-      
-      if (entregar[c] <= 0) delete entregar[c];
-      if (pedir[c] <= 0) delete pedir[c];
-    }
-  });
-
-  // Guardar para el botón
-  __recomendacionCambio = { entregar, pedir };
-
-  // --- RENDERIZADO HTML ---
-  let html = `<div class="card" style="margin:0 0 12px 0;background:#1e293b;border:2px solid #7c3aed">`;
-  html += `<div style="font-size:12px;color:#c4b5fd;font-weight:900;letter-spacing:1px;margin-bottom:10px">🔄 TE ACONSEJO CAMBIAR</div>`;
-  html += `<div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.4">Estas piezas las acumulas porque las gastas poco. Llévalas al banco y pide las que necesitas. Es el <b>mismo importe</b>, solo cambias formato.</div>`;
-
-  // 📤 ENTREGAS
-  const entregarKeys = Object.keys(entregar).map(k => parseInt(k)).sort((a,b) => b-a);
-  let totalEntregarReal = 0;
-  
-  if(entregarKeys.length > 0) {
-    html += `<div style="font-size:11px;color:#f87171;font-weight:800;letter-spacing:0.5px;margin-bottom:6px">📤 ENTREGAS AL BANCO</div>`;
-    html += `<div style="background:#0f172a;border-radius:8px;padding:8px 10px;margin-bottom:12px">`;
-    entregarKeys.forEach(c => {
-      const n = entregar[c];
-      const d = denominations.find(x => x.c === c);
-      if(d){
-        totalEntregarReal += n * c;
-        html += `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff"><span>${n} × ${d.n}</span><span style="color:#f87171;font-weight:700">${moneyText(n * c)}</span></div>`;
+  // 🟢 BLOQUE 1: BILLETES → BANCO
+  if(sobran.length){
+    let restante = totalSobra;
+    const pedir = {};
+    const cands = denominations.slice().sort((a,b) => b.c - a.c);
+    cands.forEach(d => {
+      if (restante >= d.c) {
+        const n = Math.floor(restante / d.c);
+        let limite = (d.c < 10 && restante > 50) ? 4 : n;
+        if (limite > 0) { pedir[d.c] = (pedir[d.c] || 0) + limite; restante -= limite * d.c; }
       }
     });
-    html += `<div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:4px;border-top:1px solid #334155;font-size:14px;font-weight:900;color:#fff"><span>TOTAL</span><span>${moneyText(totalEntregarReal)}</span></div>`;
+    const entregar = {};
+    sobran.forEach(x => { entregar[x.d.c] = x.cantidad; });
+    Object.keys(pedir).forEach(cStr => {
+      const c = parseInt(cStr);
+      if (entregar[c]) {
+        const restar = Math.min(entregar[c], pedir[c]);
+        entregar[c] -= restar; pedir[c] -= restar;
+        if (entregar[c] <= 0) delete entregar[c];
+        if (pedir[c] <= 0) delete pedir[c];
+      }
+    });
+    __recomendacionCambio = { entregar, pedir };
+
+    const entregarKeys = Object.keys(entregar).map(k => parseInt(k)).sort((a,b) => b-a);
+    const pedirKeys = Object.keys(pedir).map(k => parseInt(k)).sort((a,b) => b-a);
+    let tE = 0, tR = 0;
+    entregarKeys.forEach(c => tE += entregar[c] * c);
+    pedirKeys.forEach(c => tR += pedir[c] * c);
+
+    html += `<div class="card" style="margin:0 0 12px 0;background:#1e293b;border:2px solid #3b82f6">`;
+    html += `<div style="font-size:12px;color:#93c5fd;font-weight:900;letter-spacing:1px;margin-bottom:8px">💵 BILLETES · CAMBIO EN BANCO</div>`;
+    html += `<div style="font-size:11px;color:#94a3b8;margin-bottom:10px;line-height:1.4">Tienes <b style="color:#93c5fd">${moneyText(totalSobra)}</b> en billetes que acumulas. Cámbialos en el banco por piezas más útiles.</div>`;
+    if(entregarKeys.length){
+      html += `<div style="font-size:11px;color:#f87171;font-weight:800;margin-bottom:4px">📤 ENTREGAS AL BANCO</div>`;
+      entregarKeys.forEach(c => {
+        const d = denominations.find(x => x.c === c);
+        if(d) html += `<div style="display:flex;justify-content:space-between;font-size:13px;color:#fff;padding:2px 0"><span>${entregar[c]} × ${d.n}</span><span style="color:#f87171;font-weight:700">${moneyText(entregar[c]*c)}</span></div>`;
+      });
+    }
+    if(pedirKeys.length){
+      html += `<div style="font-size:11px;color:#4ade80;font-weight:800;margin:8px 0 4px">📥 PIDES AL BANCO</div>`;
+      pedirKeys.forEach(c => {
+        const d = denominations.find(x => x.c === c);
+        if(d) html += `<div style="display:flex;justify-content:space-between;font-size:13px;color:#fff;padding:2px 0"><span>${pedir[c]} × ${d.n}</span><span style="color:#4ade80;font-weight:700">${moneyText(pedir[c]*c)}</span></div>`;
+      });
+    }
+    if(tE > 0 && tR > 0){
+      html += `<button type="button" onclick="aplicarRecomendacionCambio(${tE})" style="width:100%;margin-top:10px;background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:10px;padding:10px;font-weight:800;font-size:13px;cursor:pointer">✅ USAR ESTA RECOMENDACIÓN</button>`;
+    }
     html += `</div>`;
   }
 
-  // 📥 PIDES
-  const pedirKeys = Object.keys(pedir).map(k => parseInt(k)).sort((a,b) => b-a);
-  let totalPedirReal = 0;
-  
-  if(pedirKeys.length > 0){
-    html += `<div style="font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:6px">📥 PIDES AL BANCO</div>`;
-    html += `<div style="background:#0f172a;border-radius:8px;padding:8px 10px;margin-bottom:12px">`;
-    pedirKeys.forEach(c => {
-      const n = pedir[c];
-      const d = denominations.find(x => x.c === c);
-      if(d){
-        totalPedirReal += n * c;
-        html += `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff"><span>${n} × ${d.n}</span><span style="color:#4ade80;font-weight:700">${moneyText(n * c)}</span></div>`;
-      }
+  // 🐷 BLOQUE 2: MONEDAS → HUCHA
+  if(monedasSobran.length){
+    html += `<div class="card" style="margin:0 0 12px 0;background:#2e1065;border:2px solid #7c3aed">`;
+    html += `<div style="font-size:12px;color:#c4b5fd;font-weight:900;letter-spacing:1px;margin-bottom:8px">🐷 MONEDAS · MOVER A HUCHA</div>`;
+    html += `<div style="font-size:11px;color:#e9d5ff;margin-bottom:10px;line-height:1.4">Las monedas <b>no se pueden llevar al banco</b>. Llévalas a casa y apúntalas en la Hucha. Total: <b style="color:#c4b5fd">${moneyText(totalMonedasSobra)}</b></div>`;
+    monedasSobran.forEach(x => {
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #3b0764">
+        <span style="font-size:13px;color:#fff;font-weight:700">${x.cantidad} × ${x.d.n}</span>
+        <button type="button" onclick="abrirModalMoverHucha(${x.index}, ${x.cantidad})" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer">🐷 Mover</button>
+      </div>`;
     });
-    html += `<div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:4px;border-top:1px solid #334155;font-size:14px;font-weight:900;color:#fff"><span>TOTAL</span><span>${moneyText(totalPedirReal)}</span></div>`;
+    html += `<button type="button" onclick="moverTodasMonedasAHucha()" style="width:100%;margin-top:10px;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:800;font-size:13px;cursor:pointer">🐷 Mover TODAS a la Hucha</button>`;
     html += `</div>`;
   }
 
-  if(totalEntregarReal > 0 && totalPedirReal > 0){
-    html += `<button type="button" onclick="aplicarRecomendacionCambio(${totalEntregarReal})" style="width:100%;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer">✅ USAR ESTA RECOMENDACIÓN</button>`;
-  } else {
-    html += `<div style="text-align:center;font-size:12px;color:#fbbf24;padding:10px">No hay un intercambio útil que sugerir ahora mismo.</div>`;
-  }
-
-  html += `</div>`;
   return html;
+}
+
+function moverTodasMonedasAHucha(){
+  const { monedasSobran } = calcularIntercambiosRecomendados();
+  if(!monedasSobran.length) return;
+  if(!confirm(`¿Mover ${monedasSobran.length} denominación(es) de monedas sobrantes a la Hucha?`)) return;
+  let movidas = 0;
+  monedasSobran.forEach(x => { movidas += moverAHucha(x.index, x.cantidad); });
+  mostrarToast("🐷 Movidas " + movidas + " piezas a la Hucha");
+  if(typeof renderCambioInicio === "function") renderCambioInicio();
 }
 
 function aplicarRecomendacionCambio(total){
@@ -1780,16 +1819,41 @@ function renderCambioHistorial(){const box=document.getElementById("cambioHistor
 
 function configuracionRecomendada(){const ops=statsOps.operations;let v=20;if(ops>=5)v=Math.min(30,Math.max(15,Math.round(ops*0.8)));let c=ops>=30?4:3;return{viajes:v,colchon:c}}
 
-function calcularFaltantes(v,c){const ops=statsOps.operations;const fal=[],obj={};denominations.forEach((d,i)=>{const sa=stock[i]||0;const t=(topesRecibir[d.c]||0);const limSup=Math.max(1,Math.floor(t*FACTOR_LLENADO));let o;if(ops>=5){const gm=statsOps.spent[i]/ops;o=Math.ceil(gm*v)+c}else{const ba=ARRANQUE[d.c]||0;o=Math.ceil(ba*(v/20))+c}o=Math.min(o,limSup);obj[d.c]=o;const falta=Math.max(0,o-sa);if(falta>0)fal.push({d,index:i,falta})});const total=fal.reduce((s,x)=>s+x.falta*x.d.c,0);return{faltantes:fal,total}}
+function calcularFaltantes(v, c){
+  const ops = statsOps.operations;
+  const fal = [], obj = {};
+  denominations.forEach((d, i) => {
+    const sa = stock[i] || 0;
+    const ha = hucha[i] || 0;
+    const t = (topesRecibir[d.c] || 0);
+    const limSup = Math.max(1, Math.floor(t * FACTOR_LLENADO));
+    let o;
+    if(ops >= 5){ const gm = statsOps.spent[i]/ops; o = Math.ceil(gm*v) + c; }
+    else { const ba = ARRANQUE[d.c] || 0; o = Math.ceil(ba*(v/20)) + c; }
+    o = Math.min(o, limSup);
+    obj[d.c] = o;
+    const falta = Math.max(0, o - sa);
+    if(falta > 0){
+      const deHucha = Math.min(falta, ha);      // cubrible desde casa
+      const deBanco = falta - deHucha;          // lo que realmente pides al banco
+      fal.push({ d, index: i, falta, deHucha, deBanco });
+    }
+  });
+  const total = fal.reduce((s,x) => s + x.falta * x.d.c, 0);
+  const totalDeHucha = fal.reduce((s,x) => s + x.deHucha * x.d.c, 0);
+  const totalDeBanco = fal.reduce((s,x) => s + x.deBanco * x.d.c, 0);
+  return { faltantes: fal, total, totalDeHucha, totalDeBanco };
+}
 
 /* ==================== INTERCAMBIOS RECOMENDADOS ==================== */
 function calcularIntercambiosRecomendados(){
   const ops = statsOps.operations;
-  if(ops < 10) return { sobran: [], totalSobra: 0 };
+  if(ops < 10) return { sobran: [], totalSobra: 0, monedasSobran: [], totalMonedasSobra: 0 };
 
   const sobran = [];
   let totalSobra = 0;
-  let hayBilleteParaEntregar = false; // 👈 NUEVO
+  const monedasSobran = [];
+  let totalMonedasSobra = 0;
 
   denominations.forEach((d, i) => {
     const sa = stock[i] || 0;
@@ -1798,34 +1862,29 @@ function calcularIntercambiosRecomendados(){
     const aR = statsOps.received[i] / ops;
     const aS = statsOps.spent[i] / ops;
 
-    if (objetivo < 5) return;
-    if (sa <= objetivo) return;
-
-    const ratio = aS > 0 ? (aR / aS) : (aR > 0 ? 99 : 0);
-    if (ratio < 1.2 && sa < objetivo * 1.3) return;
-
-    const cantidad = sa - objetivo;
-    sobran.push({
-      d, index: i, cantidad,
-      stock: sa, objetivo,
-      ratioRecibeGasta: ratio
-    });
-    totalSobra += cantidad * d.c;
-
-    // 👇 Comprobamos si entre lo que sobra hay algún billete
     if (d.type === "bill") {
-      hayBilleteParaEntregar = true;
+      // 🟢 BILLETES → BANCO (regla clásica)
+      if (objetivo < 5) return;
+      if (sa <= objetivo) return;
+      const ratio = aS > 0 ? (aR / aS) : (aR > 0 ? 99 : 0);
+      if (ratio < 1.2 && sa < objetivo * 1.3) return;
+      const cantidad = sa - objetivo;
+      sobran.push({ d, index: i, cantidad, stock: sa, objetivo, ratioRecibeGasta: ratio });
+      totalSobra += cantidad * d.c;
+    } else {
+      // 🪙 MONEDAS → HUCHA (no van al banco)
+      if (objetivo < 10) return;                  // umbral mínimo
+      if (sa < objetivo * 1.5) return;            // solo si acumulas > 150%
+      const cantidad = sa - objetivo;             // lo que sobra
+      monedasSobran.push({ d, index: i, cantidad, stock: sa, objetivo });
+      totalMonedasSobra += cantidad * d.c;
     }
   });
 
-  // 🚫 SI NO HAY BILLETES PARA ENTREGAR, NO RECOMENDAMOS CAMBIO
-  if (!hayBilleteParaEntregar) {
-    return { sobran: [], totalSobra: 0 };
-  }
-
   sobran.sort((a, b) => (b.cantidad * b.d.c) - (a.cantidad * a.d.c));
+  monedasSobran.sort((a, b) => b.cantidad - a.cantidad);
 
-  return { sobran, totalSobra };
+  return { sobran, totalSobra, monedasSobran, totalMonedasSobra };
 }
 /* ==================== FIN INTERCAMBIOS ==================== */
 
@@ -1838,52 +1897,97 @@ function renderReponerInicio(){const cont=document.getElementById("reponerConten
 function cambiarModoReponer(modo){reponerState.modo=modo;if(modo==="manual"){if(Object.keys(reponerState.manualAdd).length===0)denominations.forEach(d=>{reponerState.manualAdd[d.c]=0});if(reponerState.importeManual>0)setTimeout(()=>onCambioImporteManual(),0)}renderReponerInicio()}
 
 function actualizarReponerPropuesta(){
-  const zona=document.getElementById("reponerDinamico"),btn=document.getElementById("reponerBtnConfirmar");
-  if(!zona)return;
-  const rec=configuracionRecomendada();
-  const {faltantes,total}=calcularFaltantes(rec.viajes,rec.colchon);
-  const {sobran,totalSobra}=calcularIntercambiosRecomendados();
+  const zona = document.getElementById("reponerDinamico");
+  const btn = document.getElementById("reponerBtnConfirmar");
+  if(!zona) return;
+  const rec = configuracionRecomendada();
+  const { faltantes, total, totalDeHucha, totalDeBanco } = calcularFaltantes(rec.viajes, rec.colchon);
+  const { sobran, totalSobra } = calcularIntercambiosRecomendados();
 
-  let html="";
+  let html = "";
 
   if(!faltantes.length){
-    html+="<div class='card' style='margin:0 0 12px 0;text-align:center'><div style='font-size:48px;margin-bottom:12px'>✅</div><div style='font-size:16px;color:#4ade80;font-weight:800;margin-bottom:8px'>Caja suficiente</div><div style='font-size:13px;color:#94a3b8;line-height:1.6'>Con tu gasto actual tienes cambio suficiente. No necesitas ir al banco.</div></div>";
-    if(btn)btn.style.display="none";
+    html += `<div class='card' style='margin:0 0 12px 0;text-align:center'><div style='font-size:48px;margin-bottom:12px'>✅</div><div style='font-size:16px;color:#4ade80;font-weight:800;margin-bottom:8px'>Caja suficiente</div><div style='font-size:13px;color:#94a3b8;line-height:1.6'>Con tu gasto actual tienes cambio suficiente. No necesitas ir al banco.</div></div>`;
+    if(btn) btn.style.display = "none";
   } else {
-    if(btn)btn.style.display="block";
-    html+="<div class='card' style='margin:0 0 12px 0;text-align:center;background:#1e3a8a;border:1px solid #3b82f6'>";
-    html+="<div style='font-size:12px;color:#bfdbfe;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>🏦 SACA DEL BANCO</div>";
-    html+="<div id='reponerTotal' style='font-size:38px;font-weight:900;color:#fff'>"+moneyText(total)+"</div>";
-    html+="<div style='font-size:12px;color:#bfdbfe;margin-top:6px'>Pulsa cada pieza para marcarla/desmarcarla</div>";
-    html+="</div>";
-    html+="<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>📋 DESGLOSE A PEDIR</div>";
+    if(btn) btn.style.display = "block";
 
-    const b=faltantes.filter(x=>x.d.type==="bill").sort((a,b)=>b.d.c-a.d.c);
-    const m=faltantes.filter(x=>x.d.type==="coin").sort((a,b)=>b.d.c-a.d.c);
-    const rowF=x=>{
-      const d=x.d,c=d.c;
-      const marc=reponerState.marcados[c]!==false;
-      const imp=x.falta*c;
-      const gc=(d.type==="bill"?"bill-graphic ":"coin-graphic ")+d.class;
-      return"<label style='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155;cursor:pointer'><input type='checkbox' data-c='"+c+"' "+(marc?"checked":"")+" onchange='toggleMarcadoReponer(this)' style='width:22px;height:22px;cursor:pointer;flex-shrink:0'><div class='"+gc+"' style='flex-shrink:0'>"+d.short+"</div><div style='flex:1;min-width:0'><div class='reponerFila' style='font-size:15px;font-weight:800;color:"+(marc?"#fff":"#475569")+"'>"+x.falta+" × "+d.n+"</div><div style='font-size:12px;color:#94a3b8'>"+moneyText(imp)+"</div></div></label>";
+    // 🐷 BLOQUE HUCHA (primero, lo que tienes en casa)
+    const conHucha = faltantes.filter(x => x.deHucha > 0);
+    if(conHucha.length){
+      html += `<div class='card' style='margin:0 0 12px 0;text-align:center;background:#2e1065;border:1px solid #7c3aed'>`;
+      html += `<div style='font-size:12px;color:#c4b5fd;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>🐷 TIENES EN CASA</div>`;
+      html += `<div style='font-size:26px;font-weight:900;color:#fff'>${moneyText(totalDeHucha)}</div>`;
+      html += `<div style='font-size:12px;color:#c4b5fd;margin-top:4px'>Te cubre parte de lo que falta</div>`;
+      html += `<button type="button" onclick="sacarTodaLaHuchaReponer()" style="width:100%;margin-top:10px;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer">🐷 SACAR DE LA HUCHA A LA CAJA</button>`;
+      html += `</div>`;
+    }
+
+    // 🏦 BLOQUE BANCO (lo que falta de verdad)
+    html += `<div class='card' style='margin:0 0 12px 0;text-align:center;background:#1e3a8a;border:1px solid #3b82f6'>`;
+    html += `<div style='font-size:12px;color:#bfdbfe;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>🏦 PEDIR AL BANCO</div>`;
+    html += `<div id='reponerTotal' style='font-size:38px;font-weight:900;color:#fff'>${moneyText(totalDeBanco)}</div>`;
+    html += `<div style='font-size:12px;color:#bfdbfe;margin-top:6px'>Pulsa cada pieza para marcarla/desmarcarla</div>`;
+    html += `</div>`;
+
+    html += `<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>📋 DESGLOSE</div>`;
+    const rows = faltantes.filter(x => x.deBanco > 0);
+    const b = rows.filter(x => x.d.type === "bill").sort((a,b) => b.d.c - a.d.c);
+    const m = rows.filter(x => x.d.type === "coin").sort((a,b) => b.d.c - a.d.c);
+    const rowF = x => {
+      const d = x.d, c = d.c;
+      const marc = reponerState.marcados[c] !== false;
+      const imp = x.deBanco * c;
+      const gc = (d.type === "bill" ? "bill-graphic " : "coin-graphic ") + d.class;
+      return `<label style='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155;cursor:pointer'><input type='checkbox' data-c='${c}' ${marc?'checked':''} onchange='toggleMarcadoReponer(this)' style='width:22px;height:22px;cursor:pointer;flex-shrink:0'><div class='${gc}' style='flex-shrink:0'>${d.short}</div><div style='flex:1;min-width:0'><div class='reponerFila' style='font-size:15px;font-weight:800;color:${marc?'#fff':'#475569'}'>${x.deBanco} × ${d.n}</div><div style='font-size:12px;color:#94a3b8'>${moneyText(imp)}</div></div></label>`;
     };
-    if(b.length){html+="<div style='font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin:6px 0 4px'>💵 BILLETES</div>";b.forEach(x=>{html+=rowF(x)})}
-    if(m.length){html+="<div style='font-size:11px;color:#facc15;font-weight:800;letter-spacing:0.5px;margin:12px 0 4px'>🪙 MONEDAS</div>";m.forEach(x=>{html+=rowF(x)})}
-    html+="</div>";
+    if(b.length){ html += `<div style='font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin:6px 0 4px'>💵 BILLETES</div>`; b.forEach(x => html += rowF(x)); }
+    if(m.length){ html += `<div style='font-size:11px;color:#facc15;font-weight:800;letter-spacing:0.5px;margin:12px 0 4px'>🪙 MONEDAS</div>`; m.forEach(x => html += rowF(x)); }
+    html += `</div>`;
   }
 
   if(sobran.length > 0){
-    html+="<div class='card' style='margin:0 0 12px 0;background:#1e293b;border:1px solid #7c3aed'>";
-    html+="<div style='font-size:12px;color:#c4b5fd;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>🔄 APROVECHA EL VIAJE AL BANCO</div>";
-    html+="<div style='font-size:12px;color:#94a3b8;margin-bottom:10px;line-height:1.4'>Tienes <b style='color:#c4b5fd'>"+moneyText(totalSobra)+"</b> en piezas que acumulas porque las gastas poco. Al ir al banco, cámbialas por otras más útiles.</div>";
-    html+="<button type='button' onclick='cerrarReponerPantalla();abrirCambioPantalla()' style='width:100%;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer'>🔀 IR A CAMBIAR BILLETE O MONEDAS</button>";
-    html+="</div>";
+    html += `<div class='card' style='margin:0 0 12px 0;background:#1e293b;border:1px solid #7c3aed'>`;
+    html += `<div style='font-size:12px;color:#c4b5fd;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>🔄 APROVECHA EL VIAJE AL BANCO</div>`;
+    html += `<div style='font-size:12px;color:#94a3b8;margin-bottom:10px;line-height:1.4'>Tienes <b style='color:#c4b5fd'>${moneyText(totalSobra)}</b> en billetes que acumulas.</div>`;
+    html += `<button type='button' onclick='cerrarReponerPantalla();abrirCambioPantalla()' style='width:100%;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer'>🔀 IR A CAMBIAR BILLETE</button>`;
+    html += `</div>`;
   }
 
   zona.innerHTML = html;
 }
 
-function toggleMarcadoReponer(cb){const c=parseInt(cb.dataset.c);reponerState.marcados[c]=cb.checked;const rec=configuracionRecomendada();const {faltantes}=calcularFaltantes(rec.viajes,rec.colchon);let nt=0;faltantes.forEach(x=>{if(reponerState.marcados[x.d.c]!==false)nt+=x.falta*x.d.c});const el=document.getElementById("reponerTotal");if(el)el.textContent=moneyText(nt);const div=cb.parentElement.querySelector(".reponerFila");if(div)div.style.color=cb.checked?"#fff":"#475569"}
+function sacarTodaLaHuchaReponer(){
+  const rec = configuracionRecomendada();
+  const { faltantes } = calcularFaltantes(rec.viajes, rec.colchon);
+  let movidas = 0;
+  faltantes.forEach(x => {
+    if(x.deHucha > 0){
+      movidas += sacarDeHucha(x.index, x.deHucha);
+    }
+  });
+  if(movidas > 0){
+    mostrarToast("🐷 Movidas " + movidas + " piezas de la Hucha a la Caja");
+    actualizarReponerPropuesta();
+  }
+}
+
+function toggleMarcadoReponer(cb){
+  const c = parseInt(cb.dataset.c);
+  reponerState.marcados[c] = cb.checked;
+  const rec = configuracionRecomendada();
+  const { faltantes } = calcularFaltantes(rec.viajes, rec.colchon);
+  let nt = 0;
+  faltantes.forEach(x => {
+    if(x.deBanco > 0 && reponerState.marcados[x.d.c] !== false){
+      nt += x.deBanco * x.d.c;  // ✅ x.deBanco
+    }
+  });
+  const el = document.getElementById("reponerTotal");
+  if(el) el.textContent = moneyText(nt);
+  const div = cb.parentElement.querySelector(".reponerFila");
+  if(div) div.style.color = cb.checked ? "#fff" : "#475569";
+}
 
 function actualizarReponerManual(){
   const cont=document.getElementById("reponerManualLista");
@@ -2032,22 +2136,35 @@ function ajustarManualReponer(cents,delta){
 function resetManualReponer(){denominations.forEach(d=>{reponerState.manualAdd[d.c]=0});reponerState.importeManual=0;const inp=document.getElementById("reponerImporteManual");if(inp)inp.value="";actualizarReponerManual()}
 
 function confirmarReponer(){
-  let añadir=[];
-  let total=0;
-  if(reponerState.modo==="manual"){
-    denominations.forEach((d,i)=>{const n=reponerState.manualAdd[d.c]||0;if(n>0){añadir.push({index:i,cantidad:n});total+=n*d.c}});
-    if(!añadir.length){alert("No has añadido ninguna pieza.");return}
+  let añadir = [], total = 0;
+  if(reponerState.modo === "manual"){
+    denominations.forEach((d,i) => {
+      const n = reponerState.manualAdd[d.c] || 0;
+      if(n > 0){ añadir.push({ index: i, cantidad: n }); total += n * d.c; }
+    });
+    if(!añadir.length){ alert("No has añadido ninguna pieza."); return; }
   } else {
-    const rec=configuracionRecomendada();
-    const {faltantes}=calcularFaltantes(rec.viajes,rec.colchon);
-    faltantes.forEach(x=>{if(reponerState.marcados[x.d.c]!==false){añadir.push({index:x.index,cantidad:x.falta});total+=x.falta*x.d.c}});
-    if(!añadir.length){alert("No has marcado ninguna pieza.");return}
+    const rec = configuracionRecomendada();
+    const { faltantes } = calcularFaltantes(rec.viajes, rec.colchon);
+    faltantes.forEach(x => {
+      if(reponerState.marcados[x.d.c] !== false && x.deBanco > 0){
+        añadir.push({ index: x.index, cantidad: x.deBanco });
+        total += x.deBanco * x.d.c;
+      }
+    });
+    if(!añadir.length){ alert("No has marcado ninguna pieza."); return; }
   }
-  if(!confirm("¿Confirmar que has sacado "+moneyText(total)+" del banco y los has metido en la caja?"))return;
-  añadir.forEach(x=>{stock[x.index]+=x.cantidad;statsOps.repuesto[x.index]+=x.cantidad});
-  saveStats();saveStock();renderStockList();updateCashSummary();
-  alert("✅ Añadido a la caja: "+moneyText(total));
-  cerrarReponerPantalla()
+  if(!confirm("¿Confirmar que has sacado " + moneyText(total) + " del banco y los has metido en la caja?")) return;
+  añadir.forEach(x => {
+    stock[x.index] += x.cantidad;
+    statsOps.repuesto[x.index] += x.cantidad;
+  });
+  saveStats();
+  saveStock();
+  renderStockList();
+  updateCashSummary();
+  alert("✅ Añadido a la caja desde el banco: " + moneyText(total));
+  cerrarReponerPantalla();
 }
 
 /* ==================== MODO DEBUG (ERUDA) ==================== */
@@ -6079,5 +6196,90 @@ function actualizarHucha(idx, val){
   renderHucha(); // Refrescar para recalcular el total
 }
 /* ==================== FIN HUCHA ==================== */
+
+/* ========== Mover / Sacar de Hucha ========== */
+function moverAHucha(idx, cantidad){
+  const d = denominations[idx];
+  cantidad = Math.max(0, Math.min(parseInt(cantidad) || 0, stock[idx] || 0));
+  if(cantidad <= 0 || !d) return 0;
+  stock[idx] -= cantidad;
+  hucha[idx] = (hucha[idx] || 0) + cantidad;
+  saveStock();
+  saveHucha();
+  try { renderStockList(); } catch(e){}
+  try { updateCashSummary(); } catch(e){}
+  return cantidad;
+}
+
+function sacarDeHucha(idx, cantidad){
+  const d = denominations[idx];
+  cantidad = Math.max(0, Math.min(parseInt(cantidad) || 0, hucha[idx] || 0));
+  if(cantidad <= 0 || !d) return 0;
+  hucha[idx] -= cantidad;
+  stock[idx] += cantidad;
+  saveStock();
+  saveHucha();
+  try { renderStockList(); } catch(e){}
+  try { updateCashSummary(); } catch(e){}
+  return cantidad;
+}
+
+/* Modal para mover N piezas del stock a la hucha */
+function abrirModalMoverHucha(idx, sugerido){
+  const d = denominations[idx];
+  if(!d) return;
+  const max = stock[idx] || 0;
+  if(max <= 0){ mostrarToast("⚠️ No tienes piezas de " + d.n); return; }
+  const inicial = Math.max(1, Math.min(parseInt(sugerido) || max, max));
+
+  const prev = document.getElementById("modalMoverHucha");
+  if(prev) prev.remove();
+
+  const m = document.createElement("div");
+  m.id = "modalMoverHucha";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px";
+
+  const render = (n) => {
+    const total = n * d.c;
+    m.innerHTML = `
+      <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:360px;width:100%;border:1px solid #7c3aed">
+        <div style="font-size:16px;font-weight:900;color:#c4b5fd;text-align:center;margin-bottom:4px">🐷 Mover a la Hucha</div>
+        <div style="font-size:13px;color:#94a3b8;text-align:center;margin-bottom:16px">${d.n} · tienes ${max} en el coche</div>
+
+        <div style="display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:14px">
+          <button type="button" data-act="-" style="width:48px;height:48px;border-radius:12px;border:none;background:#334155;color:#fff;font-size:24px;font-weight:900;cursor:pointer">−</button>
+          <div style="min-width:80px;text-align:center;font-size:36px;font-weight:900;color:#4ade80;line-height:1">${n}</div>
+          <button type="button" data-act="+" style="width:48px;height:48px;border-radius:12px;border:none;background:#334155;color:#fff;font-size:24px;font-weight:900;cursor:pointer">+</button>
+        </div>
+
+        <div style="text-align:center;font-size:15px;font-weight:800;color:#38bdf8;margin-bottom:16px">${moneyText(total)}</div>
+
+        <div style="display:flex;gap:8px">
+          <button type="button" data-act="cancel" style="flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">Cancelar</button>
+          <button type="button" data-act="ok" style="flex:1;background:#7c3aed;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">✅ Mover</button>
+        </div>
+      </div>
+    `;
+    m.querySelectorAll("[data-act]").forEach(b => {
+      b.onclick = (e) => {
+        e.stopPropagation();
+        const a = b.dataset.act;
+        if(a === "-") render(Math.max(1, n - 1));
+        else if(a === "+") render(Math.min(max, n + 1));
+        else if(a === "cancel") m.remove();
+        else if(a === "ok"){
+          const movido = moverAHucha(idx, n);
+          if(movido > 0){
+            m.remove();
+            mostrarToast("🐷 Movidas " + movido + " × " + d.n + " a la Hucha");
+          }
+        }
+      };
+    });
+  };
+  render(inicial);
+  document.body.appendChild(m);
+  m.addEventListener("click", e => { if(e.target === m) m.remove(); });
+}
 
 init();

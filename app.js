@@ -4994,6 +4994,7 @@ async function abrirMapaPantalla(){
 
   await cargarPoligonos(cont);
 
+  // AQUÍ EMPIEZA EL HTML (Fíjate en la comilla invertida del principio)
   cont.innerHTML = `
     <div id="geoEstadoBadge"
       style="text-align:center;margin-bottom:12px;padding:14px;border-radius:12px;border:2px solid #475569;
@@ -5079,6 +5080,7 @@ async function abrirMapaPantalla(){
       <button type="button" onclick="probarCoordenadasManuales()" style="width:100%;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;font-size:13px;cursor:pointer">Probar esta posición</button>
     </div>
   `;
+  // AQUÍ ACABA EL HTML (Fíjate en la comilla invertida y el punto y coma del final)
 
   setTimeout(() => {
     try {
@@ -5117,6 +5119,7 @@ async function abrirMapaPantalla(){
     }
   }, 100);
 }
+// AQUÍ ACABA LA FUNCIÓN (Fíjate en la llave del final)
 
 function cerrarMapaPantalla(){
   const p = document.getElementById("mapaPantalla");

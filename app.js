@@ -6230,6 +6230,8 @@ function moverAHucha(idx, cantidad){
   saveHucha();
   try { renderStockList(); } catch(e){}
   try { updateCashSummary(); } catch(e){}
+  try { if(document.getElementById("huchaContenido")) renderHucha(); } catch(e){}
+  try { if(document.getElementById("cambioContenido")) renderCambioInicio(); } catch(e){}
   return cantidad;
 }
 

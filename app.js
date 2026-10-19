@@ -5037,19 +5037,19 @@ async function abrirMapaPantalla(){
       <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">📖 LEYENDA</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <div style="width:20px;height:4px;background:#4ade80;border-radius:2px"></div>
-        <span style="font-size:13px;color:#fff">🟢 Zona de trabajo (Barcelona)</span>
+        <span style="font-size:13px;color:#fff">🟢 Zona de trabajo</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <div style="width:20px;height:4px;background:#38bdf8;border-radius:2px"></div>
-        <span style="font-size:13px;color:#fff">🟡 Zona AMB (fuera de Barcelona)</span>
+        <span style="font-size:13px;color:#fff">🟡 Zona AMB</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <div style="width:20px;height:4px;background:#fb923c;border-radius:2px"></div>
-        <span style="font-size:13px;color:#fff">🟠 Provincia BCN (Sitges, Manresa...)</span>
+        <span style="font-size:13px;color:#fff">🟠 Zona Interurbana</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <div style="width:20px;height:4px;background:#ef4444;border-radius:2px"></div>
-        <span style="font-size:13px;color:#fff">🔴 Fuera de provincia (Girona, Tarragona...)</span>
+        <span style="font-size:13px;color:#fff">🔴 Fuera Provincia</span>
       </div>
     </div>
 
@@ -5089,7 +5089,6 @@ async function abrirMapaPantalla(){
           style: { color: "#4ade80", weight: 3, fillColor: "#4ade80", fillOpacity: 0.15 }
         }).addTo(mapaInstance);
       }
-      // 👇 NUEVO: Capa Provincia BCN
       if(geoPROV){
         capaPROV = L.geoJSON(geoPROV, {
           style: { color: "#fb923c", weight: 2, fillColor: "#fb923c", fillOpacity: 0.05, dashArray: "5,5" }
@@ -5239,15 +5238,13 @@ function detectarZona(lat, lon){
   const enAMB = puntoEnLineStrings(lat, lon, geoAMB);
   if(enAMB) return { codigo: "amb", nombre: "🟡 Zona AMB", color: "#fbbf24" };
 
-  // 👇 NUEVO: Comprobar Provincia BCN
   const enPROV = puntoEnPoligono(lat, lon, geoPROV);
-  if(enPROV) return { codigo: "prov", nombre: "🟠 Provincia BCN", color: "#fb923c" };
+  if(enPROV) return { codigo: "prov", nombre: "🟠 Zona Interurbana", color: "#fb923c" };
 
-  // Buffer de 50m por si acaso está muy cerca de la ZBE
   const d = distanciaAlPoligono(lat, lon, geoZBE);
   if(d < BUFFER_ZONA_METROS) return { codigo: "bcn", nombre: "🟢 Zona de trabajo", color: "#4ade80" };
 
-  return { codigo: "fuera", nombre: "🔴 Fuera de provincia", color: "#ef4444" };
+  return { codigo: "fuera", nombre: "🔴 Fuera Provincia", color: "#ef4444" };
 }
 
 // 👇 NUEVO: versión robusta (no pierde notificaciones en el gap del watcher)
@@ -5488,7 +5485,7 @@ async function quitarBurbuja(){
 function estiloDeZona(codigo){
   if(codigo === "bcn") return { emoji: "🟢", color: "#14532d" };
   if(codigo === "amb") return { emoji: "🟡", color: "#78350f" };
-  if(codigo === "prov") return { emoji: "🟠", color: "#9a3412" }; // 👈 NUEVO Naranja oscuro
+  if(codigo === "prov") return { emoji: "🟠", color: "#9a3412" }; 
   return { emoji: "🔴", color: "#7f1d1d" };
 }
 

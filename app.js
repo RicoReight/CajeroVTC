@@ -5062,7 +5062,16 @@ async function abrirMapaPantalla(){
     </div>
 
     <div id="debugCoordsBox" style="display:none;margin-top:10px;padding:12px;background:#1e293b;border:1px dashed #475569;border-radius:10px">
-      <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px;letter-spacing:0.5px">DEBUG · PRUEBA UNA POSICIÓN</div>
+      <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px;letter-spacing:0.5px">DEBUG · PRUEBA RÁPIDA</div>
+      
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px">
+        <button type="button" onclick="setTestCoords(41.410627, 2.150158)" style="background:#14532d;color:#4ade80;border:1px solid #22c55e;border-radius:8px;padding:8px;font-size:12px;font-weight:800;cursor:pointer">🟢 BCN</button>
+        <button type="button" onclick="setTestCoords(41.474148, 2.088923)" style="background:#78350f;color:#fbbf24;border:1px solid #f59e0b;border-radius:8px;padding:8px;font-size:12px;font-weight:800;cursor:pointer">🟡 AMB</button>
+        <button type="button" onclick="setTestCoords(41.561185, 2.012338)" style="background:#9a3412;color:#fdba74;border:1px solid #fb923c;border-radius:8px;padding:8px;font-size:12px;font-weight:800;cursor:pointer">🟠 Interurbana</button>
+        <button type="button" onclick="setTestCoords(41.137103, 1.199737)" style="background:#7f1d1d;color:#fca5a5;border:1px solid #ef4444;border-radius:8px;padding:8px;font-size:12px;font-weight:800;cursor:pointer">🔴 Fuera</button>
+      </div>
+
+      <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px;letter-spacing:0.5px">O ESCRIBE TÚ MISMO</div>
       <div style="display:flex;gap:6px;margin-bottom:8px">
         <input type="text" id="testLat" placeholder="Lat (ej: 41.3874)" style="flex:1;font-size:14px;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;outline:none;min-width:0">
         <input type="text" id="testLon" placeholder="Lon (ej: 2.1686)" style="flex:1;font-size:14px;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;outline:none;min-width:0">
@@ -5372,6 +5381,16 @@ function procesarNuevaPosicion(lat, lon, acc){
 
 function actualizarMapaConPosicion(lat, lon, acc){
   procesarNuevaPosicion(lat, lon, acc);
+}
+
+function setTestCoords(lat, lon){
+  const latEl = document.getElementById("testLat");
+  const lonEl = document.getElementById("testLon");
+  if(latEl && lonEl){
+    latEl.value = lat;
+    lonEl.value = lon;
+    probarCoordenadasManuales();
+  }
 }
 
 function probarCoordenadasManuales(){

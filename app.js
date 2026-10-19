@@ -2105,6 +2105,7 @@ async function exportInventory(){
     version: 12,
     exportedAt: new Date().toISOString(),
     stock,
+    hucha,
     totalTips,
     pines: pinesLista,
     reservaMinima,
@@ -2255,8 +2256,18 @@ function importInventory(file){
     try{
       const data=JSON.parse(rd.result);
       if(!data||!Array.isArray(data.stock)||data.stock.length!==denominations.length){alert("El archivo no es una copia válida.");return;}
-      if(!confirm("¿Reemplazar el inventario, propinas, reserva, topes, estadísticas e historial actuales?"))return;
+      if(!confirm("¿Reemplazar el inventario, hucha, propinas, reserva, topes, estadísticas e historial actuales?"))return;
+      
+      // Restaurar stock
       stock=data.stock.map(x=>Math.max(0,parseInt(x)||0));
+      
+      // 👇 RESTAURAR HUCHA 👇
+      if(Array.isArray(data.hucha) && data.hucha.length === denominations.length){
+        hucha = data.hucha.map(x => Math.max(0, parseInt(x) || 0));
+        saveHucha();
+      }
+      // 👆 FIN RESTAURAR HUCHA 👆
+
       if(typeof data.totalTips==="number")totalTips=Math.max(0,data.totalTips);
       if(data.reservaMinima&&typeof data.reservaMinima==="object"){reservaMinima=Object.assign({},RESERVA_DEFAULT);denominations.forEach(d=>{if(typeof data.reservaMinima[d.c]==="number")reservaMinima[d.c]=Math.max(0,parseInt(data.reservaMinima[d.c])||0)});safeStorage.set("uberCambioReserva",JSON.stringify(reservaMinima))}
       if(data.topesRecibir&&typeof data.topesRecibir==="object"){topesRecibir=Object.assign({},TOPES_DEFAULT);denominations.forEach(d=>{if(typeof data.topesRecibir[d.c]==="number")topesRecibir[d.c]=Math.max(0,parseInt(data.topesRecibir[d.c])||0)});saveTopes()}
@@ -2306,7 +2317,15 @@ function importInventory(file){
       if(Array.isArray(data.historialOps)){
         saveHistorialOps(data.historialOps);
       }
-      saveStock();saveTips();renderStockList();renderReservaList();renderTopesList();updateCashSummary();renderCierreHistorico();renderResetPanel();
+      
+      saveStock();
+      saveTips();
+      renderStockList();
+      renderReservaList();
+      renderTopesList();
+      updateCashSummary();
+      renderCierreHistorico();
+      renderResetPanel();
 
       try{ renderDiasTrabajo(); }catch(e){}
 

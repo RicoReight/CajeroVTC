@@ -1358,65 +1358,94 @@ function renderRecomendacionCambio(){
   const {sobran, totalSobra} = calcularIntercambiosRecomendados();
   if(!sobran.length) return "";
 
-  const rec = configuracionRecomendada();
-  const {faltantes} = calcularFaltantes(rec.viajes, rec.colchon);
-
+  // 1. Calcular qué pedir de forma INTELIGENTE (evitando calderilla extrema)
   let restante = totalSobra;
   const pedir = {};
 
-  faltantes.slice().sort((a,b) => b.d.c - a.d.c).forEach(x => {
-    if(restante <= 0) return;
-    const n = Math.min(x.falta, Math.floor(restante / x.d.c));
-    if(n > 0){
-      pedir[x.d.c] = (pedir[x.d.c] || 0) + n;
-      restante -= n * x.d.c;
+  // Ordenar denominaciones de mayor a menor
+  const cands = denominations.slice().sort((a,b) => b.c - a.c);
+
+  cands.forEach(d => {
+    if (restante >= d.c) {
+      const n = Math.floor(restante / d.c);
+      
+      // Si es una moneda muy pequeña (< 10c), limitamos la cantidad para no llenar el bolsillo
+      let limite = (d.c < 10 && restante > 50) ? 4 : n;
+      
+      if (limite > 0) {
+        pedir[d.c] = (pedir[d.c] || 0) + limite;
+        restante -= limite * d.c;
+      }
     }
   });
 
-  if(restante > 0){
-    denominations.slice().sort((a,b) => b.c - a.c).forEach(d => {
-      if(restante <= 0) return;
-      const n = Math.floor(restante / d.c);
-      if(n > 0){
-        pedir[d.c] = (pedir[d.c] || 0) + n;
-        restante -= n * d.c;
-      }
-    });
-  }
-
+  // 2. Guardar entregas iniciales
   const entregar = {};
   sobran.forEach(x => { entregar[x.d.c] = x.cantidad; });
+
+  // 3. 🧹 LIMPIEZA: Netear piezas (si doy 10 de 1c y pido 1 de 1c, solo doy 9)
+  Object.keys(pedir).forEach(cStr => {
+    const c = parseInt(cStr);
+    if (entregar[c]) {
+      const restar = Math.min(entregar[c], pedir[c]);
+      entregar[c] -= restar;
+      pedir[c] -= restar;
+      
+      if (entregar[c] <= 0) delete entregar[c];
+      if (pedir[c] <= 0) delete pedir[c];
+    }
+  });
+
+  // Guardar para el botón
   __recomendacionCambio = { entregar, pedir };
 
+  // --- RENDERIZADO HTML ---
   let html = `<div class="card" style="margin:0 0 12px 0;background:#1e293b;border:2px solid #7c3aed">`;
   html += `<div style="font-size:12px;color:#c4b5fd;font-weight:900;letter-spacing:1px;margin-bottom:10px">🔄 TE ACONSEJO CAMBIAR</div>`;
   html += `<div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.4">Estas piezas las acumulas porque las gastas poco. Llévalas al banco y pide las que necesitas. Es el <b>mismo importe</b>, solo cambias formato.</div>`;
 
-  html += `<div style="font-size:11px;color:#f87171;font-weight:800;letter-spacing:0.5px;margin-bottom:6px">📤 ENTREGAS AL BANCO</div>`;
-  html += `<div style="background:#0f172a;border-radius:8px;padding:8px 10px;margin-bottom:12px">`;
-  sobran.forEach(x => {
-    html += `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff"><span>${x.cantidad} × ${x.d.n}</span><span style="color:#f87171;font-weight:700">${moneyText(x.cantidad * x.d.c)}</span></div>`;
-  });
-  html += `<div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:4px;border-top:1px solid #334155;font-size:14px;font-weight:900;color:#fff"><span>TOTAL</span><span>${moneyText(totalSobra)}</span></div>`;
-  html += `</div>`;
+  // 📤 ENTREGAS
+  const entregarKeys = Object.keys(entregar).map(k => parseInt(k)).sort((a,b) => b-a);
+  let totalEntregarReal = 0;
+  
+  if(entregarKeys.length > 0) {
+    html += `<div style="font-size:11px;color:#f87171;font-weight:800;letter-spacing:0.5px;margin-bottom:6px">📤 ENTREGAS AL BANCO</div>`;
+    html += `<div style="background:#0f172a;border-radius:8px;padding:8px 10px;margin-bottom:12px">`;
+    entregarKeys.forEach(c => {
+      const n = entregar[c];
+      const d = denominations.find(x => x.c === c);
+      if(d){
+        totalEntregarReal += n * c;
+        html += `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff"><span>${n} × ${d.n}</span><span style="color:#f87171;font-weight:700">${moneyText(n * c)}</span></div>`;
+      }
+    });
+    html += `<div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:4px;border-top:1px solid #334155;font-size:14px;font-weight:900;color:#fff"><span>TOTAL</span><span>${moneyText(totalEntregarReal)}</span></div>`;
+    html += `</div>`;
+  }
 
+  // 📥 PIDES
   const pedirKeys = Object.keys(pedir).map(k => parseInt(k)).sort((a,b) => b-a);
-  if(pedirKeys.length){
-    let totalPedir = 0;
+  let totalPedirReal = 0;
+  
+  if(pedirKeys.length > 0){
     html += `<div style="font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin-bottom:6px">📥 PIDES AL BANCO</div>`;
     html += `<div style="background:#0f172a;border-radius:8px;padding:8px 10px;margin-bottom:12px">`;
     pedirKeys.forEach(c => {
       const n = pedir[c];
       const d = denominations.find(x => x.c === c);
       if(d){
-        totalPedir += n * c;
+        totalPedirReal += n * c;
         html += `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff"><span>${n} × ${d.n}</span><span style="color:#4ade80;font-weight:700">${moneyText(n * c)}</span></div>`;
       }
     });
-    html += `<div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:4px;border-top:1px solid #334155;font-size:14px;font-weight:900;color:#fff"><span>TOTAL</span><span>${moneyText(totalPedir)}</span></div>`;
+    html += `<div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:4px;border-top:1px solid #334155;font-size:14px;font-weight:900;color:#fff"><span>TOTAL</span><span>${moneyText(totalPedirReal)}</span></div>`;
     html += `</div>`;
+  }
 
-    html += `<button type="button" onclick="aplicarRecomendacionCambio(${totalSobra})" style="width:100%;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer">✅ USAR ESTA RECOMENDACIÓN</button>`;
+  if(totalEntregarReal > 0 && totalPedirReal > 0){
+    html += `<button type="button" onclick="aplicarRecomendacionCambio(${totalEntregarReal})" style="width:100%;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer">✅ USAR ESTA RECOMENDACIÓN</button>`;
+  } else {
+    html += `<div style="text-align:center;font-size:12px;color:#fbbf24;padding:10px">No hay un intercambio útil que sugerir ahora mismo.</div>`;
   }
 
   html += `</div>`;
@@ -1616,6 +1645,9 @@ function calcularCambioAutomatico(total, juntar, minE){
     if(cambioState.aEntregar[k]>0) entregando[parseInt(k)] = true;
   });
 
+  // 👇 SUMAR LO QUE TIENES EN LA HUCHA (CASA) PARA NO PEDIRLO EN EL BANCO
+  const stockTotal = stock.map((n, i) => n + (hucha[i] || 0));
+
   let cand;
   if(juntar){
     cand = denominations.filter(d => !entregando[d.c]).sort((a,b)=>b.c-a.c);
@@ -1627,7 +1659,7 @@ function calcularCambioAutomatico(total, juntar, minE){
     for(const d of cand){
       if(d.c === total){
         const i = denominations.findIndex(x=>x.c===d.c);
-        const sa = stock[i] || 0;
+        const sa = stockTotal[i] || 0;
         const tope = topesRecibir[d.c] || 0;
         const espacio = tope > 0 ? Math.max(0, tope - sa) : sa;
         if(espacio >= 1){
@@ -1643,7 +1675,7 @@ function calcularCambioAutomatico(total, juntar, minE){
   cand.forEach(d=>{
     if(r <= 0) return;
     const i = denominations.findIndex(x=>x.c===d.c);
-    const sa = stock[i] || 0;
+    const sa = stockTotal[i] || 0; // 👈 Usar stockTotal
     const tope = topesRecibir[d.c] || 0;
 
     const espacio = tope > 0 ? Math.max(0, tope - sa) : sa;
@@ -1675,7 +1707,7 @@ function calcularCambioAutomatico(total, juntar, minE){
     for(const d of desc){
       if(r <= 0) break;
       const i = denominations.findIndex(x=>x.c===d.c);
-      const sa = stock[i] || 0;
+      const sa = stockTotal[i] || 0; // 👈 Usar stockTotal
       const tope = topesRecibir[d.c] || 0;
       const espacio = tope > 0 ? Math.max(0, tope - sa) : sa;
       if(espacio <= 0) continue;
@@ -1757,6 +1789,7 @@ function calcularIntercambiosRecomendados(){
 
   const sobran = [];
   let totalSobra = 0;
+  let hayBilleteParaEntregar = false; // 👈 NUEVO
 
   denominations.forEach((d, i) => {
     const sa = stock[i] || 0;
@@ -1778,7 +1811,17 @@ function calcularIntercambiosRecomendados(){
       ratioRecibeGasta: ratio
     });
     totalSobra += cantidad * d.c;
+
+    // 👇 Comprobamos si entre lo que sobra hay algún billete
+    if (d.type === "bill") {
+      hayBilleteParaEntregar = true;
+    }
   });
+
+  // 🚫 SI NO HAY BILLETES PARA ENTREGAR, NO RECOMENDAMOS CAMBIO
+  if (!hayBilleteParaEntregar) {
+    return { sobran: [], totalSobra: 0 };
+  }
 
   sobran.sort((a, b) => (b.cantidad * b.d.c) - (a.cantidad * a.d.c));
 
@@ -5842,5 +5885,97 @@ function borrarHistorialOps(){
   mostrarToast("🗑️ Historial borrado");
 }
 /* ==================== FIN HISTORIAL DE OPERACIONES ==================== */
+
+/* ==================== HUCHA (BANCO EN CASA) ==================== */
+let hucha = loadHucha(); // Variable global
+
+function loadHucha(){
+  const s = safeStorage.get("uberCambioHucha");
+  if(s){
+    try{
+      const a = JSON.parse(s);
+      if(Array.isArray(a) && a.length === denominations.length) return a.map(x=>Math.max(0,parseInt(x)||0));
+    }catch(e){}
+  }
+  return new Array(denominations.length).fill(0);
+}
+function saveHucha(){
+  safeStorage.set("uberCambioHucha", JSON.stringify(hucha));
+}
+
+function abrirHuchaPantalla(){
+  const d=document.getElementById("drawer"),o=document.getElementById("overlay");
+  if(d)d.classList.remove("active");
+  if(o)o.classList.remove("active");
+  const p=document.getElementById("huchaPantalla");
+  if(p)p.style.display="block";
+  renderHucha();
+}
+function cerrarHuchaPantalla(){
+  const p=document.getElementById("huchaPantalla");
+  if(p)p.style.display="none";
+}
+
+function renderHucha(){
+  const cont = document.getElementById("huchaContenido");
+  if(!cont) return;
+
+  let html = `<div class="card" style="margin:0 0 12px 0;background:#1e3a8a;border:1px solid #3b82f6">
+    <div style="font-size:12px;color:#bfdbfe;font-weight:800;letter-spacing:0.5px;margin-bottom:6px">🏦 TU HUCHA EN CASA</div>
+    <div style="font-size:12px;color:#93c5fd;line-height:1.5">Apunta aquí las monedas que guardas en casa. La app las tendrá en cuenta para no pedirte monedas que ya tienes cuando vayas a cambiar un billete.</div>
+  </div>`;
+
+  html += `<div class="card" style="margin:0 0 12px 0">`;
+  
+  html += `<div style="font-size:11px;color:#f87171;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">💵 BILLETES</div>`;
+  denominations.slice(0,5).forEach((d, i) => {
+    const n = hucha[i] || 0;
+    const gc = "bill-graphic " + d.class;
+    html += `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1e293b">
+        <div class="${gc}" style="flex-shrink:0;font-size:12px">${d.short}</div>
+        <div style="flex:1;font-size:14px;color:#fff;font-weight:700">${d.n}</div>
+        <input type="number" min="0" value="${n}" onchange="actualizarHucha(${i}, this.value)" 
+          style="width:70px;font-size:16px;font-weight:900;padding:8px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#4ade80;text-align:center;outline:none">
+      </div>
+    `;
+  });
+
+  html += `<div style="font-size:11px;color:#facc15;font-weight:800;letter-spacing:0.5px;margin:16px 0 8px">🪙 MONEDAS</div>`;
+  denominations.slice(5).forEach((d, idx) => {
+    const i = idx + 5;
+    const n = hucha[i] || 0;
+    const gc = "coin-graphic " + d.class;
+    html += `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1e293b">
+        <div class="${gc}" style="flex-shrink:0;font-size:12px">${d.short}</div>
+        <div style="flex:1;font-size:14px;color:#fff;font-weight:700">${d.n}</div>
+        <input type="number" min="0" value="${n}" onchange="actualizarHucha(${i}, this.value)" 
+          style="width:70px;font-size:16px;font-weight:900;padding:8px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#4ade80;text-align:center;outline:none">
+      </div>
+    `;
+  });
+  html += `</div>`;
+
+  let total = 0;
+  denominations.forEach((d,i) => { total += d.c * (hucha[i] || 0); });
+
+  html += `<div class="card" style="margin:0 0 12px 0;text-align:center;background:#0f172a;border:1px solid #334155">
+    <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:6px">TOTAL AHORRADO EN CASA</div>
+    <div style="font-size:32px;font-weight:900;color:#38bdf8">${moneyText(total)}</div>
+  </div>`;
+
+  html += `<button type="button" onclick="cerrarHuchaPantalla()" style="width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:700;font-size:15px;cursor:pointer">✖ Volver</button>`;
+
+  cont.innerHTML = html;
+}
+
+function actualizarHucha(idx, val){
+  const n = parseInt(val) || 0;
+  hucha[idx] = Math.max(0, n);
+  saveHucha();
+  renderHucha(); // Refrescar para recalcular el total
+}
+/* ==================== FIN HUCHA ==================== */
 
 init();

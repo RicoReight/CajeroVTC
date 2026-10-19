@@ -5941,7 +5941,7 @@ function renderHucha(){
 
   let html = `<div class="card" style="margin:0 0 12px 0;background:#1e3a8a;border:1px solid #3b82f6">
     <div style="font-size:12px;color:#bfdbfe;font-weight:800;letter-spacing:0.5px;margin-bottom:6px">🏦 TU HUCHA EN CASA</div>
-    <div style="font-size:12px;color:#93c5fd;line-height:1.5">Apunta aquí las monedas que guardas en casa. La app las tendrá en cuenta para no pedirte monedas que ya tienes cuando vayas a cambiar un billete.</div>
+    <div style="font-size:12px;color:#93c5fd;line-height:1.5">Apunta aquí las monedas que guardas en casa. Usa el botón <b>⊞</b> para sumar filas y columnas (ej: 5x8).</div>
   </div>`;
 
   html += `<div class="card" style="margin:0 0 12px 0">`;
@@ -5951,7 +5951,7 @@ function renderHucha(){
     const n = hucha[i] || 0;
     const gc = "bill-graphic " + d.class;
     html += `
-      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1e293b">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1e293b">
         <div class="${gc}" style="flex-shrink:0;font-size:12px">${d.short}</div>
         <div style="flex:1;font-size:14px;color:#fff;font-weight:700">${d.n}</div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
@@ -5959,6 +5959,7 @@ function renderHucha(){
           <input type="number" min="0" value="${n}" onchange="actualizarHucha(${i}, this.value)" 
             style="width:56px;font-size:16px;font-weight:900;padding:8px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#4ade80;text-align:center;outline:none">
           <button type="button" onclick="huchaStep(${i}, 1)" style="width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:22px;font-weight:800;cursor:pointer">+</button>
+          <button type="button" onclick="abrirHuchaGrid(${i})" style="width:34px;height:34px;padding:0;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer" title="Multiplicar filas x columnas">⊞</button>
         </div>
       </div>
     `;
@@ -5970,7 +5971,7 @@ function renderHucha(){
     const n = hucha[i] || 0;
     const gc = "coin-graphic " + d.class;
     html += `
-      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1e293b">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1e293b">
         <div class="${gc}" style="flex-shrink:0;font-size:12px">${d.short}</div>
         <div style="flex:1;font-size:14px;color:#fff;font-weight:700">${d.n}</div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
@@ -5978,6 +5979,7 @@ function renderHucha(){
           <input type="number" min="0" value="${n}" onchange="actualizarHucha(${i}, this.value)" 
             style="width:56px;font-size:16px;font-weight:900;padding:8px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#4ade80;text-align:center;outline:none">
           <button type="button" onclick="huchaStep(${i}, 1)" style="width:34px;height:34px;padding:0;background:#334155;color:#fff;border:none;border-radius:8px;font-size:22px;font-weight:800;cursor:pointer">+</button>
+          <button type="button" onclick="abrirHuchaGrid(${i})" style="width:34px;height:34px;padding:0;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:18px;font-weight:800;cursor:pointer" title="Multiplicar filas x columnas">⊞</button>
         </div>
       </div>
     `;
@@ -6001,6 +6003,73 @@ function huchaStep(idx, delta){
   hucha[idx] = Math.max(0, (hucha[idx] || 0) + delta);
   saveHucha();
   renderHucha(); // Refrescar para actualizar el número y el total
+}
+
+function abrirHuchaGrid(idx){
+  const d = denominations[idx];
+  const prev = document.getElementById("modalHuchaGrid");
+  if(prev) prev.remove();
+
+  const m = document.createElement("div");
+  m.id = "modalHuchaGrid";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px";
+  
+  m.innerHTML = `
+    <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:340px;width:100%;border:1px solid #334155;text-align:center">
+      <div style="font-size:16px;font-weight:900;color:#a78bfa;margin-bottom:4px">⊞ Sumar por cuadrícula</div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:16px">${d.n}</div>
+      
+      <input type="text" id="huchaGridInput" placeholder="Ej: 5x8 o 5*8" 
+        style="width:100%;font-size:24px;font-weight:900;padding:12px;border-radius:10px;border:2px solid #7c3aed;background:#0f172a;color:#fff;text-align:center;outline:none;margin-bottom:16px;box-sizing:border-box">
+      
+      <div style="font-size:11px;color:#64748b;margin-bottom:16px">Escribe las filas y las columnas separadas por una X</div>
+      
+      <div style="display:flex;gap:8px">
+        <button type="button" onclick="document.getElementById('modalHuchaGrid').remove()" 
+          style="flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;cursor:pointer">Cancelar</button>
+        <button type="button" onclick="guardarHuchaGrid(${idx})" 
+          style="flex:1;background:#7c3aed;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;cursor:pointer">✅ Sumar</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(m);
+  m.addEventListener("click", (e) => { if(e.target === m) m.remove(); });
+  
+  setTimeout(() => {
+    const inp = document.getElementById("huchaGridInput");
+    if(inp) inp.focus();
+  }, 150);
+}
+
+function guardarHuchaGrid(idx){
+  const inp = document.getElementById("huchaGridInput");
+  if(!inp) return;
+
+  const txt = (inp.value || "").toLowerCase().replace(/\s+/g, "");
+  let totalASumar = 0;
+
+  if(txt.includes("x")){
+    const p = txt.split("x");
+    totalASumar = (parseInt(p[0]) || 0) * (parseInt(p[1]) || 0);
+  } else if(txt.includes("*")){
+    const p = txt.split("*");
+    totalASumar = (parseInt(p[0]) || 0) * (parseInt(p[1]) || 0);
+  } else {
+    totalASumar = parseInt(txt) || 0;
+  }
+
+  if(totalASumar <= 0){
+    mostrarToast("⚠️ Escribe algo como 5x8");
+    return;
+  }
+
+  hucha[idx] = (hucha[idx] || 0) + totalASumar;
+  saveHucha();
+  
+  document.getElementById("modalHuchaGrid").remove();
+  renderHucha();
+  mostrarToast("✅ Sumadas " + totalASumar + " piezas");
 }
 
 function actualizarHucha(idx, val){

@@ -2450,7 +2450,12 @@ function importInventory(file){
         saveVacacionesAsignados();
       }
       if(Array.isArray(data.pines)){
-        pinesLista = data.pines.filter(x => x && x.mat && x.pin);
+        pinesLista = data.pines.filter(x => x && x.mat && x.pin).map(x => ({
+        mat: x.mat,
+        pin: x.pin,
+        combustible: !!x.combustible,
+        pinturaBarca: !!x.pinturaBarca
+      }));
         savePines();
       }
       if(Array.isArray(data.historialOps)){
@@ -5672,34 +5677,34 @@ function detenerAudioActual(){
 
 /* ==================== PINs TARJETAS ==================== */
 const PINES_DEFAULT = [
-  { mat: "1204NDM", pin: "9611" },
-  { mat: "2921NDH", pin: "1801" },
-  { mat: "7205NDM", pin: "7128" },
-  { mat: "9429NDF", pin: "1622" },
-  { mat: "9433NDF", pin: "0081" },
-  { mat: "9434NDF", pin: "5337" },
-  { mat: "9436NDF", pin: "8387" },
-  { mat: "9437NDF", pin: "3562" },
-  { mat: "9441NDF", pin: "5414" },
-  { mat: "9443NDF", pin: "5415" },
-  { mat: "9444NDF", pin: "0587" },
-  { mat: "9447NDF", pin: "7698" },
-  { mat: "9448NDF", pin: "5486" },
-  { mat: "9449NDF", pin: "7200" },
-  { mat: "9451NDF", pin: "9547" },
-  { mat: "9452NDF", pin: "7563" },
-  { mat: "9454NDF", pin: "8060" },
-  { mat: "9456NDF", pin: "2983" },
-  { mat: "9457NDF", pin: "3323" },
-  { mat: "9459NDF", pin: "3051" },
-  { mat: "9461NDF", pin: "1179" },
-  { mat: "9462NDF", pin: "6052" },
-  { mat: "9463NDF", pin: "3390" },
-  { mat: "9464NDF", pin: "8406" },
-  { mat: "9465NDF", pin: "0402" },
-  { mat: "9466NDF", pin: "0669" },
-  { mat: "9467NDF", pin: "2358" },
-  { mat: "9471NDF", pin: "2510" }
+  { mat:"1204NDM", pin:"9611", combustible:false, pinturaBarca:false },
+  { mat:"2921NDH", pin:"1801", combustible:false, pinturaBarca:false },
+  { mat:"7205NDM", pin:"7128", combustible:false, pinturaBarca:false },
+  { mat:"9429NDF", pin:"1622", combustible:false, pinturaBarca:false },
+  { mat:"9433NDF", pin:"0081", combustible:false, pinturaBarca:false },
+  { mat:"9434NDF", pin:"5337", combustible:false, pinturaBarca:false },
+  { mat:"9436NDF", pin:"8387", combustible:false, pinturaBarca:false },
+  { mat:"9437NDF", pin:"3562", combustible:false, pinturaBarca:false },
+  { mat:"9441NDF", pin:"5414", combustible:false, pinturaBarca:false },
+  { mat:"9443NDF", pin:"5415", combustible:false, pinturaBarca:false },
+  { mat:"9444NDF", pin:"0587", combustible:false, pinturaBarca:false },
+  { mat:"9447NDF", pin:"7698", combustible:false, pinturaBarca:false },
+  { mat:"9448NDF", pin:"5486", combustible:false, pinturaBarca:false },
+  { mat:"9449NDF", pin:"7200", combustible:false, pinturaBarca:false },
+  { mat:"9451NDF", pin:"9547", combustible:false, pinturaBarca:false },
+  { mat:"9452NDF", pin:"7563", combustible:false, pinturaBarca:false },
+  { mat:"9454NDF", pin:"8060", combustible:false, pinturaBarca:false },
+  { mat:"9456NDF", pin:"2983", combustible:false, pinturaBarca:false },
+  { mat:"9457NDF", pin:"3323", combustible:false, pinturaBarca:false },
+  { mat:"9459NDF", pin:"3051", combustible:false, pinturaBarca:false },
+  { mat:"9461NDF", pin:"1179", combustible:false, pinturaBarca:false },
+  { mat:"9462NDF", pin:"6052", combustible:false, pinturaBarca:false },
+  { mat:"9463NDF", pin:"3390", combustible:false, pinturaBarca:false },
+  { mat:"9464NDF", pin:"8406", combustible:false, pinturaBarca:false },
+  { mat:"9465NDF", pin:"0402", combustible:false, pinturaBarca:false },
+  { mat:"9466NDF", pin:"0669", combustible:false, pinturaBarca:false },
+  { mat:"9467NDF", pin:"2358", combustible:false, pinturaBarca:false },
+  { mat:"9471NDF", pin:"2510", combustible:false, pinturaBarca:false }
 ];
 
 let pinesLista = loadPines();
@@ -5709,7 +5714,14 @@ function loadPines(){
   if(s){
     try{
       const arr = JSON.parse(s);
-      if(Array.isArray(arr)) return arr;
+      if(Array.isArray(arr)){
+        return arr.map(x => ({
+          mat: x.mat,
+          pin: x.pin,
+          combustible: !!x.combustible,
+          pinturaBarca: !!x.pinturaBarca
+        }));
+      }
     }catch(e){}
   }
   return PINES_DEFAULT.map(x => ({ ...x }));
@@ -5757,12 +5769,24 @@ function renderPinesResultados(){
   let html = "";
 
   if(exacto){
+    const cb = exacto.combustible;
+    const pb = exacto.pinturaBarca;
     html += `
       <div style="background:linear-gradient(135deg,#064e3b,#065f46);border:2px solid #10b981;border-radius:16px;padding:20px;margin-bottom:14px;text-align:center">
         <div style="font-size:13px;color:#a7f3d0;font-weight:800;letter-spacing:1px">MATRÍCULA</div>
         <div style="font-size:28px;font-weight:900;color:#fff;margin:4px 0 14px;letter-spacing:2px">${exacto.mat}</div>
         <div style="font-size:13px;color:#a7f3d0;font-weight:800;letter-spacing:1px">PIN</div>
         <div style="font-size:56px;font-weight:900;color:#4ade80;letter-spacing:6px;margin:4px 0 14px;line-height:1">${exacto.pin}</div>
+        <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+          <button type="button" onclick="togglePinCombustible('${exacto.mat}')"
+            style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;border:2px solid ${cb?'#22c55e':'#475569'};background:${cb?'#14532d':'#0f172a'};color:${cb?'#4ade80':'#94a3b8'};font-weight:800;font-size:13px;cursor:pointer">
+            ⛽ ${cb?'Sí':'No'} combustible
+          </button>
+          <button type="button" onclick="togglePinBarca('${exacto.mat}')"
+            style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;border:2px solid ${pb?'#ef4444':'#475569'};background:${pb?'#450a0a':'#0f172a'};color:${pb?'#fca5a5':'#94a3b8'};font-weight:800;font-size:13px;cursor:pointer">
+            🔵🔴 ${pb?'Sí':'No'} Barça
+          </button>
+        </div>
         <button type="button" onclick="copiarPin('${exacto.pin}')" style="background:#10b981;color:#0f172a;border:none;border-radius:10px;padding:10px 18px;font-weight:900;font-size:14px;cursor:pointer">📋 Copiar PIN</button>
       </div>
     `;
@@ -5771,10 +5795,16 @@ function renderPinesResultados(){
   html += `<div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:6px 12px">`;
 
   lista.forEach(x => {
+    const cb = x.combustible;
+    const pb = x.pinturaBarca;
     html += `
-      <div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #1e293b">
-        <div style="flex:1;min-width:0;font-size:16px;color:#fff;font-weight:800;letter-spacing:1px">${x.mat}</div>
-        <div style="font-size:20px;font-weight:900;color:#38bdf8;letter-spacing:3px">${x.pin}</div>
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #1e293b">
+        <div style="flex:1;min-width:0;font-size:15px;color:#fff;font-weight:800;letter-spacing:1px">${x.mat}</div>
+        <button type="button" onclick="togglePinCombustible('${x.mat}')" title="Combustible"
+          style="width:34px;height:34px;padding:0;border-radius:8px;border:2px solid ${cb?'#22c55e':'#334155'};background:${cb?'#14532d':'#0f172a'};color:${cb?'#4ade80':'#475569'};font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">${cb?'✓':'⛽'}</button>
+        <button type="button" onclick="togglePinBarca('${x.mat}')" title="Pintura Barça"
+          style="width:34px;height:34px;padding:0;border-radius:8px;border:2px solid ${pb?'#ef4444':'#334155'};background:${pb?'#450a0a':'#0f172a'};color:${pb?'#fca5a5':'#475569'};font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">${pb?'✓':'🎨'}</button>
+        <div style="font-size:18px;font-weight:900;color:#38bdf8;letter-spacing:3px">${x.pin}</div>
         <button type="button" onclick="editarPin('${x.mat}')" style="background:#334155;color:#94a3b8;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">✏️</button>
         <button type="button" onclick="borrarPin('${x.mat}')" style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">🗑️</button>
       </div>
@@ -5785,6 +5815,22 @@ function renderPinesResultados(){
   html += `<div style="text-align:center;font-size:11px;color:#475569;margin-top:14px">${pinesLista.length} matrícula${pinesLista.length !== 1 ? "s" : ""} registrada${pinesLista.length !== 1 ? "s" : ""}</div>`;
 
   cont.innerHTML = html;
+}
+
+function togglePinCombustible(mat){
+  const item = pinesLista.find(x => x.mat === mat);
+  if(!item) return;
+  item.combustible = !item.combustible;
+  savePines();
+  renderPinesResultados();
+}
+
+function togglePinBarca(mat){
+  const item = pinesLista.find(x => x.mat === mat);
+  if(!item) return;
+  item.pinturaBarca = !item.pinturaBarca;
+  savePines();
+  renderPinesResultados();
 }
 
 function copiarPin(pin){
@@ -5818,9 +5864,21 @@ function abrirModalPin(existente){
   if(prev) prev.remove();
 
   const esNuevo = !existente;
+  const cb = existente ? !!existente.combustible : false;
+  const pb = existente ? !!existente.pinturaBarca : false;
+
   const m = document.createElement("div");
   m.id = "modalPinEditar";
   m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px";
+
+  const renderCheck = (act, kind) => {
+    const isComb = kind === "comb";
+    const on = act;
+    const borderC = isComb ? "#22c55e" : "#ef4444";
+    const bgOn = isComb ? "#14532d" : "#450a0a";
+    const txOn = isComb ? "#4ade80" : "#fca5a5";
+    return `border:2px solid ${on?borderC:'#475569'};background:${on?bgOn:'#0f172a'};color:${on?txOn:'#94a3b8'}`;
+  };
 
   m.innerHTML = `
     <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:380px;width:100%;border:1px solid #334155">
@@ -5834,6 +5892,18 @@ function abrirModalPin(existente){
       <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">PIN (4 dígitos)</div>
       <input type="text" id="pinEditPin" value="${existente ? existente.pin : ""}" placeholder="Ej: 8387" maxlength="4" inputmode="numeric" style="width:100%;font-size:28px;font-weight:900;padding:12px;border-radius:10px;border:1px solid #475569;background:#0f172a;color:#4ade80;margin-bottom:16px;outline:none;box-sizing:border-box;text-align:center;letter-spacing:8px">
 
+      <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:8px">EXTRAS</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+        <button type="button" id="pinCombBtn" onclick="toggleModalCheck('comb')"
+          style="padding:14px 8px;border-radius:10px;${renderCheck(cb,'comb')};font-weight:900;cursor:pointer;font-size:14px">
+          ⛽ Combustible
+        </button>
+        <button type="button" id="pinBarcaBtn" onclick="toggleModalCheck('barca')"
+          style="padding:14px 8px;border-radius:10px;${renderCheck(pb,'barca')};font-weight:900;cursor:pointer;font-size:14px">
+          🔵🔴 Barça
+        </button>
+      </div>
+
       <div style="display:flex;gap:8px">
         <button type="button" onclick="cerrarModalPin()" style="flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">Cancelar</button>
         <button type="button" onclick="guardarPin(${existente ? `'${existente.mat}'` : "null"})" style="flex:1;background:#0891b2;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">✅ Guardar</button>
@@ -5844,10 +5914,33 @@ function abrirModalPin(existente){
   document.body.appendChild(m);
   m.addEventListener("click", (e) => { if(e.target === m) cerrarModalPin(); });
 
+  // Estado temporal del modal
+  window.__pinModalState = { comb: cb, barca: pb };
+
   setTimeout(() => {
     const inp = document.getElementById("pinEditMat");
     if(inp) inp.focus();
   }, 150);
+}
+
+function toggleModalCheck(kind){
+  if(!window.__pinModalState) window.__pinModalState = { comb:false, barca:false };
+  window.__pinModalState[kind] = !window.__pinModalState[kind];
+  const st = window.__pinModalState;
+  const comb = document.getElementById("pinCombBtn");
+  const barca = document.getElementById("pinBarcaBtn");
+  if(comb){
+    const on = st.comb;
+    comb.style.border = `2px solid ${on?'#22c55e':'#475569'}`;
+    comb.style.background = on ? '#14532d' : '#0f172a';
+    comb.style.color = on ? '#4ade80' : '#94a3b8';
+  }
+  if(barca){
+    const on = st.barca;
+    barca.style.border = `2px solid ${on?'#ef4444':'#475569'}`;
+    barca.style.background = on ? '#450a0a' : '#0f172a';
+    barca.style.color = on ? '#fca5a5' : '#94a3b8';
+  }
 }
 
 function cerrarModalPin(){
@@ -5862,6 +5955,7 @@ function guardarPin(matOriginal){
 
   const mat = (matInp.value || "").trim().toUpperCase();
   const pin = (pinInp.value || "").trim();
+  const st = window.__pinModalState || { comb:false, barca:false };
 
   if(!mat){ alert("Escribe una matrícula."); return; }
   if(!/^\d{4}$/.test(pin)){ alert("El PIN debe ser de 4 dígitos."); return; }
@@ -5872,17 +5966,18 @@ function guardarPin(matOriginal){
   if(matOriginal){
     const idx = pinesLista.findIndex(x => x.mat === matOriginal);
     if(idx >= 0){
-      pinesLista[idx] = { mat, pin };
+      pinesLista[idx] = { mat, pin, combustible: !!st.comb, pinturaBarca: !!st.barca };
     }
   } else {
-    pinesLista.push({ mat, pin });
+    pinesLista.push({ mat, pin, combustible: !!st.comb, pinturaBarca: !!st.barca });
   }
 
   pinesLista.sort((a,b) => a.mat.localeCompare(b.mat));
   savePines();
+  window.__pinModalState = null;
   cerrarModalPin();
   renderPinesResultados();
-  mostrarToast(matOriginal ? "✅ PIN actualizado" : "✅ Tarjeta añadida");
+  mostrarToast(matOriginal ? "✅ Tarjeta actualizada" : "✅ Tarjeta añadida");
 }
 
 function borrarPin(mat){

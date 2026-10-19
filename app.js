@@ -4994,7 +4994,6 @@ async function abrirMapaPantalla(){
 
   await cargarPoligonos(cont);
 
-  // AQUÍ EMPIEZA EL HTML (Fíjate en la comilla invertida del principio)
   cont.innerHTML = `
     <div id="geoEstadoBadge"
       style="text-align:center;margin-bottom:12px;padding:14px;border-radius:12px;border:2px solid #475569;
@@ -5080,21 +5079,27 @@ async function abrirMapaPantalla(){
       <button type="button" onclick="probarCoordenadasManuales()" style="width:100%;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;font-size:13px;cursor:pointer">Probar esta posición</button>
     </div>
   `;
-  // AQUÍ ACABA EL HTML (Fíjate en la comilla invertida y el punto y coma del final)
 
   setTimeout(() => {
     try {
-      mapaInstance = L.map("mapa-leaflet", { zoomControl: true }).setView([41.3874, 2.1686], 11);
-      
-      // 1. Capa base (Fondo oscuro)
-      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
-        attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
-        maxZoom: 19
-      }).addTo(mapaInstance);
+      // Definimos los límites de Cataluña
+      const limitesCatalunya = L.latLngBounds(
+        [40.45, 0.10], // Suroeste
+        [43.00, 3.40]  // Noreste
+      );
 
-      // 2. Capa de referencia (Nombres de ciudades, calles y fronteras)
-      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom: 19
+      // Creamos el mapa con los límites y bloqueo de zoom
+      mapaInstance = L.map("mapa-leaflet", {
+        zoomControl: true,
+        maxBounds: limitesCatalunya,
+        maxBoundsViscosity: 1.0,
+        minZoom: 7
+      }).setView([41.3874, 2.1686], 11);
+      
+      // Mapa base de Stadia Maps (¡RECUERDA PONER TU API KEY!)
+      L.tileLayer("https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=041dfb21-2b3c-44a9-99cf-2895e73db293", {
+        attribution: "&copy; Stadia Maps &copy; OpenMapTiles &copy; OpenStreetMap",
+        maxZoom: 20
       }).addTo(mapaInstance);
 
       if(geoAMB){

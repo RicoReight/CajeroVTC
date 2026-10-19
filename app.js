@@ -5083,11 +5083,11 @@ async function abrirMapaPantalla(){
   setTimeout(() => {
     try {
       mapaInstance = L.map("mapa-leaflet", { zoomControl: true }).setView([41.3874, 2.1686], 11);
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-        attribution: "&copy; OpenStreetMap &copy; CARTO",
-        subdomains: "abcd",
-        maxZoom: 20
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap",
+        maxZoom: 19
       }).addTo(mapaInstance);
+      document.getElementById("mapa-leaflet").style.filter = "invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)";
 
       if(geoAMB){
         capaAMB = L.geoJSON(geoAMB, {

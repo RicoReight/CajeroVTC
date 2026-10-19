@@ -5086,8 +5086,14 @@ async function abrirMapaPantalla(){
     try {
       mapaInstance = L.map("mapa-leaflet", { zoomControl: true }).setView([41.3874, 2.1686], 11);
       
+      // 1. Capa base (Fondo oscuro)
       L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
         attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
+        maxZoom: 19
+      }).addTo(mapaInstance);
+
+      // 2. Capa de referencia (Nombres de ciudades, calles y fronteras)
+      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}", {
         maxZoom: 19
       }).addTo(mapaInstance);
 

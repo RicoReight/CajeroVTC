@@ -5082,13 +5082,11 @@ async function abrirMapaPantalla(){
 
   setTimeout(() => {
     try {
-      // Capamos más la zona: Recortamos Tarragona, Lleida y Francia
       const limitesTrabajo = L.latLngBounds(
-        [40.80, 0.30], // Suroeste más apretado
-        [42.80, 3.20]  // Noreste más apretado
+        [40.80, 0.30], 
+        [42.80, 3.20]  
       );
 
-      // Zoom uno menos (7 en vez de 8)
       mapaInstance = L.map("mapa-leaflet", {
         zoomControl: true,
         maxBounds: limitesTrabajo,
@@ -5097,7 +5095,21 @@ async function abrirMapaPantalla(){
         maxZoom: 18
       }).setView([41.3874, 2.1686], 11);
       
-      L.tileLayer("https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=TU_API_KEY_AQUI", {
+      // 👇 AQUÍ ESTÁ EL PRINT DE LA CONSOLA PARA EL ZOOM 👇
+      mapaInstance.on('zoomend', function() {
+        const z = mapaInstance.getZoom();
+        console.log("🔍 Nivel de zoom actual: " + z);
+        
+        if (z <= 7) {
+          console.warn("🛑 Has llegado al LÍMITE MÍNIMO de zoom (7). No puedes alejarte más.");
+        }
+        if (z >= 18) {
+          console.warn("🛑 Has llegado al LÍMITE MÁXIMO de zoom (18). No puedes acercarte más.");
+        }
+      });
+      // 👆 FIN DEL PRINT 👆
+
+      L.tileLayer("https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=041dfb21-2b3c-44a9-99cf-2895e73db293", {
         attribution: "&copy; Stadia Maps &copy; OpenMapTiles &copy; OpenStreetMap",
         maxZoom: 20
       }).addTo(mapaInstance);

@@ -1912,8 +1912,8 @@ function actualizarReponerPropuesta(){
   } else {
     if(btn) btn.style.display = "block";
 
-    // 🐷 BLOQUE HUCHA (primero, lo que tienes en casa)
-    const conHucha = faltantes.filter(x => x.deHucha > 0);
+    // 🐷 BLOQUE HUCHA (total + botón)
+    const conHucha = faltantes.filter(x => x.deHucha > 0).sort((a,b) => b.d.c - a.d.c);
     if(conHucha.length){
       html += `<div class='card' style='margin:0 0 12px 0;text-align:center;background:#2e1065;border:1px solid #7c3aed'>`;
       html += `<div style='font-size:12px;color:#c4b5fd;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>🐷 TIENES EN CASA</div>`;
@@ -1923,26 +1923,48 @@ function actualizarReponerPropuesta(){
       html += `</div>`;
     }
 
-    // 🏦 BLOQUE BANCO (lo que falta de verdad)
+    // 🏦 BLOQUE BANCO (total)
     html += `<div class='card' style='margin:0 0 12px 0;text-align:center;background:#1e3a8a;border:1px solid #3b82f6'>`;
     html += `<div style='font-size:12px;color:#bfdbfe;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>🏦 PEDIR AL BANCO</div>`;
     html += `<div id='reponerTotal' style='font-size:38px;font-weight:900;color:#fff'>${moneyText(totalDeBanco)}</div>`;
     html += `<div style='font-size:12px;color:#bfdbfe;margin-top:6px'>Pulsa cada pieza para marcarla/desmarcarla</div>`;
     html += `</div>`;
 
-    html += `<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>📋 DESGLOSE</div>`;
-    const rows = faltantes.filter(x => x.deBanco > 0);
-    const b = rows.filter(x => x.d.type === "bill").sort((a,b) => b.d.c - a.d.c);
-    const m = rows.filter(x => x.d.type === "coin").sort((a,b) => b.d.c - a.d.c);
-    const rowF = x => {
-      const d = x.d, c = d.c;
-      const marc = reponerState.marcados[c] !== false;
-      const imp = x.deBanco * c;
-      const gc = (d.type === "bill" ? "bill-graphic " : "coin-graphic ") + d.class;
-      return `<label style='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155;cursor:pointer'><input type='checkbox' data-c='${c}' ${marc?'checked':''} onchange='toggleMarcadoReponer(this)' style='width:22px;height:22px;cursor:pointer;flex-shrink:0'><div class='${gc}' style='flex-shrink:0'>${d.short}</div><div style='flex:1;min-width:0'><div class='reponerFila' style='font-size:15px;font-weight:800;color:${marc?'#fff':'#475569'}'>${x.deBanco} × ${d.n}</div><div style='font-size:12px;color:#94a3b8'>${moneyText(imp)}</div></div></label>`;
-    };
-    if(b.length){ html += `<div style='font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin:6px 0 4px'>💵 BILLETES</div>`; b.forEach(x => html += rowF(x)); }
-    if(m.length){ html += `<div style='font-size:11px;color:#facc15;font-weight:800;letter-spacing:0.5px;margin:12px 0 4px'>🪙 MONEDAS</div>`; m.forEach(x => html += rowF(x)); }
+    // 📋 DESGLOSE COMPLETO
+    html += `<div class='card' style='margin:0 0 12px 0'>`;
+    html += `<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>📋 DESGLOSE</div>`;
+
+    // 🐷 Parte de la hucha (con dibujos)
+    if(conHucha.length){
+      html += `<div style='font-size:11px;color:#c4b5fd;font-weight:900;letter-spacing:0.5px;margin:0 0 6px;padding:6px 10px;background:#2e1065;border-radius:8px;display:flex;justify-content:space-between'><span>🐷 DE LA HUCHA</span><span>${moneyText(totalDeHucha)}</span></div>`;
+      conHucha.forEach(x => {
+        const d = x.d;
+        const gc = (d.type === "bill" ? "bill-graphic " : "coin-graphic ") + d.class;
+        html += `<div style='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155'>`;
+        html += `<div class='${gc}' style='flex-shrink:0'>${d.short}</div>`;
+        html += `<div style='flex:1;min-width:0'><div style='font-size:15px;font-weight:800;color:#fff'>${x.deHucha} × ${d.n}</div><div style='font-size:12px;color:#94a3b8'>${moneyText(x.deHucha * d.c)}</div></div>`;
+        html += `<div style='font-size:11px;font-weight:800;color:#c4b5fd;background:#4c1d95;padding:4px 8px;border-radius:6px;white-space:nowrap'>🐷 Hucha</div>`;
+        html += `</div>`;
+      });
+    }
+
+    // 🏦 Parte del banco (con checkboxes)
+    const rowsBanco = faltantes.filter(x => x.deBanco > 0);
+    if(rowsBanco.length){
+      html += `<div style='font-size:11px;color:#93c5fd;font-weight:900;letter-spacing:0.5px;margin:14px 0 6px;padding:6px 10px;background:#1e3a8a;border-radius:8px;display:flex;justify-content:space-between'><span>🏦 DEL BANCO</span><span>${moneyText(totalDeBanco)}</span></div>`;
+      const b = rowsBanco.filter(x => x.d.type === "bill").sort((a,b) => b.d.c - a.d.c);
+      const m = rowsBanco.filter(x => x.d.type === "coin").sort((a,b) => b.d.c - a.d.c);
+      const rowF = x => {
+        const d = x.d, c = d.c;
+        const marc = reponerState.marcados[c] !== false;
+        const imp = x.deBanco * c;
+        const gc = (d.type === "bill" ? "bill-graphic " : "coin-graphic ") + d.class;
+        return `<label style='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155;cursor:pointer'><input type='checkbox' data-c='${c}' ${marc?'checked':''} onchange='toggleMarcadoReponer(this)' style='width:22px;height:22px;cursor:pointer;flex-shrink:0'><div class='${gc}' style='flex-shrink:0'>${d.short}</div><div style='flex:1;min-width:0'><div class='reponerFila' style='font-size:15px;font-weight:800;color:${marc?'#fff':'#475569'}'>${x.deBanco} × ${d.n}</div><div style='font-size:12px;color:#94a3b8'>${moneyText(imp)}</div></div></label>`;
+      };
+      if(b.length){ html += `<div style='font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin:6px 0 4px'>💵 BILLETES</div>`; b.forEach(x => html += rowF(x)); }
+      if(m.length){ html += `<div style='font-size:11px;color:#facc15;font-weight:800;letter-spacing:0.5px;margin:12px 0 4px'>🪙 MONEDAS</div>`; m.forEach(x => html += rowF(x)); }
+    }
+
     html += `</div>`;
   }
 
@@ -1980,7 +2002,7 @@ function toggleMarcadoReponer(cb){
   let nt = 0;
   faltantes.forEach(x => {
     if(x.deBanco > 0 && reponerState.marcados[x.d.c] !== false){
-      nt += x.deBanco * x.d.c;  // ✅ x.deBanco
+      nt += x.deBanco * x.d.c;   // ✅ deBanco, no falta
     }
   });
   const el = document.getElementById("reponerTotal");

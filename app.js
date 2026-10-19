@@ -5084,7 +5084,6 @@ async function abrirMapaPantalla(){
     try {
       mapaInstance = L.map("mapa-leaflet", { zoomControl: true }).setView([41.3874, 2.1686], 11);
       
-      // Mapa oscuro de Esri (Gratis y sin API Key)
       L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
         attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
         maxZoom: 19
@@ -5117,6 +5116,7 @@ async function abrirMapaPantalla(){
       cont.innerHTML += "<div style='text-align:center;color:#ef4444;padding:20px'>Error montando el mapa: "+e.message+"</div>";
     }
   }, 100);
+}
 
 function cerrarMapaPantalla(){
   const p = document.getElementById("mapaPantalla");

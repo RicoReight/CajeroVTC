@@ -5084,20 +5084,11 @@ async function abrirMapaPantalla(){
     try {
       mapaInstance = L.map("mapa-leaflet", { zoomControl: true }).setView([41.3874, 2.1686], 11);
       
-      // Mapa base normal de OSM, pero le damos una clase CSS para oscurecerlo
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap",
-        maxZoom: 19,
-        className: "mapa-oscuro" 
+      // Mapa oscuro de Esri (Gratis y sin API Key)
+      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+        attribution: "Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ",
+        maxZoom: 19
       }).addTo(mapaInstance);
-
-      // Inyectamos el CSS del filtro si no existe
-      if(!document.getElementById("style-mapa-oscuro")){
-        const style = document.createElement("style");
-        style.id = "style-mapa-oscuro";
-        style.innerHTML = ".mapa-oscuro { filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(1.2); }";
-        document.head.appendChild(style);
-      }
 
       if(geoAMB){
         capaAMB = L.geoJSON(geoAMB, {

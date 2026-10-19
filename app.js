@@ -4819,6 +4819,8 @@ let mapaInstance = null;
 let mapaMarker = null;
 let geoAMB = null;
 let geoZBE = null;
+let geoPROV = null;
+let capaPROV = null;
 let capaAMB = null;
 let capaZBE = null;
 let geoWatcherId = null;
@@ -4941,6 +4943,7 @@ async function cargarPoligonos(cont){
       await new Promise(r => setTimeout(r, 800));
     }
   }
+  
   if(!geoZBE){
     try {
       if(cont) cont.innerHTML = "<div style='text-align:center;color:#94a3b8;padding:20px'>Cargando zona Rondas...</div>";
@@ -4951,6 +4954,21 @@ async function cargarPoligonos(cont){
     } catch(e){
       console.warn("⚠️ ZBE no cargado:", e);
       if(cont) cont.innerHTML = "<div style='text-align:center;color:#fbbf24;padding:20px'>⚠️ ZBE no cargado. Siguiendo...</div>";
+      await new Promise(r => setTimeout(r, 800));
+    }
+  }
+
+  // 👇 NUEVO: Cargar Provincia BCN
+  if(!geoPROV){
+    try {
+      if(cont) cont.innerHTML = "<div style='text-align:center;color:#94a3b8;padding:20px'>Cargando provincia de Barcelona...</div>";
+      const r3 = await fetch("VallasMap/ProvinciaBCN.json");
+      if(!r3.ok) throw new Error("HTTP "+r3.status);
+      geoPROV = await r3.json();
+      console.log("✅ Provincia BCN cargada, features:", geoPROV.features ? geoPROV.features.length : "?");
+    } catch(e){
+      console.warn("⚠️ Provincia BCN no cargada:", e);
+      if(cont) cont.innerHTML = "<div style='text-align:center;color:#fbbf24;padding:20px'>⚠️ Provincia no cargada. Siguiendo...</div>";
       await new Promise(r => setTimeout(r, 800));
     }
   }
@@ -5025,9 +5043,13 @@ async function abrirMapaPantalla(){
         <div style="width:20px;height:4px;background:#38bdf8;border-radius:2px"></div>
         <span style="font-size:13px;color:#fff">🟡 Zona AMB (fuera de Barcelona)</span>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="width:20px;height:4px;background:#fb923c;border-radius:2px"></div>
+        <span style="font-size:13px;color:#fff">🟠 Provincia BCN (Sitges, Manresa...)</span>
+      </div>
       <div style="display:flex;align-items:center;gap:8px">
         <div style="width:20px;height:4px;background:#ef4444;border-radius:2px"></div>
-        <span style="font-size:13px;color:#fff">🔴 Fuera de zona AMB (interurbana)</span>
+        <span style="font-size:13px;color:#fff">🔴 Fuera de provincia (Girona, Tarragona...)</span>
       </div>
     </div>
 
@@ -5065,6 +5087,12 @@ async function abrirMapaPantalla(){
       if(geoZBE){
         capaZBE = L.geoJSON(geoZBE, {
           style: { color: "#4ade80", weight: 3, fillColor: "#4ade80", fillOpacity: 0.15 }
+        }).addTo(mapaInstance);
+      }
+      // 👇 NUEVO: Capa Provincia BCN
+      if(geoPROV){
+        capaPROV = L.geoJSON(geoPROV, {
+          style: { color: "#fb923c", weight: 2, fillColor: "#fb923c", fillOpacity: 0.05, dashArray: "5,5" }
         }).addTo(mapaInstance);
       }
 
@@ -5206,19 +5234,20 @@ function distanciaAlPoligono(lat, lon, geojson){
 
 function detectarZona(lat, lon){
   const enZBE = puntoEnPoligono(lat, lon, geoZBE);
-  const enAMB = puntoEnLineStrings(lat, lon, geoAMB);
-
   if(enZBE) return { codigo: "bcn", nombre: "🟢 Zona de trabajo", color: "#4ade80" };
+
+  const enAMB = puntoEnLineStrings(lat, lon, geoAMB);
   if(enAMB) return { codigo: "amb", nombre: "🟡 Zona AMB", color: "#fbbf24" };
 
-  if(!enZBE){
-    const d = distanciaAlPoligono(lat, lon, geoZBE);
-    if(d < BUFFER_ZONA_METROS){
-      return { codigo: "bcn", nombre: "🟢 Zona de trabajo", color: "#4ade80" };
-    }
-  }
+  // 👇 NUEVO: Comprobar Provincia BCN
+  const enPROV = puntoEnPoligono(lat, lon, geoPROV);
+  if(enPROV) return { codigo: "prov", nombre: "🟠 Provincia BCN", color: "#fb923c" };
 
-  return { codigo: "fuera", nombre: "🔴 Fuera de zona AMB", color: "#ef4444" };
+  // Buffer de 50m por si acaso está muy cerca de la ZBE
+  const d = distanciaAlPoligono(lat, lon, geoZBE);
+  if(d < BUFFER_ZONA_METROS) return { codigo: "bcn", nombre: "🟢 Zona de trabajo", color: "#4ade80" };
+
+  return { codigo: "fuera", nombre: "🔴 Fuera de provincia", color: "#ef4444" };
 }
 
 // 👇 NUEVO: versión robusta (no pierde notificaciones en el gap del watcher)
@@ -5459,6 +5488,7 @@ async function quitarBurbuja(){
 function estiloDeZona(codigo){
   if(codigo === "bcn") return { emoji: "🟢", color: "#14532d" };
   if(codigo === "amb") return { emoji: "🟡", color: "#78350f" };
+  if(codigo === "prov") return { emoji: "🟠", color: "#9a3412" }; // 👈 NUEVO Naranja oscuro
   return { emoji: "🔴", color: "#7f1d1d" };
 }
 

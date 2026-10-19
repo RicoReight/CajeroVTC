@@ -5083,25 +5083,35 @@ async function abrirMapaPantalla(){
   setTimeout(() => {
     try {
       mapaInstance = L.map("mapa-leaflet", { zoomControl: true }).setView([41.3874, 2.1686], 11);
+      
+      // Mapa base normal de OSM, pero le damos una clase CSS para oscurecerlo
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap",
-        maxZoom: 19
+        maxZoom: 19,
+        className: "mapa-oscuro" 
       }).addTo(mapaInstance);
-      document.getElementById("mapa-leaflet").style.filter = "invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)";
+
+      // Inyectamos el CSS del filtro si no existe
+      if(!document.getElementById("style-mapa-oscuro")){
+        const style = document.createElement("style");
+        style.id = "style-mapa-oscuro";
+        style.innerHTML = ".mapa-oscuro { filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(1.2); }";
+        document.head.appendChild(style);
+      }
 
       if(geoAMB){
         capaAMB = L.geoJSON(geoAMB, {
-          style: { color: "#38bdf8", weight: 2, fillColor: "#38bdf8", fillOpacity: 0.08 }
+          style: { color: "#38bdf8", weight: 2, fillColor: "#38bdf8", fillOpacity: 0.15 }
         }).addTo(mapaInstance);
       }
       if(geoZBE){
         capaZBE = L.geoJSON(geoZBE, {
-          style: { color: "#4ade80", weight: 3, fillColor: "#4ade80", fillOpacity: 0.15 }
+          style: { color: "#4ade80", weight: 3, fillColor: "#4ade80", fillOpacity: 0.25 }
         }).addTo(mapaInstance);
       }
       if(geoPROV){
         capaPROV = L.geoJSON(geoPROV, {
-          style: { color: "#fb923c", weight: 2, fillColor: "#fb923c", fillOpacity: 0.05, dashArray: "5,5" }
+          style: { color: "#fb923c", weight: 3, fillColor: "#fb923c", fillOpacity: 0.1, dashArray: "5,5" }
         }).addTo(mapaInstance);
       }
 
@@ -5116,7 +5126,6 @@ async function abrirMapaPantalla(){
       cont.innerHTML += "<div style='text-align:center;color:#ef4444;padding:20px'>Error montando el mapa: "+e.message+"</div>";
     }
   }, 100);
-}
 
 function cerrarMapaPantalla(){
   const p = document.getElementById("mapaPantalla");

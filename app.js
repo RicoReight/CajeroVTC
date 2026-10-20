@@ -5464,7 +5464,7 @@ function generarBurbujaBase64(emoji, colorFondo){
   }
 }
 
-async function crearBurbuja(emojiInicial, colorInicial){
+// async function crearBurbuja(emojiInicial, colorInicial){
   try {
     const Cap = window.Capacitor;
     if(!Cap || !Cap.Plugins || !Cap.Plugins.FloatingBubble){
@@ -5503,7 +5503,7 @@ async function crearBurbuja(emojiInicial, colorInicial){
     alert("❌ Error crítico creando burbuja: " + e.message);
     return false;
   }
-}
+// }
 
 async function actualizarBurbuja(emoji, colorFondo){
   try {

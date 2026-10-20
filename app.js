@@ -13,6 +13,7 @@ const TOPES_DEFAULT={1:30,2:30,5:30,10:25,20:25,50:20,100:20,200:20,500:8,1000:8
 const ARRANQUE={10000:0,5000:0,2000:2,1000:3,500:4,200:5,100:8,50:8,20:15,10:15,5:10,2:10,1:15};
 const FACTOR_LLENADO=0.7;
 let stock=loadStock(),totalTips=loadTips(),reservaMinima=loadReserva(),topesRecibir=loadTopes();
+let hucha = loadHucha();   // ← MOVIDO ARRIBA
 let diaReset=loadDiaReset(),ultimoResetPropinas=loadUltimoResetPropinas(),statsOps=loadStats();
 let resetSkip = parseInt(safeStorage.get("uberCambioResetSkip")) || 0;
 let modoEdicion = safeStorage.get("uberCambioModoEdicion") === "1";
@@ -121,7 +122,6 @@ function saveReserva(){safeStorage.set("uberCambioReserva",JSON.stringify(reserv
 function saveTopes(){safeStorage.set("uberCambioTopes",JSON.stringify(topesRecibir))}
 function moneyText(c){return(c/100).toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})+" €"}
 
-// 👇 NUEVA: helper de fecha local (fix del bug de un día antes)
 function fechaLocalStr(d){
   if(!d) d = new Date();
   const y = d.getFullYear();
@@ -532,7 +532,6 @@ function renderResetPanel(){
     }
   }
 
-  // 📅 PRÓXIMO RESET + SIGUIENTE
   const proxEl = document.getElementById("resetProximo");
   if(proxEl){
     if(diaReset === 0){
@@ -554,10 +553,8 @@ function renderResetPanel(){
         const inminente = dias <= 1;
         const color = inminente ? "#fbbf24" : "#4ade80";
 
-        // Calcular el siguiente si saltas
         const sig = new Date(prox.getTime());
         sig.setMonth(sig.getMonth() + 1);
-        // Ajustar por día 31 en meses cortos
         const ultimoDiaSig = new Date(sig.getFullYear(), sig.getMonth() + 1, 0).getDate();
         if(sig.getDate() > ultimoDiaSig) sig.setDate(ultimoDiaSig);
 
@@ -576,7 +573,6 @@ function renderResetPanel(){
           texto += " <span style='color:#a78bfa;font-size:11px'>· ⏭️ saltado x" + resetSkip + "</span>";
         }
 
-        // Segunda línea con el siguiente
         texto += "<br><span style='color:#a78bfa;font-size:11px;font-weight:700'>⏭️ Si saltas ahora → <b style='color:#c4b5fd'>" + fechaSig + "</b></span>";
 
         proxEl.innerHTML = texto;
@@ -587,7 +583,6 @@ function renderResetPanel(){
     }
   }
 
-  // Última vez
   const el = document.getElementById("resetUltimaVez");
   if(el){
     if(ultimoResetPropinas){
@@ -1409,7 +1404,6 @@ function renderRecomendacionCambio(){
 
   let html = "";
 
-  // 🟢 BLOQUE 1: BILLETES → BANCO
   if(sobran.length){
     let restante = totalSobra;
     const pedir = {};
@@ -1463,7 +1457,6 @@ function renderRecomendacionCambio(){
     html += `</div>`;
   }
 
-  // 🐷 BLOQUE 2: MONEDAS → HUCHA
   if(monedasSobran.length){
     html += `<div class="card" style="margin:0 0 12px 0;background:#2e1065;border:2px solid #7c3aed">`;
     html += `<div style="font-size:12px;color:#c4b5fd;font-weight:900;letter-spacing:1px;margin-bottom:8px">🐷 MONEDAS · MOVER A HUCHA</div>`;
@@ -1622,13 +1615,16 @@ function calcularCambio(){
   renderCambioResultado(tot);
 }
 
-function renderCambioManual(total,minEnt){
+// ⬇️ FIRMA CORREGIDA (3 args) ⬇️
+function renderCambioManual(total,minEnt,soloMonedas){
   const cont=document.getElementById("cambioContenido");
   if(!cont)return;
   const minE=minEnt!=null?minEnt:Math.min(...Object.keys(cambioState.aEntregar).map(x=>parseInt(x)));
 
   const piezasEntregadas = Object.keys(cambioState.aEntregar).map(k=>parseInt(k)).filter(c=>cambioState.aEntregar[c]>0);
-  const soloMonedas = piezasEntregadas.length > 0 && piezasEntregadas.every(c => c <= 200);
+  if(typeof soloMonedas !== "boolean"){
+    soloMonedas = piezasEntregadas.length > 0 && piezasEntregadas.every(c => c <= 200);
+  }
   const opc = soloMonedas ? denominations.slice() : denominations.filter(d => d.c < minE);
 
   let html="";
@@ -1676,7 +1672,52 @@ function resetCambioManual(total){cambioState.aRecibir={};cambioState.ordenRecib
 function deshacerCambioRecibir(total){if(!cambioState.ordenRecibir)cambioState.ordenRecibir=[];const last=cambioState.ordenRecibir.pop();if(last==null)return;if(cambioState.aRecibir[last]>0){cambioState.aRecibir[last]--;if(cambioState.aRecibir[last]<=0)delete cambioState.aRecibir[last]}actualizarCambioManual(total)}
 function actualizarCambioManual(total){let s=0;denominations.forEach(d=>{const n=cambioState.aRecibir[d.c]||0;s+=d.c*n;const bd=document.getElementById("cambioManBadge"+d.c);if(bd){if(n>0){bd.textContent="x"+n;bd.style.display="block"}else bd.style.display="none"}});const el=document.getElementById("cambioManSuma");if(el)el.textContent=moneyText(s);const est=document.getElementById("cambioManEstado");const btn=document.getElementById("cambioManBtn");if(est&&btn){if(s===total){est.innerHTML="<span style='color:#4ade80'>✅ Cuadra perfectamente</span>";btn.style.opacity="1";btn.style.pointerEvents="auto"}else if(s<total){est.innerHTML="<span style='color:#fbbf24'>⚠️ Te faltan "+moneyText(total-s)+"</span>";btn.style.opacity="0.5";btn.style.pointerEvents="none"}else{est.innerHTML="<span style='color:#ef4444'>⚠️ Te pasas por "+moneyText(s-total)+"</span>";btn.style.opacity="0.5";btn.style.pointerEvents="none"}}}
 
-function confirmarCambio(total){let s=0;denominations.forEach(d=>{s+=d.c*(cambioState.aRecibir[d.c]||0)});if(s!==total){alert("La suma no cuadra.");return}if(!confirm("¿Confirmar el cambio?"))return;Object.keys(cambioState.aEntregar).forEach(k=>{const c=parseInt(k);const n=cambioState.aEntregar[c];const i=denominations.findIndex(d=>d.c===c);if(i>=0&&n>0){stock[i]=Math.max(0,stock[i]-n);statsOps.cambioNeto[i]-=n}});denominations.forEach(d=>{const n=cambioState.aRecibir[d.c]||0;if(n>0){const i=denominations.findIndex(x=>x.c===d.c);if(i>=0){stock[i]=Math.max(0,stock[i]+n);statsOps.cambioNeto[i]+=n}}});saveStats();const cm=loadCambios();cm.push({fecha:new Date().toISOString(),aEntregar:Object.assign({},cambioState.aEntregar),aRecibir:Object.assign({},cambioState.aRecibir),total});saveCambios(cm);saveStock();renderStockList();updateCashSummary();alert("✅ Cambio confirmado.");cerrarCambioPantalla()}
+// ⬇️ CONFIRMAR CAMBIO CON TRY/CATCH ⬇️
+function confirmarCambio(total){
+  let s = 0;
+  denominations.forEach(d => { s += d.c * (cambioState.aRecibir[d.c] || 0); });
+  if(s !== total){ alert("La suma no cuadra."); return; }
+  if(!confirm("¿Confirmar el cambio?")) return;
+
+  try {
+    Object.keys(cambioState.aEntregar).forEach(k => {
+      const c = parseInt(k);
+      const n = cambioState.aEntregar[c];
+      const i = denominations.findIndex(d => d.c === c);
+      if(i >= 0 && n > 0){
+        stock[i] = Math.max(0, stock[i] - n);
+        statsOps.cambioNeto[i] -= n;
+      }
+    });
+    denominations.forEach(d => {
+      const n = cambioState.aRecibir[d.c] || 0;
+      if(n > 0){
+        const i = denominations.findIndex(x => x.c === d.c);
+        if(i >= 0){
+          stock[i] = Math.max(0, stock[i] + n);
+          statsOps.cambioNeto[i] += n;
+        }
+      }
+    });
+    saveStats();
+    const cm = loadCambios();
+    cm.push({
+      fecha: new Date().toISOString(),
+      aEntregar: Object.assign({}, cambioState.aEntregar),
+      aRecibir: Object.assign({}, cambioState.aRecibir),
+      total
+    });
+    saveCambios(cm);
+    saveStock();
+    renderStockList();
+    updateCashSummary();
+    alert("✅ Cambio confirmado.");
+    cerrarCambioPantalla();
+  } catch(e){
+    console.error("Error confirmando cambio:", e);
+    alert("❌ Error al confirmar. Revisa el inventario.");
+  }
+}
 
 function calcularCambioAutomatico(total, juntar, minE){
   const entregando = {};
@@ -1684,7 +1725,6 @@ function calcularCambioAutomatico(total, juntar, minE){
     if(cambioState.aEntregar[k]>0) entregando[parseInt(k)] = true;
   });
 
-  // 👇 SUMAR LO QUE TIENES EN LA HUCHA (CASA) PARA NO PEDIRLO EN EL BANCO
   const stockTotal = stock.map((n, i) => n + (hucha[i] || 0));
 
   let cand;
@@ -1714,7 +1754,7 @@ function calcularCambioAutomatico(total, juntar, minE){
   cand.forEach(d=>{
     if(r <= 0) return;
     const i = denominations.findIndex(x=>x.c===d.c);
-    const sa = stockTotal[i] || 0; // 👈 Usar stockTotal
+    const sa = stockTotal[i] || 0;
     const tope = topesRecibir[d.c] || 0;
 
     const espacio = tope > 0 ? Math.max(0, tope - sa) : sa;
@@ -1746,7 +1786,7 @@ function calcularCambioAutomatico(total, juntar, minE){
     for(const d of desc){
       if(r <= 0) break;
       const i = denominations.findIndex(x=>x.c===d.c);
-      const sa = stockTotal[i] || 0; // 👈 Usar stockTotal
+      const sa = stockTotal[i] || 0;
       const tope = topesRecibir[d.c] || 0;
       const espacio = tope > 0 ? Math.max(0, tope - sa) : sa;
       if(espacio <= 0) continue;
@@ -1834,8 +1874,8 @@ function calcularFaltantes(v, c){
     obj[d.c] = o;
     const falta = Math.max(0, o - sa);
     if(falta > 0){
-      const deHucha = Math.min(falta, ha);      // cubrible desde casa
-      const deBanco = falta - deHucha;          // lo que realmente pides al banco
+      const deHucha = Math.min(falta, ha);
+      const deBanco = falta - deHucha;
       fal.push({ d, index: i, falta, deHucha, deBanco });
     }
   });
@@ -1863,7 +1903,6 @@ function calcularIntercambiosRecomendados(){
     const aS = statsOps.spent[i] / ops;
 
     if (d.type === "bill") {
-      // 🟢 BILLETES → BANCO (regla clásica)
       if (objetivo < 5) return;
       if (sa <= objetivo) return;
       const ratio = aS > 0 ? (aR / aS) : (aR > 0 ? 99 : 0);
@@ -1872,10 +1911,9 @@ function calcularIntercambiosRecomendados(){
       sobran.push({ d, index: i, cantidad, stock: sa, objetivo, ratioRecibeGasta: ratio });
       totalSobra += cantidad * d.c;
     } else {
-      // 🪙 MONEDAS → HUCHA (no van al banco)
-      if (objetivo < 10) return;                  // umbral mínimo
-      if (sa < objetivo * 1.5) return;            // solo si acumulas > 150%
-      const cantidad = sa - objetivo;             // lo que sobra
+      if (objetivo < 10) return;
+      if (sa < objetivo * 1.5) return;
+      const cantidad = sa - objetivo;
       monedasSobran.push({ d, index: i, cantidad, stock: sa, objetivo });
       totalMonedasSobra += cantidad * d.c;
     }
@@ -1912,7 +1950,6 @@ function actualizarReponerPropuesta(){
   } else {
     if(btn) btn.style.display = "block";
 
-    // 🐷 BLOQUE HUCHA (total + botón)
     const conHucha = faltantes.filter(x => x.deHucha > 0).sort((a,b) => b.d.c - a.d.c);
     if(conHucha.length){
       html += `<div class='card' style='margin:0 0 12px 0;text-align:center;background:#2e1065;border:1px solid #7c3aed'>`;
@@ -1923,18 +1960,15 @@ function actualizarReponerPropuesta(){
       html += `</div>`;
     }
 
-    // 🏦 BLOQUE BANCO (total)
     html += `<div class='card' style='margin:0 0 12px 0;text-align:center;background:#1e3a8a;border:1px solid #3b82f6'>`;
     html += `<div style='font-size:12px;color:#bfdbfe;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>🏦 PEDIR AL BANCO</div>`;
     html += `<div id='reponerTotal' style='font-size:38px;font-weight:900;color:#fff'>${moneyText(totalDeBanco)}</div>`;
     html += `<div style='font-size:12px;color:#bfdbfe;margin-top:6px'>Pulsa cada pieza para marcarla/desmarcarla</div>`;
     html += `</div>`;
 
-    // 📋 DESGLOSE COMPLETO
     html += `<div class='card' style='margin:0 0 12px 0'>`;
     html += `<div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>📋 DESGLOSE</div>`;
 
-    // 🐷 Parte de la hucha (con dibujos)
     if(conHucha.length){
       html += `<div style='font-size:11px;color:#c4b5fd;font-weight:900;letter-spacing:0.5px;margin:0 0 6px;padding:6px 10px;background:#2e1065;border-radius:8px;display:flex;justify-content:space-between'><span>🐷 DE LA HUCHA</span><span>${moneyText(totalDeHucha)}</span></div>`;
       conHucha.forEach(x => {
@@ -1948,7 +1982,6 @@ function actualizarReponerPropuesta(){
       });
     }
 
-    // 🏦 Parte del banco (con checkboxes)
     const rowsBanco = faltantes.filter(x => x.deBanco > 0);
     if(rowsBanco.length){
       html += `<div style='font-size:11px;color:#93c5fd;font-weight:900;letter-spacing:0.5px;margin:14px 0 6px;padding:6px 10px;background:#1e3a8a;border-radius:8px;display:flex;justify-content:space-between'><span>🏦 DEL BANCO</span><span>${moneyText(totalDeBanco)}</span></div>`;
@@ -2002,7 +2035,7 @@ function toggleMarcadoReponer(cb){
   let nt = 0;
   faltantes.forEach(x => {
     if(x.deBanco > 0 && reponerState.marcados[x.d.c] !== false){
-      nt += x.deBanco * x.d.c;   // ✅ deBanco, no falta
+      nt += x.deBanco * x.d.c;
     }
   });
   const el = document.getElementById("reponerTotal");
@@ -2396,16 +2429,13 @@ function importInventory(file){
       const data=JSON.parse(rd.result);
       if(!data||!Array.isArray(data.stock)||data.stock.length!==denominations.length){alert("El archivo no es una copia válida.");return;}
       if(!confirm("¿Reemplazar el inventario, hucha, propinas, reserva, topes, estadísticas e historial actuales?"))return;
-      
-      // Restaurar stock
+
       stock=data.stock.map(x=>Math.max(0,parseInt(x)||0));
-      
-      // 👇 RESTAURAR HUCHA 👇
+
       if(Array.isArray(data.hucha) && data.hucha.length === denominations.length){
         hucha = data.hucha.map(x => Math.max(0, parseInt(x) || 0));
         saveHucha();
       }
-      // 👆 FIN RESTAURAR HUCHA 👆
 
       if(typeof data.totalTips==="number")totalTips=Math.max(0,data.totalTips);
       if(data.reservaMinima&&typeof data.reservaMinima==="object"){reservaMinima=Object.assign({},RESERVA_DEFAULT);denominations.forEach(d=>{if(typeof data.reservaMinima[d.c]==="number")reservaMinima[d.c]=Math.max(0,parseInt(data.reservaMinima[d.c])||0)});safeStorage.set("uberCambioReserva",JSON.stringify(reservaMinima))}
@@ -2450,7 +2480,6 @@ function importInventory(file){
         saveVacacionesAsignados();
       }
       if(Array.isArray(data.pines)){
-        // 👇 CAMBIO AQUÍ: combustible default TRUE, pinturaBarca default FALSE
         pinesLista = data.pines.filter(x => x && x.mat && x.pin).map(x => ({
           mat: x.mat,
           pin: x.pin,
@@ -2462,7 +2491,7 @@ function importInventory(file){
       if(Array.isArray(data.historialOps)){
         saveHistorialOps(data.historialOps);
       }
-      
+
       saveStock();
       saveTips();
       renderStockList();
@@ -3300,6 +3329,7 @@ function renderDiasTrabajo(){
             <div style="font-size:14px;color:#fff;font-weight:700">${formatearFechaBonita(d.fecha)}</div>
             ${d.nota ? `<div style="font-size:12px;color:#94a3b8;margin-top:2px">${d.nota}</div>` : ""}
           </div>
+          <button type="button" onclick="abrirModalDiaPersonal('${d.fecha}')" style="background:#4c1d95;color:#c4b5fd;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">✏️</button>
           <button type="button" onclick="borrarDiaPersonal('${d.fecha}')" style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">🗑️</button>
         </div>
       `;
@@ -4729,12 +4759,6 @@ function resetMarcas(){
   calculate();
 }
 
-function sincronizarTipInput(){
-  const sumaPiezas = Object.keys(propinasDelCambio).reduce((s,k)=>s+parseInt(k)*propinasDelCambio[k],0);
-  const total = tipManual + sumaPiezas;
-  document.getElementById("tip").value = (total/100).toFixed(2);
-}
-
 /* ==================== RECIBIR IMAGEN COMPARTIDA ==================== */
 let __procesandoCompartida = false;
 
@@ -4828,9 +4852,8 @@ let geoActivo = false;
 let ultimaPosicion = null;
 let zonaActual = null;
 let zonaPendiente = null;
-let burbujaActiva = false; 
+let burbujaActiva = false;
 
-// 👇 NUEVO: control de concurrencia para no perder notificaciones en el gap
 let procesandoZona = false;
 let zonaCandidata = null;
 let zonaCandidataCount = 0;
@@ -4943,7 +4966,7 @@ async function cargarPoligonos(cont){
       await new Promise(r => setTimeout(r, 800));
     }
   }
-  
+
   if(!geoZBE){
     try {
       if(cont) cont.innerHTML = "<div style='text-align:center;color:#94a3b8;padding:20px'>Cargando zona Rondas...</div>";
@@ -4958,7 +4981,6 @@ async function cargarPoligonos(cont){
     }
   }
 
-  // 👇 NUEVO: Cargar Provincia BCN
   if(!geoPROV){
     try {
       if(cont) cont.innerHTML = "<div style='text-align:center;color:#94a3b8;padding:20px'>Cargando provincia de Barcelona...</div>";
@@ -5063,7 +5085,7 @@ async function abrirMapaPantalla(){
 
     <div id="debugCoordsBox" style="display:none;margin-top:10px;padding:12px;background:#1e293b;border:1px dashed #475569;border-radius:10px">
       <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px;letter-spacing:0.5px">DEBUG · PRUEBA RÁPIDA</div>
-      
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px">
         <button type="button" onclick="setTestCoords(41.410627, 2.150158)" style="background:#14532d;color:#4ade80;border:1px solid #22c55e;border-radius:8px;padding:8px;font-size:12px;font-weight:800;cursor:pointer">🟢 BCN</button>
         <button type="button" onclick="setTestCoords(41.474148, 2.088923)" style="background:#78350f;color:#fbbf24;border:1px solid #f59e0b;border-radius:8px;padding:8px;font-size:12px;font-weight:800;cursor:pointer">🟡 AMB</button>
@@ -5083,8 +5105,8 @@ async function abrirMapaPantalla(){
   setTimeout(() => {
     try {
       const limitesTrabajo = L.latLngBounds(
-        [40.80, 0.30], 
-        [42.80, 3.20]  
+        [40.80, 0.30],
+        [42.80, 3.20]
       );
 
       mapaInstance = L.map("mapa-leaflet", {
@@ -5094,20 +5116,6 @@ async function abrirMapaPantalla(){
         minZoom: 9,
         maxZoom: 18
       }).setView([41.3874, 2.1686], 11);
-      
-      // 👇 AQUÍ ESTÁ EL PRINT DE LA CONSOLA PARA EL ZOOM 👇
-      // mapaInstance.on('zoomend', function() {
-      //   const z = mapaInstance.getZoom();
-      //   console.log("🔍 Nivel de zoom actual: " + z);
-      //   
-      //   if (z <= 7) {
-      //     console.warn("🛑 Has llegado al LÍMITE MÍNIMO de zoom (7). No puedes alejarte más.");
-      //   }
-      //   if (z >= 18) {
-      //     console.warn("🛑 Has llegado al LÍMITE MÁXIMO de zoom (18). No puedes acercarte más.");
-      //   }
-      // });
-      // 👆 FIN DEL PRINT 👆
 
       L.tileLayer("https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=041dfb21-2b3c-44a9-99cf-2895e73db293", {
         attribution: "&copy; Stadia Maps &copy; OpenMapTiles &copy; OpenStreetMap",
@@ -5142,7 +5150,6 @@ async function abrirMapaPantalla(){
     }
   }, 100);
 }
-// AQUÍ ACABA LA FUNCIÓN (Fíjate en la llave del final)
 
 function cerrarMapaPantalla(){
   const p = document.getElementById("mapaPantalla");
@@ -5283,22 +5290,18 @@ function detectarZona(lat, lon){
   return { codigo: "fuera", nombre: "🔴 Fuera Provincia", color: "#ef4444" };
 }
 
-// 👇 NUEVO: versión robusta (no pierde notificaciones en el gap del watcher)
 async function actualizarNotificacionZona(nuevaZona){
-  // Si ya estamos procesando un cambio, guardar como pendiente
   if(procesandoZona){
     zonaPendiente = nuevaZona;
     return;
   }
 
-  // Si la zona es la actual, resetear candidata
   if(zonaActual === nuevaZona.codigo){
     zonaCandidata = null;
     zonaCandidataCount = 0;
     return;
   }
 
-  // Acumular candidata (evita oscilaciones del GPS)
   if(zonaCandidata === nuevaZona.codigo){
     zonaCandidataCount++;
   } else {
@@ -5306,10 +5309,8 @@ async function actualizarNotificacionZona(nuevaZona){
     zonaCandidataCount = 1;
   }
 
-  // ¿Tenemos suficientes muestras para confirmar el cambio?
   if(zonaCandidataCount < ZONA_CONFIRMACION_MUESTRAS) return;
 
-  // ✅ Confirmar cambio
   procesandoZona = true;
   try {
     const esPrimeraVez = (zonaActual === null);
@@ -5321,15 +5322,10 @@ async function actualizarNotificacionZona(nuevaZona){
       lanzarNotificacionZona(nuevaZona.nombre);
     }
 
-    // 👇 NUEVO: actualizar color de la burbuja
-    const st = estiloDeZona(nuevaZona.codigo);
-    actualizarBurbuja(st.emoji, st.color);
-
     await reiniciarWatcherConTexto(nuevaZona.nombre);
   } finally {
     procesandoZona = false;
 
-    // Si llegó una zona pendiente durante el proceso, procesarla
     if(zonaPendiente){
       const zp = zonaPendiente;
       zonaPendiente = null;
@@ -5378,7 +5374,6 @@ async function reiniciarWatcherConTexto(texto){
     console.warn('No se pudo actualizar la notificación:', e);
   }
 }
-/* ==================== FIN DETECCIÓN DE ZONA ==================== */
 
 function procesarNuevaPosicion(lat, lon, acc){
   ultimaPosicion = { lat, lon };
@@ -5433,48 +5428,6 @@ function probarCoordenadasManuales(){
   actualizarMapaConPosicion(lat, lon, 0);
 }
 
-/* ==================== BURBUJA FLOTANTE ==================== */
-
-function generarBurbujaBase64(emoji, colorFondo){
-  try {
-    const size = 120;
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext("2d");
-
-    ctx.beginPath();
-    ctx.arc(size/2, size/2, size/2 - 3, 0, Math.PI * 2);
-    ctx.fillStyle = colorFondo;
-    ctx.fill();
-
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = "#ffffff";
-    ctx.stroke();
-
-    ctx.font = "bold " + Math.floor(size * 0.55) + "px Arial";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(emoji, size/2, size/2 + 4);
-
-    return canvas.toDataURL("image/png").split(",")[1];
-  } catch(e){
-    console.warn("Error generando base64:", e);
-    return null;
-  }
-}
-
-
-function estiloDeZona(codigo){
-  if(codigo === "bcn") return { emoji: "🟢", color: "#14532d" };
-  if(codigo === "amb") return { emoji: "🟡", color: "#78350f" };
-  if(codigo === "prov") return { emoji: "🟠", color: "#9a3412" }; 
-  return { emoji: "🔴", color: "#7f1d1d" };
-}
-
-/* ==================== FIN BURBUJA ==================== */
-
-
 /* ==================== GEOLOCALIZACIÓN BACKGROUND ==================== */
 async function iniciarGeolocalizacion(){
   try {
@@ -5527,30 +5480,26 @@ async function iniciarGeolocalizacion(){
       actualizarMapaConPosicion(location.latitude, location.longitude, Math.round(location.accuracy));
     };
 
-    // 👇 CONFIGURACIÓN BLINDADA CONTRA EL MODO "DOZE" DE ANDROID 👇
     geoWatcherId = await BG.addWatcher({
       backgroundMessage: 'Cambio VTC activo',
       backgroundTitle: 'Detectando zona',
       requestPermissions: false,
-      stale: true,                     // Fuerza la actualización si se queda "estancado"
-      distanceFilter: 30,              // Cada cuántos metros comprueba
+      stale: true,
+      distanceFilter: 30,
       desiredAccuracy: 20,
       stationaryRadius: 25,
       stopOnTerminate: false,
       startOnBoot: true,
-      preventSuspend: true,            // Evita que el sistema duerma el hilo
-      heartbeatInterval: 60,           // Le manda un latido al sistema cada 60 segundos
+      preventSuspend: true,
+      heartbeatInterval: 60,
       foregroundService: true,
       debug: false,
       pausesLocationUpdatesAutomatically: false,
-      useSignificantChangesOnly: false // Fuerza a usar el GPS real, no solo el de red
+      useSignificantChangesOnly: false
     }, onLocation);
 
     geoActivo = true;
     actualizarEstadoGeo();
-    
-    // Creamos la burbuja flotante
-    await crearBurbuja("🟢", "#14532d");
 
     if(zonaPendiente){
       const zp = zonaPendiente;
@@ -5576,8 +5525,6 @@ async function detenerGeolocalizacion(){
       geoWatcherId = null;
       mostrarToast('⏹️ Rastreo detenido');
     }
-    // 👇 NUEVO: quitar burbuja
-    await quitarBurbuja();
     geoActivo = false;
     actualizarEstadoGeo();
   } catch(e){
@@ -5845,8 +5792,8 @@ function loadPines(){
         return arr.map(x => ({
           mat: x.mat,
           pin: x.pin,
-          combustible: x.combustible !== false,   // ← default TRUE
-          pinturaBarca: !!x.pinturaBarca          // ← default FALSE
+          combustible: x.combustible !== false,
+          pinturaBarca: !!x.pinturaBarca
         }));
       }
     }catch(e){}
@@ -5900,8 +5847,6 @@ function renderPinesResultados(){
   const styleRojo    = "background:#7f1d1d;border:2px solid #ef4444;color:#fff";
   const styleVerde   = "background:#14532d;border:2px solid #22c55e;color:#fff";
 
-  // Combustible: rojo si NO tiene (lo demás default)
-  // Barça: verde si SÍ tiene (lo demás default)
   const styleComb  = cb => cb ? styleDefault : styleRojo;
   const styleBarca = pb => pb ? styleVerde   : styleDefault;
 
@@ -6003,7 +5948,7 @@ function abrirModalPin(existente){
   if(prev) prev.remove();
 
   const esNuevo = !existente;
-  const cb = existente ? (existente.combustible !== false) : true;  // ← nuevo = true
+  const cb = existente ? (existente.combustible !== false) : true;
   const pb = existente ? !!existente.pinturaBarca : false;
 
   const m = document.createElement("div");
@@ -6077,14 +6022,12 @@ function toggleModalCheck(kind){
   const barca = document.getElementById("pinBarcaBtn");
 
   if(comb){
-    // Combustible: ON = default · OFF = rojo
     const s = st.comb ? styleDefault : styleRojo;
     comb.style.background = s.bg;
     comb.style.border = `2px solid ${s.border}`;
     comb.style.color = '#fff';
   }
   if(barca){
-    // Barça: ON = verde · OFF = default
     const s = st.barca ? styleVerde : styleDefault;
     barca.style.background = s.bg;
     barca.style.border = `2px solid ${s.border}`;
@@ -6289,7 +6232,7 @@ function borrarHistorialOps(){
 /* ==================== FIN HISTORIAL DE OPERACIONES ==================== */
 
 /* ==================== HUCHA (BANCO EN CASA) ==================== */
-let hucha = loadHucha(); // Variable global
+// ⚠️ let hucha = loadHucha();  ← YA ESTÁ DECLARADA ARRIBA
 
 function loadHucha(){
   const s = safeStorage.get("uberCambioHucha");
@@ -6328,7 +6271,7 @@ function renderHucha(){
   </div>`;
 
   html += `<div class="card" style="margin:0 0 12px 0">`;
-  
+
   html += `<div style="font-size:11px;color:#f87171;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">💵 BILLETES</div>`;
   denominations.slice(0,5).forEach((d, i) => {
     const n = hucha[i] || 0;
@@ -6385,7 +6328,7 @@ function renderHucha(){
 function huchaStep(idx, delta){
   hucha[idx] = Math.max(0, (hucha[idx] || 0) + delta);
   saveHucha();
-  renderHucha(); // Refrescar para actualizar el número y el total
+  renderHucha();
 }
 
 function abrirHuchaGrid(idx){
@@ -6396,29 +6339,29 @@ function abrirHuchaGrid(idx){
   const m = document.createElement("div");
   m.id = "modalHuchaGrid";
   m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px";
-  
+
   m.innerHTML = `
     <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:340px;width:100%;border:1px solid #334155;text-align:center">
       <div style="font-size:16px;font-weight:900;color:#a78bfa;margin-bottom:4px">⊞ Sumar por cuadrícula</div>
       <div style="font-size:12px;color:#94a3b8;margin-bottom:16px">${d.n}</div>
-      
+
       <input type="text" id="huchaGridInput" placeholder="Ej: 5x8 o 5*8" 
         style="width:100%;font-size:24px;font-weight:900;padding:12px;border-radius:10px;border:2px solid #7c3aed;background:#0f172a;color:#fff;text-align:center;outline:none;margin-bottom:16px;box-sizing:border-box">
-      
+
       <div style="font-size:11px;color:#64748b;margin-bottom:16px">Escribe las filas y las columnas separadas por una X</div>
-      
+
       <div style="display:flex;gap:8px">
-        <button type="button" onclick="document.getElementById('modalHuchaGrid').remove()" 
+        <button type="button" onclick="document.getElementById('modalHuchaGrid')?.remove()" 
           style="flex:1;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;cursor:pointer">Cancelar</button>
         <button type="button" onclick="guardarHuchaGrid(${idx})" 
           style="flex:1;background:#7c3aed;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;cursor:pointer">✅ Sumar</button>
       </div>
     </div>
   `;
-  
+
   document.body.appendChild(m);
   m.addEventListener("click", (e) => { if(e.target === m) m.remove(); });
-  
+
   setTimeout(() => {
     const inp = document.getElementById("huchaGridInput");
     if(inp) inp.focus();
@@ -6449,8 +6392,9 @@ function guardarHuchaGrid(idx){
 
   hucha[idx] = (hucha[idx] || 0) + totalASumar;
   saveHucha();
-  
-  document.getElementById("modalHuchaGrid").remove();
+
+  const modal = document.getElementById("modalHuchaGrid");
+  if(modal) modal.remove();
   renderHucha();
   mostrarToast("✅ Sumadas " + totalASumar + " piezas");
 }
@@ -6459,7 +6403,7 @@ function actualizarHucha(idx, val){
   const n = parseInt(val) || 0;
   hucha[idx] = Math.max(0, n);
   saveHucha();
-  renderHucha(); // Refrescar para recalcular el total
+  renderHucha();
 }
 /* ==================== FIN HUCHA ==================== */
 
@@ -6492,8 +6436,8 @@ function sacarDeHucha(idx, cantidad){
   return cantidad;
 }
 
-/* Modal para mover N piezas del stock a la hucha */
 function abrirModalMoverHucha(idx, sugerido){
+  if(idx < 0 || idx >= denominations.length) return;
   const d = denominations[idx];
   if(!d) return;
   const max = stock[idx] || 0;

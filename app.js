@@ -5468,22 +5468,24 @@ async function crearBurbuja(emojiInicial, colorInicial){
   try {
     const Cap = window.Capacitor;
     if(!Cap || !Cap.Plugins || !Cap.Plugins.FloatingBubble){
-      console.warn("FloatingBubble no disponible");
+      alert("❌ ERROR: El plugin FloatingBubble no está instalado o no se ha sincronizado.");
       return false;
     }
     const FB = Cap.Plugins.FloatingBubble;
 
     try {
       const perm = await FB.checkPermission();
+      alert("🔍 Estado del permiso de burbuja: " + perm.floatingBubble);
+      
       if(perm.floatingBubble !== "granted"){
         const req = await FB.requestPermission();
         if(req.floatingBubble !== "granted"){
-          mostrarToast("⚠️ Permiso de burbuja denegado. Actívalo en Ajustes.");
+          alert("❌ PERMISO DENEGADO: Ve a Ajustes > Apps > Tu App > Mostrar sobre otras apps y actívalo a mano.");
           return false;
         }
       }
     } catch(e){
-      console.warn("No se pudo comprobar permiso:", e);
+      alert("⚠️ Error comprobando permiso: " + e.message);
     }
 
     try { await FB.removeFloatingBubble(); } catch(e){}
@@ -5491,12 +5493,14 @@ async function crearBurbuja(emojiInicial, colorInicial){
     const b64 = generarBurbujaBase64(emojiInicial, colorInicial);
     const opts = { theme: "dark" };
     if(b64) opts.imageBase64 = b64;
+    
     await FB.showFloatingBubble(opts);
-
+    
+    alert("✅ Burbuja creada con éxito.\n\n(Si no la ves aquí, pulsa el botón Home del móvil y mira el escritorio)");
     burbujaActiva = true;
     return true;
   } catch(e){
-    console.warn("Error creando burbuja:", e);
+    alert("❌ Error crítico creando burbuja: " + e.message);
     return false;
   }
 }
@@ -5590,25 +5594,29 @@ async function iniciarGeolocalizacion(){
       actualizarMapaConPosicion(location.latitude, location.longitude, Math.round(location.accuracy));
     };
 
+    // 👇 CONFIGURACIÓN BLINDADA CONTRA EL MODO "DOZE" DE ANDROID 👇
     geoWatcherId = await BG.addWatcher({
       backgroundMessage: 'Cambio VTC activo',
       backgroundTitle: 'Detectando zona',
       requestPermissions: false,
-      stale: false,
-      distanceFilter: 30,
+      stale: true,                     // Fuerza la actualización si se queda "estancado"
+      distanceFilter: 30,              // Cada cuántos metros comprueba
       desiredAccuracy: 20,
       stationaryRadius: 25,
       stopOnTerminate: false,
       startOnBoot: true,
-      preventSuspend: true,
-      heartbeatInterval: 60,
+      preventSuspend: true,            // Evita que el sistema duerma el hilo
+      heartbeatInterval: 60,           // Le manda un latido al sistema cada 60 segundos
       foregroundService: true,
       debug: false,
-      pausesLocationUpdatesAutomatically: false
+      pausesLocationUpdatesAutomatically: false,
+      useSignificantChangesOnly: false // Fuerza a usar el GPS real, no solo el de red
     }, onLocation);
 
     geoActivo = true;
     actualizarEstadoGeo();
+    
+    // Creamos la burbuja flotante
     await crearBurbuja("🟢", "#14532d");
 
     if(zonaPendiente){

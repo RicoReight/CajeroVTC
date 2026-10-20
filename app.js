@@ -5520,7 +5520,7 @@ async function actualizarBurbuja(emoji, colorFondo){
   }
 }
 
-async function quitarBurbuja(){
+// async function quitarBurbuja(){
   try {
     const Cap = window.Capacitor;
     if(!Cap || !Cap.Plugins || !Cap.Plugins.FloatingBubble) return;
@@ -5530,7 +5530,7 @@ async function quitarBurbuja(){
   } catch(e){
     console.warn("Error quitando burbuja:", e);
   }
-}
+// }
 
 function estiloDeZona(codigo){
   if(codigo === "bcn") return { emoji: "🟢", color: "#14532d" };

@@ -5331,15 +5331,12 @@ async function actualizarNotificacionZona(nuevaZona){
 
   procesandoZona = true;
   try {
-    const esPrimeraVez = (zonaActual === null);
     zonaActual = nuevaZona.codigo;
     zonaCandidata = null;
     zonaCandidataCount = 0;
 
-    if(!esPrimeraVez){
-      lanzarNotificacionZona(nuevaZona.nombre);
-    }
-
+    // 👇 La notificación persistente del watcher ya informa del cambio
+    // (ver reiniciarWatcherConTexto). No hace falta una notificación aparte.
     await reiniciarWatcherConTexto(nuevaZona.nombre);
   } finally {
     procesandoZona = false;
@@ -5371,8 +5368,8 @@ async function reiniciarWatcherConTexto(texto){
     };
 
     geoWatcherId = await BG.addWatcher({
-      backgroundMessage: texto,
-      backgroundTitle: 'Cambio VTC',
+      backgroundMessage: 'Estás en: ' + texto,   // 👈 "Estás en: 🟢 Zona de trabajo"
+      backgroundTitle: 'Mapa de zonas',          // 👈 Título unificado
       requestPermissions: false,
       stale: false,
       distanceFilter: 15,
@@ -5499,8 +5496,8 @@ async function iniciarGeolocalizacion(){
     };
 
     geoWatcherId = await BG.addWatcher({
-      backgroundMessage: 'Cambio VTC activo',
-      backgroundTitle: 'Detectando zona',
+      backgroundMessage: 'Buscando zona…',   // 👈 antes: 'Cambio VTC activo'
+      backgroundTitle: 'Mapa de zonas',      // 👈 antes: 'Detectando zona'
       requestPermissions: false,
       stale: true,
       distanceFilter: 30,

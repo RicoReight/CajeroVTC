@@ -5172,13 +5172,34 @@ function contarCrucesRayo(lat, lon, coords){
   return count;
 }
 
-function puntoEnLineStrings(lat, lon, geojson){
-  if(!geojson) return false;
+/* ==================== HELPER: APLANAR GEOMETRÍAS ==================== */
+// Convierte FeatureCollection / GeometryCollection en una lista plana de
+// geometrías simples (Polygon, MultiPolygon, LineString, MultiLineString).
+// Esto evita tener que manejar GeometryCollection en cada función.
+function aplanarGeometrias(geojson){
+  if(!geojson) return [];
   const features = geojson.type === "FeatureCollection" ? geojson.features : [geojson];
-  let total = 0;
+  const out = [];
   for(const f of features){
     const g = f.geometry || f;
     if(!g || !g.type) continue;
+    if(g.type === "GeometryCollection" && Array.isArray(g.geometries)){
+      for(const sub of g.geometries){
+        if(sub && sub.type) out.push(sub);
+      }
+    } else {
+      out.push(g);
+    }
+  }
+  return out;
+}
+
+/* ==================== DETECCIÓN DE PUNTO EN GEOMETRÍA ==================== */
+function puntoEnLineStrings(lat, lon, geojson){
+  if(!geojson) return false;
+  const geoms = aplanarGeometrias(geojson);
+  let total = 0;
+  for(const g of geoms){
     if(g.type === "LineString"){
       total += contarCrucesRayo(lat, lon, g.coordinates);
     } else if(g.type === "MultiLineString"){
@@ -5207,6 +5228,7 @@ function enAnillo(lat, lon, ring){
 function enPoligonoSimple(lat, lon, coords){
   if(!coords || !coords.length) return false;
   if(!enAnillo(lat, lon, coords[0])) return false;
+  // Anillos interiores = huecos → si estamos dentro de uno, estamos fuera
   for(let i = 1; i < coords.length; i++){
     if(enAnillo(lat, lon, coords[i])) return false;
   }
@@ -5215,10 +5237,8 @@ function enPoligonoSimple(lat, lon, coords){
 
 function puntoEnPoligono(lat, lon, geojson){
   if(!geojson) return false;
-  const features = geojson.type === "FeatureCollection" ? geojson.features : [geojson];
-  for(const f of features){
-    const g = f.geometry || f;
-    if(!g || !g.type) continue;
+  const geoms = aplanarGeometrias(geojson);
+  for(const g of geoms){
     if(g.type === "Polygon"){
       if(enPoligonoSimple(lat, lon, g.coordinates)) return true;
     } else if(g.type === "MultiPolygon"){
@@ -5255,11 +5275,9 @@ function distanciaSegmentoMetros(lat, lon, lat1, lon1, lat2, lon2){
 
 function distanciaAlPoligono(lat, lon, geojson){
   if(!geojson) return Infinity;
-  const features = geojson.type === "FeatureCollection" ? geojson.features : [geojson];
+  const geoms = aplanarGeometrias(geojson);
   let min = Infinity;
-  for(const f of features){
-    const g = f.geometry || f;
-    if(!g || !g.type) continue;
+  for(const g of geoms){
     let anillos = [];
     if(g.type === "Polygon") anillos = [g.coordinates[0]];
     else if(g.type === "MultiPolygon") anillos = g.coordinates.map(p => p[0]);

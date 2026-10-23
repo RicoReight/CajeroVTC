@@ -618,7 +618,6 @@ function renderResetPanel(){
 
   const boxCoche = document.getElementById("resetCocheBox");
   if(boxCoche){
-    // Evitar re-renderizar si el usuario está escribiendo en el input
     if(document.activeElement && document.activeElement.id === "inputHoraJornadaReset") return;
 
     const cocheSel = cocheActual || "Ninguno";
@@ -4702,6 +4701,10 @@ function init(){
   try{renderCierreHistorico()}catch(e){console.error("renderCierreHistorico",e)}
   try{checkAutoResetPropinas()}catch(e){console.error("checkAutoResetPropinas",e)}
 
+  // 👇 NUEVO: Auto-reset del coche al final de la jornada
+  try { checkResetCoche(); } catch(e){}
+  setInterval(checkResetCoche, 60000);   // cada minuto
+
   setTimeout(() => {
     const fD = document.getElementById("depManualFecha");
     const fT = document.getElementById("depManualFechaTxt");
@@ -6015,7 +6018,75 @@ const PINES_DEFAULT = [
   { mat:"9471NDF", pin:"2510", combustible:true, pinturaBarca:false }
 ];
 
+let cocheActual = safeStorage.get("uberCambioCocheActual") || "";
+let horaFinJornada = safeStorage.get("uberCambioHoraFinJornada") || "18:00";
+let ultimoResetCocheFecha = safeStorage.get("uberCambioUltimoResetCocheFecha") || "";
 let pinesLista = loadPines();
+
+function saveCocheActual(){ safeStorage.set("uberCambioCocheActual", cocheActual); }
+function saveHoraFinJornada(){ safeStorage.set("uberCambioHoraFinJornada", horaFinJornada); }
+function saveUltimoResetCocheFecha(){ safeStorage.set("uberCambioUltimoResetCocheFecha", ultimoResetCocheFecha); }
+
+function seleccionarCoche(mat){
+  const item = pinesLista.find(x => x.mat === mat);
+  if(!item) return;
+  cocheActual = mat;
+  saveCocheActual();
+
+  const ahora = new Date();
+  const hoyStr = fechaLocalStr(ahora);
+  const [hh, mm] = horaFinJornada.split(":").map(Number);
+  const horaReset = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), hh, mm, 0);
+  if(ahora >= horaReset){
+    ultimoResetCocheFecha = hoyStr;
+    saveUltimoResetCocheFecha();
+  }
+
+  renderPinesResultados();
+  mostrarToast("✅ Coche actual: " + mat);
+}
+
+function liberarCoche(){
+  if(!cocheActual) return;
+  if(!confirm("¿Liberar el coche actual?\n\nTendrás que volver a seleccionarlo la próxima vez.")) return;
+  cocheActual = "";
+  saveCocheActual();
+  renderPinesResultados();
+  mostrarToast("🔓 Coche liberado");
+}
+
+function checkResetCoche(){
+  if(!cocheActual) return;
+
+  const ahora = new Date();
+  const hoyStr = fechaLocalStr(ahora);
+
+  if(ultimoResetCocheFecha === hoyStr) return;
+
+  const [hh, mm] = horaFinJornada.split(":").map(Number);
+  const horaReset = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), hh, mm, 0);
+
+  if(ahora >= horaReset){
+    cocheActual = "";
+    ultimoResetCocheFecha = hoyStr;
+    saveCocheActual();
+    saveUltimoResetCocheFecha();
+
+    if(document.getElementById("pinesResultados")) renderPinesResultados();
+    mostrarToast("🔓 Coche liberado (fin de jornada " + horaFinJornada + ")");
+  }
+}
+
+function guardarHoraJornadaDesdeReset(){
+  const inp = document.getElementById("inputHoraJornadaReset");
+  if(!inp) return;
+  const v = inp.value;
+  if(!/^\d{2}:\d{2}$/.test(v)){ alert("Hora inválida"); return; }
+  
+  horaFinJornada = v;
+  saveHoraFinJornada();
+  mostrarToast("⏰ Fin de jornada: " + v);
+}
 
 function loadPines(){
   const s = safeStorage.get("uberCambioPines");
@@ -6368,6 +6439,7 @@ async function activarPantallaSiempreActiva(){
 document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible'){
     activarPantallaSiempreActiva();
+    checkResetCoche(); // 👈 Añadido para comprobar si hay que liberar el coche
   }
 });
 

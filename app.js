@@ -600,24 +600,23 @@ function renderResetPanel(){
     }
   }
 
-  // ==================== AUTO-RESET DEL COCHE ====================
-  const cocheBox = document.getElementById("resetCocheBox");
-  if(!cocheBox){
-    const nuevoCocheBox = document.createElement("div");
-    nuevoCocheBox.id = "resetCocheBox";
-    nuevoCocheBox.style.cssText = "margin-top:16px;padding:14px;background:#1e293b;border-radius:12px;border:1px solid #334155";
+  // ==================== AUTO-RESET DEL COCHE (VERSIÓN BLINDADA) ====================
+  // Buscamos el botón de "Saltar próximo reset" que SÍ sabemos que existe por tu captura
+  const btnSaltar = document.querySelector('button[onclick="saltarProximoReset()"]');
+  
+  if(btnSaltar){
+    let boxCoche = document.getElementById("resetCocheBox");
     
-    const hist = document.getElementById("historialPanel");
-    if(hist && hist.parentNode){
-      hist.parentNode.insertBefore(nuevoCocheBox, hist);
-    } else {
-      const panel = document.getElementById("resetPanelBox");
-      if(panel && panel.parentNode) panel.parentNode.appendChild(nuevoCocheBox);
+    // Si no existe el bloque, lo creamos justo DEBAJO del botón de saltar reset
+    if(!boxCoche){
+      boxCoche = document.createElement("div");
+      boxCoche.id = "resetCocheBox";
+      boxCoche.style.cssText = "margin-top:16px; margin-bottom:16px; padding:14px; background:#1e293b; border-radius:12px; border:1px solid #334155";
+      // Lo insertamos después del botón de saltar
+      btnSaltar.parentNode.insertBefore(boxCoche, btnSaltar.nextSibling);
     }
-  }
 
-  const boxCoche = document.getElementById("resetCocheBox");
-  if(boxCoche){
+    // Evitar que se repinte mientras el usuario escribe en el reloj
     if(document.activeElement && document.activeElement.id === "inputHoraJornadaReset") return;
 
     const cocheSel = cocheActual || "Ninguno";
@@ -643,7 +642,7 @@ function renderResetPanel(){
       </div>
     `;
   }
-  // ==============================================================
+  // ==============================================================================
 
   renderHistorialPanel();
 }

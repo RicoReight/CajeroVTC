@@ -512,10 +512,7 @@ function renderResetPanel(){
       sub.style.color = "#fecaca";
       foot.innerHTML = "Pon un día (1-31) para activarlo";
       foot.style.color = "#fecaca";
-      if(inp){
-        inp.style.borderColor = "#ef4444";
-        inp.style.color = "#f87171";
-      }
+      if(inp){ inp.style.borderColor = "#ef4444"; inp.style.color = "#f87171"; }
     } else {
       box.style.background = "#064e3b";
       box.style.borderColor = "#059669";
@@ -525,10 +522,7 @@ function renderResetPanel(){
       sub.style.color = "#a7f3d0";
       foot.innerHTML = "de cada mes · <b style='color:#fbbf24'>0 = desactivado</b>";
       foot.style.color = "#a7f3d0";
-      if(inp){
-        inp.style.borderColor = "#059669";
-        inp.style.color = "#4ade80";
-      }
+      if(inp){ inp.style.borderColor = "#059669"; inp.style.color = "#4ade80"; }
     }
   }
 
@@ -605,6 +599,53 @@ function renderResetPanel(){
       btnDbg.style.color = "#94a3b8";
     }
   }
+
+  // ==================== AUTO-RESET DEL COCHE ====================
+  const cocheBox = document.getElementById("resetCocheBox");
+  if(!cocheBox){
+    const nuevoCocheBox = document.createElement("div");
+    nuevoCocheBox.id = "resetCocheBox";
+    nuevoCocheBox.style.cssText = "margin-top:16px;padding:14px;background:#1e293b;border-radius:12px;border:1px solid #334155";
+    
+    const hist = document.getElementById("historialPanel");
+    if(hist && hist.parentNode){
+      hist.parentNode.insertBefore(nuevoCocheBox, hist);
+    } else {
+      const panel = document.getElementById("resetPanelBox");
+      if(panel && panel.parentNode) panel.parentNode.appendChild(nuevoCocheBox);
+    }
+  }
+
+  const boxCoche = document.getElementById("resetCocheBox");
+  if(boxCoche){
+    // Evitar re-renderizar si el usuario está escribiendo en el input
+    if(document.activeElement && document.activeElement.id === "inputHoraJornadaReset") return;
+
+    const cocheSel = cocheActual || "Ninguno";
+    boxCoche.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:13px;color:#38bdf8;font-weight:900;letter-spacing:1px">🚗 FIN DE JORNADA (COCHE)</div>
+        <div style="font-size:11px;color:#64748b;font-weight:700">Coche actual: <b style="color:#fff">${cocheSel}</b></div>
+      </div>
+      
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.4">
+        A esta hora, el coche se liberará solo. Podrás cambiarlo al día siguiente.
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="time" id="inputHoraJornadaReset" value="${horaFinJornada}"
+          style="flex:1;font-size:24px;font-weight:900;padding:12px;border-radius:10px;
+                 border:2px solid #0891b2;background:#0f172a;color:#22d3ee;text-align:center;
+                 outline:none;font-family:monospace;box-sizing:border-box">
+        <button type="button" onclick="guardarHoraJornadaDesdeReset()"
+          style="background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px 18px;font-weight:900;font-size:14px;cursor:pointer">
+          Guardar
+        </button>
+      </div>
+    `;
+  }
+  // ==============================================================
+
   renderHistorialPanel();
 }
 function guardarDiaReset(){
@@ -656,6 +697,20 @@ function guardarDiaReset(){
   renderResetPanel();
   mostrarToast("✅ Día de reset: " + diaReset);
 }
+
+function guardarHoraJornadaDesdeReset(){
+  const inp = document.getElementById("inputHoraJornadaReset");
+  if(!inp) return;
+  const v = inp.value;
+  if(!/^\d{2}:\d{2}$/.test(v)){ alert("Hora inválida"); return; }
+  
+  horaFinJornada = v;
+  saveHoraFinJornada();
+  mostrarToast("⏰ Fin de jornada: " + v);
+  // No llamamos a renderResetPanel() aquí para no perder el foco, 
+  // el input ya tiene el valor que el usuario acaba de guardar.
+}
+
 function saltarProximoReset(){
   if(diaReset === 0){
     mostrarToast("ℹ️ El reset ya está desactivado");
@@ -5778,37 +5833,41 @@ async function renderSonidosPanel(){
     return;
   }
 
+  // 👇 AQUÍ ESTÁ EL NUEVO DISEÑO DE BOTONES 👇
   let html = `
-    <button type="button" onclick="detenerAudioActual()"
-      style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
-             background:linear-gradient(135deg,#7f1d1d,#991b1b);
-             border:2px solid #ef4444;border-radius:14px;
-             padding:16px;color:#fca5a5;font-size:16px;font-weight:900;
-             letter-spacing:0.5px;cursor:pointer;margin-bottom:12px">
-      <span style="font-size:22px">⏹</span>
-      <span>PARAR AUDIO</span>
-    </button>
-
-    <button type="button" onclick="reanudarMusica()"
-      style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
-             background:linear-gradient(135deg,#1db954,#168f40);
-             border:2px solid #1ed760;border-radius:14px;
-             padding:16px;color:#fff;font-size:16px;font-weight:900;
-             letter-spacing:0.5px;cursor:pointer;margin-bottom:12px">
-      <span style="font-size:22px">▶️</span>
-      <span>REANUDAR MÚSICA</span>
-    </button>
-
     <button type="button" onclick="abrirGeotabDrive()"
       style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
              background:linear-gradient(135deg,#0c4a6e,#075985);
              border:2px solid #0ea5e9;border-radius:14px;
              padding:16px;color:#7dd3fc;font-size:16px;font-weight:900;
-             letter-spacing:0.5px;cursor:pointer;margin-bottom:12px">
+             letter-spacing:0.5px;cursor:pointer;margin-bottom:10px">
       <span style="font-size:22px">🚗</span>
       <span>ABRIR GEOTAB DRIVE</span>
     </button>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+      <button type="button" onclick="reanudarMusica()"
+        style="display:flex;align-items:center;justify-content:center;gap:6px;
+               background:linear-gradient(135deg,#1db954,#168f40);
+               border:2px solid #1ed760;border-radius:12px;
+               padding:14px 6px;color:#fff;font-size:14px;font-weight:900;
+               letter-spacing:0.5px;cursor:pointer">
+        <span style="font-size:20px">▶️</span>
+        <span>REANUDAR</span>
+      </button>
+
+      <button type="button" onclick="detenerAudioActual()"
+        style="display:flex;align-items:center;justify-content:center;gap:6px;
+               background:linear-gradient(135deg,#7f1d1d,#991b1b);
+               border:2px solid #ef4444;border-radius:12px;
+               padding:14px 6px;color:#fca5a5;font-size:14px;font-weight:900;
+               letter-spacing:0.5px;cursor:pointer">
+        <span style="font-size:20px">⏹</span>
+        <span>PARAR</span>
+      </button>
+    </div>
   `;
+  // 👆 FIN DEL NUEVO DISEÑO 👆
 
   gruposOrdenados.forEach(grupo => {
     html += `
@@ -6008,12 +6067,7 @@ function renderPinesResultados(){
   }
   lista.sort((a,b) => a.mat.localeCompare(b.mat));
 
-  if(lista.length === 0){
-    cont.innerHTML = `<div style="text-align:center;color:#64748b;padding:30px;font-size:14px">Sin resultados para "${q}"</div>`;
-    return;
-  }
-
-  const exacto = q ? pinesLista.find(x => x.mat.toUpperCase() === q) : null;
+  const cocheData = cocheActual ? pinesLista.find(x => x.mat === cocheActual) : null;
 
   const svgCombustible = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M3 13h10"/><path d="M13 8h2a2 2 0 0 1 2 2v6a2 2 0 0 0 4 0V9l-3-3"/></svg>`;
   const svgBarca = `<svg viewBox="0 0 20 13" width="18" height="12" style="display:inline-block;vertical-align:middle;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,0.35)"><rect width="20" height="13" fill="#004d98"/><rect x="4" width="4" height="13" fill="#a50044"/><rect x="12" width="4" height="13" fill="#a50044"/></svg>`;
@@ -6021,34 +6075,61 @@ function renderPinesResultados(){
   const styleDefault = "background:#1e293b;border:2px solid #475569;color:#fff";
   const styleRojo    = "background:#7f1d1d;border:2px solid #ef4444;color:#fff";
   const styleVerde   = "background:#14532d;border:2px solid #22c55e;color:#fff";
-
   const styleComb  = cb => cb ? styleDefault : styleRojo;
   const styleBarca = pb => pb ? styleVerde   : styleDefault;
 
   let html = "";
 
-  if(exacto){
-    const cb = exacto.combustible;
-    const pb = exacto.pinturaBarca;
-    html += `
-      <div style="background:linear-gradient(135deg,#064e3b,#065f46);border:2px solid #10b981;border-radius:16px;padding:20px;margin-bottom:14px;text-align:center">
-        <div style="font-size:13px;color:#a7f3d0;font-weight:800;letter-spacing:1px">MATRÍCULA</div>
-        <div style="font-size:28px;font-weight:900;color:#fff;margin:4px 0 14px;letter-spacing:2px">${exacto.mat}</div>
-        <div style="font-size:13px;color:#a7f3d0;font-weight:800;letter-spacing:1px">PIN</div>
-        <div style="font-size:56px;font-weight:900;color:#4ade80;letter-spacing:6px;margin:4px 0 14px;line-height:1">${exacto.pin}</div>
-        <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-          <button type="button" onclick="togglePinCombustible('${exacto.mat}')"
-            style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;${styleComb(cb)};font-weight:900;font-size:14px;cursor:pointer">
-            ${svgCombustible} <span>${cb?'Sí':'NO'} tarjeta combustible</span>
-          </button>
-          <button type="button" onclick="togglePinBarca('${exacto.mat}')"
-            style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;${styleBarca(pb)};font-weight:900;font-size:14px;cursor:pointer">
-            ${svgBarca} <span>${pb?'Sí':'No'} Barça</span>
+  // ═══════════════════════════════════════════════
+  // PANEL "MI COCHE AHORA" (Sin botón de hora)
+  // ═══════════════════════════════════════════════
+  html += `
+    <div style="background:${cocheData ? 'linear-gradient(135deg,#064e3b,#065f46)' : '#1e293b'};border:2px solid ${cocheData ? '#10b981' : '#475569'};border-radius:16px;padding:16px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${cocheData ? '12px' : '4px'}">
+        <div style="font-size:13px;color:${cocheData ? '#a7f3d0' : '#94a3b8'};font-weight:900;letter-spacing:1px">
+          🚗 ${cocheData ? 'MI COCHE AHORA' : 'SIN COCHE ASIGNADO'}
+        </div>
+      </div>
+      ${cocheData ? `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:2px;line-height:1">${cocheData.mat}</div>
+            <div style="font-size:44px;font-weight:900;color:#4ade80;letter-spacing:6px;margin-top:6px;line-height:1">${cocheData.pin}</div>
+          </div>
+          <button type="button" onclick="copiarPin('${cocheData.pin}')"
+            style="background:#10b981;color:#0f172a;border:none;border-radius:10px;padding:12px 14px;font-weight:900;font-size:14px;cursor:pointer;white-space:nowrap">
+            📋 PIN
           </button>
         </div>
-        <button type="button" onclick="copiarPin('${exacto.pin}')" style="background:#10b981;color:#0f172a;border:none;border-radius:10px;padding:10px 18px;font-weight:900;font-size:14px;cursor:pointer">📋 Copiar PIN</button>
-      </div>
-    `;
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          <button type="button" onclick="togglePinCombustible('${cocheData.mat}')"
+            style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;${styleComb(cocheData.combustible)};font-weight:900;font-size:12px;cursor:pointer">
+            ${svgCombustible} <span>${cocheData.combustible?'Sí':'NO'}</span>
+          </button>
+          <button type="button" onclick="togglePinBarca('${cocheData.mat}')"
+            style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:8px;${styleBarca(cocheData.pinturaBarca)};font-weight:900;font-size:12px;cursor:pointer">
+            ${svgBarca} <span>${cocheData.pinturaBarca?'Sí':'No'} Barça</span>
+          </button>
+        </div>
+        <button type="button" onclick="liberarCoche()"
+          style="width:100%;background:#7f1d1d;color:#fca5a5;border:1px solid #b91c1c;border-radius:10px;padding:10px;font-weight:800;font-size:13px;cursor:pointer">
+          🔓 LIBERAR COCHE
+        </button>
+      ` : `
+        <div style="font-size:12px;color:#64748b;line-height:1.4;text-align:center;padding:8px 0">
+          Pulsa <b style="color:#4ade80">USAR</b> en una matrícula de la lista de abajo
+        </div>
+      `}
+    </div>
+  `;
+
+  // ═══════════════════════════════════════════════
+  // LISTA DE MATRÍCULAS
+  // ═══════════════════════════════════════════════
+  if(lista.length === 0){
+    html += `<div style="text-align:center;color:#64748b;padding:30px;font-size:14px">Sin resultados para "${q}"</div>`;
+    cont.innerHTML = html;
+    return;
   }
 
   html += `<div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:6px 12px">`;
@@ -6056,16 +6137,27 @@ function renderPinesResultados(){
   lista.forEach(x => {
     const cb = x.combustible;
     const pb = x.pinturaBarca;
+    const esActual = x.mat === cocheActual;
+
     html += `
-      <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #1e293b">
-        <div style="flex:1;min-width:0;font-size:15px;color:#fff;font-weight:800;letter-spacing:1px">${x.mat}</div>
+      <div style="display:flex;align-items:center;gap:6px;padding:10px 0;border-bottom:1px solid #1e293b;${esActual ? 'background:rgba(16,185,129,0.08);margin:0 -12px;padding-left:12px;padding-right:12px;border-radius:6px' : ''}">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;color:#fff;font-weight:800;letter-spacing:1px">${x.mat}</div>
+          <div style="font-size:16px;font-weight:900;color:#38bdf8;letter-spacing:3px">${x.pin}</div>
+        </div>
         <button type="button" onclick="togglePinCombustible('${x.mat}')" title="Combustible: ${cb?'SÍ':'NO'}"
-          style="width:38px;height:38px;padding:0;border-radius:8px;${styleComb(cb)};cursor:pointer;display:flex;align-items:center;justify-content:center">${svgCombustible}</button>
+          style="width:34px;height:34px;padding:0;border-radius:8px;${styleComb(cb)};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">${svgCombustible}</button>
         <button type="button" onclick="togglePinBarca('${x.mat}')" title="Pintura Barça: ${pb?'SÍ':'NO'}"
-          style="width:38px;height:38px;padding:0;border-radius:8px;${styleBarca(pb)};cursor:pointer;display:flex;align-items:center;justify-content:center">${svgBarca}</button>
-        <div style="font-size:18px;font-weight:900;color:#38bdf8;letter-spacing:3px">${x.pin}</div>
-        <button type="button" onclick="editarPin('${x.mat}')" style="background:#334155;color:#94a3b8;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">✏️</button>
-        <button type="button" onclick="borrarPin('${x.mat}')" style="background:#7f1d1d;color:#fca5a5;border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer">🗑️</button>
+          style="width:34px;height:34px;padding:0;border-radius:8px;${styleBarca(pb)};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">${svgBarca}</button>
+        ${esActual ? `
+          <div style="background:#10b981;color:#0f172a;font-size:10px;font-weight:900;padding:4px 8px;border-radius:6px;letter-spacing:0.5px;flex-shrink:0">ACTUAL</div>
+        ` : `
+          <button type="button" onclick="seleccionarCoche('${x.mat}')"
+            style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0">
+            USAR
+          </button>
+        `}
+        <button type="button" onclick="editarPin('${x.mat}')" style="background:#334155;color:#94a3b8;border:none;border-radius:8px;padding:6px 8px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">✏️</button>
       </div>
     `;
   });

@@ -4858,6 +4858,8 @@ let procesandoZona = false;
 let zonaCandidata = null;
 let zonaCandidataCount = 0;
 const ZONA_CONFIRMACION_MUESTRAS = 2;
+const ZONA_COOLDOWN_MS = 20000;
+let ultimoCambioZonaMs = 0;
 
 function actualizarEstadoGeo(){
   const badge = document.getElementById("geoEstadoBadge");
@@ -5443,6 +5445,98 @@ function probarCoordenadasManuales(){
   actualizarMapaConPosicion(lat, lon, 0);
 }
 
+/* ==================== PERMISOS ==================== */
+async function pedirPermisosUbicacionYNotificaciones(){
+  const Cap = window.Capacitor;
+  if(!Cap || !Cap.Plugins || !Cap.Plugins.BackgroundGeolocation){
+    alert('❌ Plugin de geolocalización no instalado');
+    return false;
+  }
+
+  const BG = Cap.Plugins.BackgroundGeolocation;
+
+  try {
+    // 1. Ubicación primer plano + notificaciones (en una sola llamada)
+    const fg = await BG.requestPermissions({
+      permissions: ['location', 'notifications']
+    });
+    console.log('🔐 Permisos foreground:', fg);
+
+    if(fg.location !== 'granted'){
+      alert('⚠️ Necesito permiso de ubicación para rastrear zonas.\n\nActívalo en Ajustes → Apps → Cambio VTC → Permisos → Ubicación.');
+      return false;
+    }
+
+    // 2. Ubicación segundo plano (SOLO si la primera se concedió)
+    const bg = await BG.requestPermissions({
+      permissions: ['backgroundLocation']
+    });
+    console.log('🔐 Permiso backgroundLocation:', bg);
+
+    if(bg.backgroundLocation !== 'granted'){
+      // No bloqueamos, pero avisamos. El rastreo puede fallar en 2º plano.
+      mostrarToast('⚠️ Sin ubicación en 2º plano, el rastreo se parará al cerrar la app.');
+    }
+
+    return true;
+  } catch(e){
+    console.warn('Error pidiendo permisos:', e);
+    alert('❌ Error al pedir permisos: ' + (e.message || e));
+    return false;
+  }
+}
+
+async function pedirExencionBateria(){
+  const Cap = window.Capacitor;
+  if(!Cap || !Cap.Plugins){
+    console.warn('Capacitor no disponible');
+    return false;
+  }
+
+  const BO = Cap.Plugins.BatteryOptimization;
+  if(!BO){
+    console.warn('⚠️ Plugin BatteryOptimization no instalado');
+    return false;
+  }
+
+  try {
+    // 1. ¿Ya está exenta la app?
+    const { enabled } = await BO.isBatteryOptimizationEnabled();
+    console.log('🔋 Optimización de batería activa:', enabled);
+
+    if(!enabled){
+      console.log('✅ La app ya está exenta de optimización de batería');
+      return true;
+    }
+
+    // 2. Pedir la exención al usuario (diálogo nativo de Android)
+    await BO.requestIgnoreBatteryOptimization();
+    console.log('🔋 Diálogo de exención mostrado');
+
+    // 3. Verificar si el usuario aceptó (con pequeño delay porque el diálogo es asíncrono)
+    await new Promise(r => setTimeout(r, 1000));
+    const check = await BO.isBatteryOptimizationEnabled();
+
+    if(!check.enabled){
+      mostrarToast('✅ Batería: sin restricciones');
+      return true;
+    } else {
+      mostrarToast('⚠️ Acepta "Sin restricciones" para que el rastreo no se pare');
+      return false;
+    }
+  } catch(e){
+    console.warn('Error pidiendo exención de batería:', e);
+
+    // Plan B: abrir ajustes de optimización de batería
+    try {
+      await BO.openBatteryOptimizationSettings();
+    } catch(e2){
+      console.warn('Tampoco se pudo abrir ajustes de batería:', e2);
+    }
+    return false;
+  }
+}
+
 /* ==================== GEOLOCALIZACIÓN BACKGROUND ==================== */
 async function iniciarGeolocalizacion(){
   try {
@@ -5451,22 +5545,31 @@ async function iniciarGeolocalizacion(){
       alert('❌ Plugin de geolocalización no instalado');
       return;
     }
+
+    // ═══════════════════════════════════════════════════════
+    // PASO 1: PERMISOS (ubicación + notificaciones + 2º plano)
+    // ═══════════════════════════════════════════════════════
+    const permisosOk = await pedirPermisosUbicacionYNotificaciones();
+    if(!permisosOk) return;
+
+    // ═══════════════════════════════════════════════════════
+    // PASO 2: EXENCIÓN DE OPTIMIZACIÓN DE BATERÍA
+    // ═══════════════════════════════════════════════════════
+    await pedirExencionBateria();
+
     const BG = Cap.Plugins.BackgroundGeolocation;
 
-    try {
-      await BG.requestPermissions({ permissions: ['location'] });
-      await BG.requestPermissions({ permissions: ['location', 'backgroundLocation'] });
-    } catch(e){
-      console.warn('Error pidiendo permisos:', e);
-    }
-
+    // Resetear estado de zona
     zonaActual = null;
     zonaPendiente = null;
     zonaCandidata = null;
     zonaCandidataCount = 0;
     procesandoZona = false;
+    ultimoCambioZonaMs = 0;
 
     mostrarToast("🔎 Buscando tu posición...");
+
+    // Posición rápida inicial para centrar el mapa
     if(navigator.geolocation){
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -5481,6 +5584,7 @@ async function iniciarGeolocalizacion(){
       );
     }
 
+    // Eliminar watcher previo si lo hubiera
     if(geoWatcherId){
       try { await BG.removeWatcher({ id: geoWatcherId }); } catch(e){}
       geoWatcherId = null;
@@ -5495,9 +5599,12 @@ async function iniciarGeolocalizacion(){
       actualizarMapaConPosicion(location.latitude, location.longitude, Math.round(location.accuracy));
     };
 
+    // ═══════════════════════════════════════════════════════
+    // WATCHER con notificación "Mapa de zonas"
+    // ═══════════════════════════════════════════════════════
     geoWatcherId = await BG.addWatcher({
-      backgroundMessage: 'Buscando zona…',   // 👈 antes: 'Cambio VTC activo'
-      backgroundTitle: 'Mapa de zonas',      // 👈 antes: 'Detectando zona'
+      backgroundMessage: 'Buscando zona…',
+      backgroundTitle: 'Mapa de zonas',
       requestPermissions: false,
       stale: true,
       distanceFilter: 30,
@@ -5516,6 +5623,7 @@ async function iniciarGeolocalizacion(){
     geoActivo = true;
     actualizarEstadoGeo();
 
+    // Si llegó una zona pendiente durante la inicialización, aplicarla
     if(zonaPendiente){
       const zp = zonaPendiente;
       zonaPendiente = null;

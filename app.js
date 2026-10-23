@@ -5789,6 +5789,16 @@ async function renderSonidosPanel(){
       <span>PARAR AUDIO</span>
     </button>
 
+    <button type="button" onclick="reanudarMusica()"
+      style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
+             background:linear-gradient(135deg,#1db954,#168f40);
+             border:2px solid #1ed760;border-radius:14px;
+             padding:16px;color:#fff;font-size:16px;font-weight:900;
+             letter-spacing:0.5px;cursor:pointer;margin-bottom:12px">
+      <span style="font-size:22px">▶️</span>
+      <span>REANUDAR MÚSICA</span>
+    </button>
+
     <button type="button" onclick="abrirGeotabDrive()"
       style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
              background:linear-gradient(135deg,#0c4a6e,#075985);
@@ -5851,6 +5861,14 @@ function reproducirAudio(url, boton){
         window.AndroidAudio.abandonAudioFocus();
       }
     } catch(e){}
+
+    // 👇 AUTO-REANUDAR MÚSICA (Spotify, etc.) tras terminar el sonido
+    setTimeout(() => {
+      if (window.AndroidAudio && window.AndroidAudio.reanudarMusica) {
+        try { window.AndroidAudio.reanudarMusica(); } catch(e){}
+      }
+    }, 800);
+
     audioActual = null;
   };
 
@@ -5871,6 +5889,20 @@ function reproducirAudio(url, boton){
       boton.style.borderColor = "#334155";
       boton.style.background = "linear-gradient(135deg,#1e293b,#0f172a)";
     }, 800);
+  }
+}
+
+function reanudarMusica() {
+  if (window.AndroidAudio && window.AndroidAudio.reanudarMusica) {
+    try {
+      window.AndroidAudio.reanudarMusica();
+      mostrarToast('▶️ Música reanudada');
+    } catch(e) {
+      console.warn('Error al reanudar:', e);
+      mostrarToast('⚠️ No se pudo reanudar');
+    }
+  } else {
+    mostrarToast('⚠️ No disponible en esta versión');
   }
 }
 

@@ -5448,37 +5448,63 @@ function probarCoordenadasManuales(){
 /* ==================== PERMISOS ==================== */
 async function pedirPermisosUbicacionYNotificaciones(){
   const Cap = window.Capacitor;
-  if(!Cap || !Cap.Plugins || !Cap.Plugins.BackgroundGeolocation){
-    alert('❌ Plugin de geolocalización no instalado');
+  if(!Cap || !Cap.Plugins){
+    alert('❌ Capacitor no disponible');
     return false;
   }
 
-  const BG = Cap.Plugins.BackgroundGeolocation;
-
   try {
-    // 1. Ubicación primer plano + notificaciones (en una sola llamada)
-    const fg = await BG.requestPermissions({
-      permissions: ['location', 'notifications']
-    });
-    console.log('🔐 Permisos foreground:', fg);
-
-    if(fg.location !== 'granted'){
-      alert('⚠️ Necesito permiso de ubicación para rastrear zonas.\n\nActívalo en Ajustes → Apps → Cambio VTC → Permisos → Ubicación.');
+    // ─────────────────────────────────────────────
+    // 1. PERMISO DE UBICACIÓN (foreground)
+    // ─────────────────────────────────────────────
+    const Geo = Cap.Plugins.Geolocation;
+    if(!Geo){
+      alert('❌ Plugin Geolocation no instalado');
       return false;
     }
 
-    // 2. Ubicación segundo plano (SOLO si la primera se concedió)
-    const bg = await BG.requestPermissions({
-      permissions: ['backgroundLocation']
-    });
-    console.log('🔐 Permiso backgroundLocation:', bg);
+    const geoPerms = await Geo.requestPermissions();
+    console.log('🔐 Permiso ubicación:', geoPerms);
 
-    if(bg.backgroundLocation !== 'granted'){
-      // No bloqueamos, pero avisamos. El rastreo puede fallar en 2º plano.
-      mostrarToast('⚠️ Sin ubicación en 2º plano, el rastreo se parará al cerrar la app.');
+    if(geoPerms.location !== 'granted'){
+      alert('⚠️ Necesito permiso de ubicación para rastrear zonas.\n\nActívalo en: Ajustes → Apps → Cambio VTC → Permisos → Ubicación');
+      return false;
     }
 
+    // ─────────────────────────────────────────────
+    // 2. PERMISO DE NOTIFICACIONES (Android 13+)
+    // ─────────────────────────────────────────────
+    const LN = Cap.Plugins.LocalNotifications;
+    if(LN){
+      try {
+        const notifPerms = await LN.requestPermissions();
+        console.log('🔔 Permiso notificaciones:', notifPerms);
+
+        if(notifPerms.display !== 'granted'){
+          mostrarToast('⚠️ Sin permiso de notificaciones no verás el aviso de zona');
+          // No bloqueamos, solo avisamos
+        }
+      } catch(e){
+        console.warn('Permiso notificaciones falló (no bloqueante):', e);
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // 3. PERMISO DE UBICACIÓN EN 2º PLANO
+    // ─────────────────────────────────────────────
+    // En Android 11+ esto NO muestra diálogo: abre la pantalla
+    // de ajustes de ubicación de la app. Lo hacemos con Geolocation
+    // o con el propio addWatcher (requestPermissions: true).
+    // Aquí solo avisamos al usuario.
+    try {
+      const checkBg = await Geo.checkPermissions();
+      // checkPermissions no distingue background en todas las versiones,
+      // pero al menos forzamos al usuario a ir a ajustes si algo falla
+      console.log('🔐 Estado actual:', checkBg);
+    } catch(e){}
+
     return true;
+
   } catch(e){
     console.warn('Error pidiendo permisos:', e);
     alert('❌ Error al pedir permisos: ' + (e.message || e));
@@ -5547,7 +5573,7 @@ async function iniciarGeolocalizacion(){
     }
 
     // ═══════════════════════════════════════════════════════
-    // PASO 1: PERMISOS (ubicación + notificaciones + 2º plano)
+    // PASO 1: PERMISOS (usa @capacitor/geolocation y local-notifications)
     // ═══════════════════════════════════════════════════════
     const permisosOk = await pedirPermisosUbicacionYNotificaciones();
     if(!permisosOk) return;
@@ -5569,7 +5595,6 @@ async function iniciarGeolocalizacion(){
 
     mostrarToast("🔎 Buscando tu posición...");
 
-    // Posición rápida inicial para centrar el mapa
     if(navigator.geolocation){
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -5584,28 +5609,24 @@ async function iniciarGeolocalizacion(){
       );
     }
 
-    // Eliminar watcher previo si lo hubiera
     if(geoWatcherId){
       try { await BG.removeWatcher({ id: geoWatcherId }); } catch(e){}
       geoWatcherId = null;
     }
 
     const onLocation = (location, error) => {
-      if(error){
-        console.warn('Error geolocalización:', error);
-        return;
-      }
+      if(error){ console.warn('Error geolocalización:', error); return; }
       if(!location) return;
       actualizarMapaConPosicion(location.latitude, location.longitude, Math.round(location.accuracy));
     };
 
     // ═══════════════════════════════════════════════════════
-    // WATCHER con notificación "Mapa de zonas"
+    // WATCHER  ⚠️ requestPermissions: true
     // ═══════════════════════════════════════════════════════
     geoWatcherId = await BG.addWatcher({
       backgroundMessage: 'Buscando zona…',
       backgroundTitle: 'Mapa de zonas',
-      requestPermissions: false,
+      requestPermissions: true,       // 👈 deja que el plugin pida el 2º plano
       stale: true,
       distanceFilter: 30,
       desiredAccuracy: 20,
@@ -5623,7 +5644,6 @@ async function iniciarGeolocalizacion(){
     geoActivo = true;
     actualizarEstadoGeo();
 
-    // Si llegó una zona pendiente durante la inicialización, aplicarla
     if(zonaPendiente){
       const zp = zonaPendiente;
       zonaPendiente = null;

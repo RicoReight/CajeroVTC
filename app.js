@@ -3001,7 +3001,7 @@ function nombreEstado(est){
     caducado:"Caducado",
     libre:"No trabajado",
     sacrificado:"Sacrificado",
-    futuro:"Pendiente"
+    futuro:"Aún no trabajado" // 👈 ANTES PONÍA "Pendiente"
   };
   return n[est] || est;
 }
@@ -3307,7 +3307,7 @@ function renderDiasTrabajo(){
         ${renderCalendarioMes()}
       </div>
       <div style="margin-top:12px;padding-top:10px;border-top:1px solid #334155;display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:#94a3b8">
-        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#fcd34d"></div>Pendiente</div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#fcd34d"></div>Aún no trabajado</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#38bdf8"></div>Acumulado</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#a78bfa"></div>Solicitado</div>
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:50%;background:#4ade80"></div>Aprobado</div>

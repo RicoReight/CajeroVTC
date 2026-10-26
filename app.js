@@ -6091,44 +6091,52 @@ function checkResetCoche(){
 }
 
 function actualizarBotonCochePrincipal(){
-  // Buscamos el texto "CAMBIO EN CAJA" para localizar la tarjeta azul
-  let elCambio = null;
-  const elements = document.querySelectorAll('div, span, h2');
-  for(let el of elements) {
-    if((el.textContent.trim() === 'CAMBIO EN CAJA' || el.textContent.trim() === 'Cambio en caja') && el.children.length === 0) {
-      elCambio = el;
+  // 1. Buscamos cualquier elemento que contenga el texto "CAMBIO EN CAJA"
+  let elTexto = null;
+  const allEls = Array.from(document.querySelectorAll('div, span, h1, h2, h3, p'));
+  
+  for (let el of allEls) {
+    // Buscamos que contenga el texto, pero que no sea el contenedor global (body)
+    if (el.textContent.trim().toUpperCase().includes('CAMBIO EN CAJA') && el.children.length <= 1) {
+      elTexto = el;
       break;
     }
   }
 
+  // Si no lo encontramos, ponemos el botón arriba del todo en la pantalla principal como plan B
   let target = null;
-  if(elCambio) {
-    // Subimos para encontrar la tarjeta que tiene el borde azul
-    let p = elCambio;
-    while(p && p !== document.body) {
-      if(p.style && (p.style.border.includes('3b82f6') || p.style.border.includes('38bdf8') || p.classList.contains('card'))) {
-        target = p;
+  if (elTexto) {
+    target = elTexto;
+    // Subimos hasta 5 niveles para encontrar la tarjeta con el borde azul
+    for (let i = 0; i < 5; i++) {
+      if (!target.parentElement || target.parentElement === document.body) break;
+      target = target.parentElement;
+      const style = window.getComputedStyle(target);
+      // Si encontramos el borde azul de la tarjeta, nos paramos
+      if (style.border.includes('rgb(59, 130, 246)') || style.border.includes('3b82f6') || target.className.includes('card')) {
         break;
       }
-      p = p.parentNode;
     }
-    if(!target) target = elCambio.parentNode.parentNode;
+  } else {
+    // PLAN B: Si no encuentra el texto, lo ponemos en el contenedor principal
+    target = document.querySelector('.container') || document.querySelector('main') || document.querySelector('.content');
   }
 
-  if(!target) return; // Si no encuentra la tarjeta, no hace nada
+  if(!target) return false;
 
+  // 2. Creamos el botón si no existe
   let widget = document.getElementById("widgetCochePrincipal");
   if(!widget){
     widget = document.createElement("div");
     widget.id = "widgetCochePrincipal";
     widget.style.cssText = "margin-bottom: 12px; display: flex; justify-content: flex-start; width: 100%;";
-    target.parentNode.insertBefore(widget, target); // Lo inserta justo ENCIMA de la tarjeta
+    target.parentNode.insertBefore(widget, target); // Lo mete justo encima
   }
 
-  // Diseño pequeño y compacto (tipo pastilla)
+  // 3. Pintamos el botón pequeñito
   if(cocheActual){
     widget.innerHTML = `
-      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="background: linear-gradient(135deg, #064e3b, #065f46); border: 1px solid #10b981; border-radius: 20px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(16,185,129,0.2); cursor: pointer;">
+      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="background: linear-gradient(135deg, #064e3b, #065f46); border: 1px solid #10b981; border-radius: 20px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(16,185,129,0.2); cursor: pointer;">
         <span style="font-size: 14px;">🚗</span>
         <span style="font-size: 14px; font-weight: 900; color: #fff; letter-spacing: 1px;">${cocheActual}</span>
         <span style="font-size: 14px; color: #4ade80; font-weight: 900; margin-left: 4px;">›</span>
@@ -6136,13 +6144,15 @@ function actualizarBotonCochePrincipal(){
     `;
   } else {
     widget.innerHTML = `
-      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="background: #1e293b; border: 1px dashed #475569; border-radius: 20px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="background: #1e293b; border: 1px dashed #475569; border-radius: 20px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
         <span style="font-size: 14px;">🚗</span>
         <span style="font-size: 13px; font-weight: 700; color: #94a3b8;">Asignar coche</span>
         <span style="font-size: 14px; color: #94a3b8; font-weight: 900; margin-left: 4px;">›</span>
       </div>
     `;
   }
+  
+  return true; // Devuelve true si se ha pintado correctamente
 }
 
 function guardarHoraJornadaDesdeReset(){

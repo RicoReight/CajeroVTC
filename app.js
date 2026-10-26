@@ -6143,28 +6143,32 @@ function actualizarBotonCochePrincipal(){
 
   if(cocheActual){
     const cocheData = pinesLista.find(x => x.mat === cocheActual);
-    
-    // Si el coche está en la lista, sacamos si tiene combustible y barça
     const cb = cocheData ? cocheData.combustible : false;
     const pb = cocheData ? cocheData.pinturaBarca : false;
 
-    // Iconos SVG (un poco más pequeños para que quepan en la pastilla)
-    const svgCombustible = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: ${cb ? 1 : 0.25}; vertical-align:middle;"><path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M3 13h10"/><path d="M13 8h2a2 2 0 0 1 2 2v6a2 2 0 0 0 4 0V9l-3-3"/></svg>`;
-    
-    const svgBarca = `<svg viewBox="0 0 20 13" width="14" height="10" style="opacity: ${pb ? 1 : 0.25}; vertical-align:middle; border-radius:2px; box-shadow:0 0 0 1px rgba(255,255,255,0.35);"><rect width="20" height="13" fill="#004d98"/><rect x="4" width="4" height="13" fill="#a50044"/><rect x="12" width="4" height="13" fill="#a50044"/></svg>`;
+    // Solo generamos el SVG si está activo
+    const svgCombustible = cb ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M3 13h10"/><path d="M13 8h2a2 2 0 0 1 2 2v6a2 2 0 0 0 4 0V9l-3-3"/></svg>` : "";
+    const svgBarca = pb ? `<svg viewBox="0 0 20 13" width="14" height="10" style="vertical-align:middle; border-radius:2px; box-shadow:0 0 0 1px rgba(255,255,255,0.35);"><rect width="20" height="13" fill="#004d98"/><rect x="4" width="4" height="13" fill="#a50044"/><rect x="12" width="4" height="13" fill="#a50044"/></svg>` : "";
+
+    // Creamos el bloque de iconos solo si hay al menos uno activo
+    let iconosHtml = "";
+    if(cb || pb) {
+      iconosHtml = `
+        <div style="display: flex; gap: 6px; align-items: center; border-left: 1px solid rgba(255,255,255,0.2); padding-left: 8px; margin-left: 2px;">
+          ${svgCombustible}
+          ${svgBarca}
+        </div>
+      `;
+    }
 
     widget.innerHTML = `
       <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="background: linear-gradient(135deg, #064e3b, #065f46); border: 1px solid #10b981; border-radius: 20px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 10px; box-shadow: 0 2px 8px rgba(16,185,129,0.2); cursor: pointer;">
         <span style="font-size: 14px;">🚗</span>
         <span style="font-size: 14px; font-weight: 900; color: #fff; letter-spacing: 1px;">${cocheActual}</span>
         
-        <!-- Iconos de estado -->
-        <div style="display: flex; gap: 6px; align-items: center; border-left: 1px solid rgba(255,255,255,0.2); padding-left: 8px;">
-          ${svgCombustible}
-          ${svgBarca}
-        </div>
+        ${iconosHtml}
 
-        <span style="font-size: 14px; color: #4ade80; font-weight: 900; margin-left: 2px;">›</span>
+        <span style="font-size: 14px; color: #4ade80; font-weight: 900; margin-left: ${iconosHtml ? '2px' : '6px'};">›</span>
       </div>
     `;
   } else {

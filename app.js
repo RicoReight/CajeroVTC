@@ -2919,7 +2919,10 @@ function loadFestivos(){
   lista.sort((a,b) => a.fecha.localeCompare(b.fecha));
   return lista;
 }
-function saveFestivos(){ safeStorage.set("uberCambioFestivos", JSON.stringify(festivos)); }
+function saveFestivos(){ 
+  safeStorage.set("uberCambioFestivos", JSON.stringify(festivos)); 
+  programarAvisosFestivos(); // 👈 Añade esto
+}
 
 function loadDiasPersonales(){
   const s = safeStorage.get("uberCambioDiasPersonales");
@@ -4590,6 +4593,9 @@ function guardarNuevoFestivo(){
 }
 /* ==================== FIN IMPORTAR ICS ==================== */
 
+
+
+
 /* ==================== AVISO CADUCIDAD ==================== */
 async function checkFestivosCaducidad(){
   const hoy = fechaLocalStr();
@@ -4621,6 +4627,82 @@ async function checkFestivosCaducidad(){
   }
 }
 /* ==================== FIN DÍAS DE TRABAJO ==================== */
+
+async function programarAvisosFestivos(){
+  const Cap = window.Capacitor;
+  if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
+  const LN = Cap.Plugins.LocalNotifications;
+
+  try {
+    const perm = await LN.checkPermissions();
+    if(perm.display !== 'granted') return;
+
+    if(LN.createChannel){
+      await LN.createChannel({
+        id: 'festivos-aviso',
+        name: 'Avisos de Festivos',
+        description: 'Recuerda solicitar los festivos antes de que caduquen',
+        importance: 5,
+        visibility: 1,
+        sound: 'default',
+        vibration: true
+      });
+    }
+
+    // Limpiamos avisos antiguos para no duplicar
+    const pending = await LN.getPending();
+    const aBorrar = pending.notifications.filter(n => n.id >= 300000 && n.id < 400000);
+    if(aBorrar.length > 0){
+      await LN.cancel({ notifications: aBorrar });
+    }
+
+    const ahora = new Date();
+    const pendientes = festivos.filter(f => {
+      if(!f.trabajado || f.solicitado || f.sacrificado) return false;
+      const d = diasHastaCaducar(f);
+      return d > 0 && d <= 90; 
+    });
+
+    if(!pendientes.length) return;
+
+    const notificaciones = [];
+
+    pendientes.forEach(f => {
+      const caducidad = fechaCaducidad(f.fecha); 
+      const alertas = [15, 5, 1];
+
+      alertas.forEach(diasAntes => {
+        const fechaAviso = new Date(caducidad.getTime());
+        fechaAviso.setDate(fechaAviso.getDate() - diasAntes);
+        fechaAviso.setHours(10, 0, 0, 0); // A las 10:00 de la mañana
+        
+        // 👇 EL CAMBIO: Usamos "ahora" en lugar de "hoy" para que no falle si lo abres a las 11:00
+        if(fechaAviso.getTime() < ahora.getTime()) return; 
+
+        const p = f.fecha.split("-");
+        const idBase = parseInt(p[0]) * 10000 + parseInt(p[1]) * 100 + parseInt(p[2]);
+        const idFinal = 300000 + (idBase % 90000) + diasAntes;
+
+        notificaciones.push({
+          id: idFinal,
+          title: '💼 Festivo a punto de caducar',
+          body: `Te quedan ${diasAntes} días para solicitar el festivo del ${formatearFechaBonita(f.fecha)} (${f.nombre}). ¡No lo dejes pasar!`,
+          channelId: 'festivos-aviso',
+          schedule: { at: fechaAviso, allowWhileIdle: true }
+        });
+      });
+    });
+
+    if(notificaciones.length > 0){
+      await LN.schedule({ notifications: notificaciones });
+      console.log(`✅ Programados ${notificaciones.length} avisos de festivos.`);
+    }
+
+  } catch(e){
+    console.warn('Error programando avisos de festivos:', e);
+  }
+}
+
 
 /* ==================== PESTAÑAS DEL DRAWER ==================== */
 function drawerTab(nombre){
@@ -4685,6 +4767,8 @@ function init(){
   setTimeout(() => { crearCanalNotificacionesZona(); }, 500);
 
   setTimeout(() => { checkFestivosCaducidad(); }, 1500);
+
+  setTimeout(() => { programarAvisosFestivos(); }, 2000);
 
   setTimeout(() => {
     try{

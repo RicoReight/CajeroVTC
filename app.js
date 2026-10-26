@@ -6058,88 +6058,88 @@ function liberarCoche(){
 }
 
 function checkResetCoche(){
-  if(!cocheActual || !timestampSeleccionCoche) return;
+  if(!cocheActual) return;
+
+  // Si no hay timestamp (porque se asignó antes de esta actualización), le ponemos la fecha actual
+  if(!timestampSeleccionCoche) {
+     timestampSeleccionCoche = Date.now();
+     saveCocheActual();
+     return;
+  }
 
   const ahora = new Date();
   const [hh, mm] = horaFinJornada.split(":").map(Number);
   
-  // Calculamos cuándo fue el ÚLTIMO reset (puede ser hoy o ayer)
+  // Calculamos cuándo fue el ÚLTIMO reset (hoy o ayer)
   let ultimoReset = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), hh, mm, 0);
+  
+  // Si la hora actual es menor que la de hoy, el último reset fue AYER
   if(ahora < ultimoReset){
-    // Si la hora actual es menor que la de hoy, el último reset fue AYER
     ultimoReset.setDate(ultimoReset.getDate() - 1);
   }
 
-  // Si el coche se seleccionó ANTES del último reset, toca borrarlo
+  // Si el coche se seleccionó ANTES de ese último reset, se libera
   if(timestampSeleccionCoche < ultimoReset.getTime()){
     cocheActual = "";
     timestampSeleccionCoche = 0;
     saveCocheActual();
 
     if(document.getElementById("pinesResultados")) renderPinesResultados();
-    actualizarBotonCochePrincipal(); // 👈 Actualiza el menú principal
+    actualizarBotonCochePrincipal(); // Actualiza el botón pequeño
     mostrarToast("🔓 Coche liberado (fin de jornada " + horaFinJornada + ")");
   }
 }
 
 function actualizarBotonCochePrincipal(){
-  // 1. Buscamos el botón o tarjeta de "Cambio en caja"
-  let anchor = null;
-  const elementos = document.querySelectorAll('button, div, a');
-  for(let el of elementos){
-    if(el.textContent.includes('Cambio en caja') || el.textContent.includes('CAMBIO EN CAJA')){
-      // Nos aseguramos de que no sea un elemento hijo gigante que contenga todo
-      if(el.children.length === 0 || el.tagName === 'BUTTON'){
-        anchor = el;
-        break;
-      }
+  // Buscamos el texto "CAMBIO EN CAJA" para localizar la tarjeta azul
+  let elCambio = null;
+  const elements = document.querySelectorAll('div, span, h2');
+  for(let el of elements) {
+    if((el.textContent.trim() === 'CAMBIO EN CAJA' || el.textContent.trim() === 'Cambio en caja') && el.children.length === 0) {
+      elCambio = el;
+      break;
     }
   }
 
-  if(!anchor) return; // Si no lo encuentra, no hace nada
+  let target = null;
+  if(elCambio) {
+    // Subimos para encontrar la tarjeta que tiene el borde azul
+    let p = elCambio;
+    while(p && p !== document.body) {
+      if(p.style && (p.style.border.includes('3b82f6') || p.style.border.includes('38bdf8') || p.classList.contains('card'))) {
+        target = p;
+        break;
+      }
+      p = p.parentNode;
+    }
+    if(!target) target = elCambio.parentNode.parentNode;
+  }
 
-  // 2. Buscamos o creamos el contenedor del coche
+  if(!target) return; // Si no encuentra la tarjeta, no hace nada
+
   let widget = document.getElementById("widgetCochePrincipal");
   if(!widget){
     widget = document.createElement("div");
     widget.id = "widgetCochePrincipal";
-    widget.style.cssText = "margin-bottom: 16px; padding: 16px; border-radius: 12px; cursor: pointer; transition: all 0.2s;";
-    // Lo insertamos justo ANTES del botón de "Cambio en caja"
-    anchor.parentNode.insertBefore(widget, anchor);
-    
-    // Al hacer clic, abrimos la pantalla de PINs
-    widget.onclick = () => { if(typeof abrirPinesPantalla === "function") abrirPinesPantalla(); };
+    widget.style.cssText = "margin-bottom: 12px; display: flex; justify-content: flex-start; width: 100%;";
+    target.parentNode.insertBefore(widget, target); // Lo inserta justo ENCIMA de la tarjeta
   }
 
-  // 3. Pintamos el diseño según si hay coche o no
+  // Diseño pequeño y compacto (tipo pastilla)
   if(cocheActual){
-    widget.style.background = "linear-gradient(135deg, #064e3b, #065f46)";
-    widget.style.border = "2px solid #10b981";
     widget.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center">
-        <div>
-          <div style="font-size:11px; color:#a7f3d0; font-weight:800; letter-spacing:1px; margin-bottom:4px">🚗 MI COCHE AHORA</div>
-          <div style="font-size:22px; font-weight:900; color:#fff; letter-spacing:2px; line-height:1">${cocheActual}</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:10px; color:#a7f3d0; font-weight:700">TOCA PARA VER PIN</div>
-          <div style="font-size:28px; color:#4ade80; line-height:1; margin-top:4px">›</div>
-        </div>
+      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="background: linear-gradient(135deg, #064e3b, #065f46); border: 1px solid #10b981; border-radius: 20px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(16,185,129,0.2); cursor: pointer;">
+        <span style="font-size: 14px;">🚗</span>
+        <span style="font-size: 14px; font-weight: 900; color: #fff; letter-spacing: 1px;">${cocheActual}</span>
+        <span style="font-size: 14px; color: #4ade80; font-weight: 900; margin-left: 4px;">›</span>
       </div>
     `;
   } else {
-    widget.style.background = "#1e293b";
-    widget.style.border = "2px dashed #475569";
     widget.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center">
-        <div>
-          <div style="font-size:11px; color:#94a3b8; font-weight:800; letter-spacing:1px; margin-bottom:4px">🚗 COCHE</div>
-          <div style="font-size:16px; font-weight:800; color:#64748b;">Sin asignar</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:10px; color:#64748b; font-weight:700">ASIGNAR</div>
-          <div style="font-size:28px; color:#94a3b8; line-height:1; margin-top:4px">›</div>
-        </div>
+      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="background: #1e293b; border: 1px dashed #475569; border-radius: 20px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+        <span style="font-size: 14px;">🚗</span>
+        <span style="font-size: 13px; font-weight: 700; color: #94a3b8;">Asignar coche</span>
+        <span style="font-size: 14px; color: #94a3b8; font-weight: 900; margin-left: 4px;">›</span>
       </div>
     `;
   }

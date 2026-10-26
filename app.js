@@ -4704,6 +4704,8 @@ function init(){
   try { checkResetCoche(); } catch(e){}
   setInterval(checkResetCoche, 60000);   // cada minuto
 
+  setTimeout(() => { actualizarBotonCochePrincipal(); }, 1000); 
+
   setTimeout(() => {
     const fD = document.getElementById("depManualFecha");
     const fT = document.getElementById("depManualFechaTxt");
@@ -6020,28 +6022,27 @@ const PINES_DEFAULT = [
 let cocheActual = safeStorage.get("uberCambioCocheActual") || "";
 let horaFinJornada = safeStorage.get("uberCambioHoraFinJornada") || "18:00";
 let ultimoResetCocheFecha = safeStorage.get("uberCambioUltimoResetCocheFecha") || "";
+let timestampSeleccionCoche = parseInt(safeStorage.get("uberCambioTimestampCoche")) || 0;
 let pinesLista = loadPines();
 
-function saveCocheActual(){ safeStorage.set("uberCambioCocheActual", cocheActual); }
 function saveHoraFinJornada(){ safeStorage.set("uberCambioHoraFinJornada", horaFinJornada); }
 function saveUltimoResetCocheFecha(){ safeStorage.set("uberCambioUltimoResetCocheFecha", ultimoResetCocheFecha); }
+
+function saveCocheActual(){ 
+  safeStorage.set("uberCambioCocheActual", cocheActual); 
+  safeStorage.set("uberCambioTimestampCoche", String(timestampSeleccionCoche));
+}
 
 function seleccionarCoche(mat){
   const item = pinesLista.find(x => x.mat === mat);
   if(!item) return;
+  
   cocheActual = mat;
+  timestampSeleccionCoche = Date.now(); // 👈 Guardamos la hora exacta
   saveCocheActual();
 
-  const ahora = new Date();
-  const hoyStr = fechaLocalStr(ahora);
-  const [hh, mm] = horaFinJornada.split(":").map(Number);
-  const horaReset = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), hh, mm, 0);
-  if(ahora >= horaReset){
-    ultimoResetCocheFecha = hoyStr;
-    saveUltimoResetCocheFecha();
-  }
-
   renderPinesResultados();
+  actualizarBotonCochePrincipal(); // 👈 Actualiza el menú principal
   mostrarToast("✅ Coche actual: " + mat);
 }
 
@@ -6049,30 +6050,98 @@ function liberarCoche(){
   if(!cocheActual) return;
   if(!confirm("¿Liberar el coche actual?\n\nTendrás que volver a seleccionarlo la próxima vez.")) return;
   cocheActual = "";
+  timestampSeleccionCoche = 0;
   saveCocheActual();
   renderPinesResultados();
+  actualizarBotonCochePrincipal(); // 👈 Actualiza el menú principal
   mostrarToast("🔓 Coche liberado");
 }
 
 function checkResetCoche(){
-  if(!cocheActual) return;
+  if(!cocheActual || !timestampSeleccionCoche) return;
 
   const ahora = new Date();
-  const hoyStr = fechaLocalStr(ahora);
-
-  if(ultimoResetCocheFecha === hoyStr) return;
-
   const [hh, mm] = horaFinJornada.split(":").map(Number);
-  const horaReset = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), hh, mm, 0);
+  
+  // Calculamos cuándo fue el ÚLTIMO reset (puede ser hoy o ayer)
+  let ultimoReset = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), hh, mm, 0);
+  if(ahora < ultimoReset){
+    // Si la hora actual es menor que la de hoy, el último reset fue AYER
+    ultimoReset.setDate(ultimoReset.getDate() - 1);
+  }
 
-  if(ahora >= horaReset){
+  // Si el coche se seleccionó ANTES del último reset, toca borrarlo
+  if(timestampSeleccionCoche < ultimoReset.getTime()){
     cocheActual = "";
-    ultimoResetCocheFecha = hoyStr;
+    timestampSeleccionCoche = 0;
     saveCocheActual();
-    saveUltimoResetCocheFecha();
 
     if(document.getElementById("pinesResultados")) renderPinesResultados();
+    actualizarBotonCochePrincipal(); // 👈 Actualiza el menú principal
     mostrarToast("🔓 Coche liberado (fin de jornada " + horaFinJornada + ")");
+  }
+}
+
+function actualizarBotonCochePrincipal(){
+  // 1. Buscamos el botón o tarjeta de "Cambio en caja"
+  let anchor = null;
+  const elementos = document.querySelectorAll('button, div, a');
+  for(let el of elementos){
+    if(el.textContent.includes('Cambio en caja') || el.textContent.includes('CAMBIO EN CAJA')){
+      // Nos aseguramos de que no sea un elemento hijo gigante que contenga todo
+      if(el.children.length === 0 || el.tagName === 'BUTTON'){
+        anchor = el;
+        break;
+      }
+    }
+  }
+
+  if(!anchor) return; // Si no lo encuentra, no hace nada
+
+  // 2. Buscamos o creamos el contenedor del coche
+  let widget = document.getElementById("widgetCochePrincipal");
+  if(!widget){
+    widget = document.createElement("div");
+    widget.id = "widgetCochePrincipal";
+    widget.style.cssText = "margin-bottom: 16px; padding: 16px; border-radius: 12px; cursor: pointer; transition: all 0.2s;";
+    // Lo insertamos justo ANTES del botón de "Cambio en caja"
+    anchor.parentNode.insertBefore(widget, anchor);
+    
+    // Al hacer clic, abrimos la pantalla de PINs
+    widget.onclick = () => { if(typeof abrirPinesPantalla === "function") abrirPinesPantalla(); };
+  }
+
+  // 3. Pintamos el diseño según si hay coche o no
+  if(cocheActual){
+    widget.style.background = "linear-gradient(135deg, #064e3b, #065f46)";
+    widget.style.border = "2px solid #10b981";
+    widget.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center">
+        <div>
+          <div style="font-size:11px; color:#a7f3d0; font-weight:800; letter-spacing:1px; margin-bottom:4px">🚗 MI COCHE AHORA</div>
+          <div style="font-size:22px; font-weight:900; color:#fff; letter-spacing:2px; line-height:1">${cocheActual}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px; color:#a7f3d0; font-weight:700">TOCA PARA VER PIN</div>
+          <div style="font-size:28px; color:#4ade80; line-height:1; margin-top:4px">›</div>
+        </div>
+      </div>
+    `;
+  } else {
+    widget.style.background = "#1e293b";
+    widget.style.border = "2px dashed #475569";
+    widget.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center">
+        <div>
+          <div style="font-size:11px; color:#94a3b8; font-weight:800; letter-spacing:1px; margin-bottom:4px">🚗 COCHE</div>
+          <div style="font-size:16px; font-weight:800; color:#64748b;">Sin asignar</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px; color:#64748b; font-weight:700">ASIGNAR</div>
+          <div style="font-size:28px; color:#94a3b8; line-height:1; margin-top:4px">›</div>
+        </div>
+      </div>
+    `;
   }
 }
 

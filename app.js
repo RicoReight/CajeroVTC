@@ -4700,11 +4700,26 @@ function init(){
   try{renderCierreHistorico()}catch(e){console.error("renderCierreHistorico",e)}
   try{checkAutoResetPropinas()}catch(e){console.error("checkAutoResetPropinas",e)}
 
-  // 👇 NUEVO: Auto-reset del coche al final de la jornada
+  // ==================== AUTO-RESET DEL COCHE ====================
   try { checkResetCoche(); } catch(e){}
-  setInterval(checkResetCoche, 60000);   // cada minuto
+  setInterval(checkResetCoche, 60000);   // Comprueba cada minuto
 
-  setTimeout(() => { actualizarBotonCochePrincipal(); }, 1000); 
+  // ==================== BOTÓN DEL COCHE EN MENÚ PRINCIPAL ====================
+  // Intentamos pintar el botón varias veces hasta que el HTML esté listo
+  let intentosCoche = 0;
+  const intervaloCoche = setInterval(() => {
+    try {
+      const exito = actualizarBotonCochePrincipal();
+      intentosCoche++;
+      if (exito || intentosCoche > 10) {
+        clearInterval(intervaloCoche);
+      }
+    } catch(e) {
+      console.warn("Error pintando el coche en el menú:", e);
+      clearInterval(intervaloCoche);
+    }
+  }, 500);
+  // ========================================================================
 
   setTimeout(() => {
     const fD = document.getElementById("depManualFecha");

@@ -6106,60 +6106,70 @@ function checkResetCoche(){
 }
 
 function actualizarBotonCochePrincipal(){
-  // 1. Buscamos cualquier elemento que contenga el texto "CAMBIO EN CAJA"
   let elTexto = null;
   const allEls = Array.from(document.querySelectorAll('div, span, h1, h2, h3, p'));
   
   for (let el of allEls) {
-    // Buscamos que contenga el texto, pero que no sea el contenedor global (body)
     if (el.textContent.trim().toUpperCase().includes('CAMBIO EN CAJA') && el.children.length <= 1) {
       elTexto = el;
       break;
     }
   }
 
-  // Si no lo encontramos, ponemos el botón arriba del todo en la pantalla principal como plan B
   let target = null;
   if (elTexto) {
     target = elTexto;
-    // Subimos hasta 5 niveles para encontrar la tarjeta con el borde azul
     for (let i = 0; i < 5; i++) {
       if (!target.parentElement || target.parentElement === document.body) break;
       target = target.parentElement;
       const style = window.getComputedStyle(target);
-      // Si encontramos el borde azul de la tarjeta, nos paramos
       if (style.border.includes('rgb(59, 130, 246)') || style.border.includes('3b82f6') || target.className.includes('card')) {
         break;
       }
     }
   } else {
-    // PLAN B: Si no encuentra el texto, lo ponemos en el contenedor principal
     target = document.querySelector('.container') || document.querySelector('main') || document.querySelector('.content');
   }
 
   if(!target) return false;
 
-  // 2. Creamos el botón si no existe
   let widget = document.getElementById("widgetCochePrincipal");
   if(!widget){
     widget = document.createElement("div");
     widget.id = "widgetCochePrincipal";
     widget.style.cssText = "margin-bottom: 12px; display: flex; justify-content: flex-start; width: 100%;";
-    target.parentNode.insertBefore(widget, target); // Lo mete justo encima
+    target.parentNode.insertBefore(widget, target);
   }
 
-  // 3. Pintamos el botón pequeñito
   if(cocheActual){
+    const cocheData = pinesLista.find(x => x.mat === cocheActual);
+    
+    // Si el coche está en la lista, sacamos si tiene combustible y barça
+    const cb = cocheData ? cocheData.combustible : false;
+    const pb = cocheData ? cocheData.pinturaBarca : false;
+
+    // Iconos SVG (un poco más pequeños para que quepan en la pastilla)
+    const svgCombustible = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: ${cb ? 1 : 0.25}; vertical-align:middle;"><path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M3 13h10"/><path d="M13 8h2a2 2 0 0 1 2 2v6a2 2 0 0 0 4 0V9l-3-3"/></svg>`;
+    
+    const svgBarca = `<svg viewBox="0 0 20 13" width="14" height="10" style="opacity: ${pb ? 1 : 0.25}; vertical-align:middle; border-radius:2px; box-shadow:0 0 0 1px rgba(255,255,255,0.35);"><rect width="20" height="13" fill="#004d98"/><rect x="4" width="4" height="13" fill="#a50044"/><rect x="12" width="4" height="13" fill="#a50044"/></svg>`;
+
     widget.innerHTML = `
-      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="background: linear-gradient(135deg, #064e3b, #065f46); border: 1px solid #10b981; border-radius: 20px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(16,185,129,0.2); cursor: pointer;">
+      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="background: linear-gradient(135deg, #064e3b, #065f46); border: 1px solid #10b981; border-radius: 20px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 10px; box-shadow: 0 2px 8px rgba(16,185,129,0.2); cursor: pointer;">
         <span style="font-size: 14px;">🚗</span>
         <span style="font-size: 14px; font-weight: 900; color: #fff; letter-spacing: 1px;">${cocheActual}</span>
-        <span style="font-size: 14px; color: #4ade80; font-weight: 900; margin-left: 4px;">›</span>
+        
+        <!-- Iconos de estado -->
+        <div style="display: flex; gap: 6px; align-items: center; border-left: 1px solid rgba(255,255,255,0.2); padding-left: 8px;">
+          ${svgCombustible}
+          ${svgBarca}
+        </div>
+
+        <span style="font-size: 14px; color: #4ade80; font-weight: 900; margin-left: 2px;">›</span>
       </div>
     `;
   } else {
     widget.innerHTML = `
-      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="background: #1e293b; border: 1px dashed #475569; border-radius: 20px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="background: #1e293b; border: 1px dashed #475569; border-radius: 20px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
         <span style="font-size: 14px;">🚗</span>
         <span style="font-size: 13px; font-weight: 700; color: #94a3b8;">Asignar coche</span>
         <span style="font-size: 14px; color: #94a3b8; font-weight: 900; margin-left: 4px;">›</span>
@@ -6167,7 +6177,7 @@ function actualizarBotonCochePrincipal(){
     `;
   }
   
-  return true; // Devuelve true si se ha pintado correctamente
+  return true;
 }
 
 function guardarHoraJornadaDesdeReset(){
@@ -6338,6 +6348,7 @@ function togglePinCombustible(mat){
   item.combustible = !item.combustible;
   savePines();
   renderPinesResultados();
+  actualizarBotonCochePrincipal(); // 👈 AÑADIR ESTO
 }
 
 function togglePinBarca(mat){
@@ -6346,6 +6357,7 @@ function togglePinBarca(mat){
   item.pinturaBarca = !item.pinturaBarca;
   savePines();
   renderPinesResultados();
+  actualizarBotonCochePrincipal(); // 👈 AÑADIR ESTO
 }
 
 function copiarPin(pin){

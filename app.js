@@ -6146,13 +6146,16 @@ function actualizarBotonCochePrincipal(){
     const cb = cocheData ? cocheData.combustible : false;
     const pb = cocheData ? cocheData.pinturaBarca : false;
 
-    // Solo generamos el SVG si está activo
-    const svgCombustible = cb ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M3 13h10"/><path d="M13 8h2a2 2 0 0 1 2 2v6a2 2 0 0 0 4 0V9l-3-3"/></svg>` : "";
+    // 👇 AQUÍ ESTÁ EL CAMBIO: 
+    // Surtidor: sale si NO tiene tarjeta (!cb) y en color rojo para avisar
+    const svgCombustible = !cb ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M3 13h10"/><path d="M13 8h2a2 2 0 0 1 2 2v6a2 2 0 0 0 4 0V9l-3-3"/></svg>` : "";
+    
+    // Barça: sale si SÍ lo tiene (pb)
     const svgBarca = pb ? `<svg viewBox="0 0 20 13" width="14" height="10" style="vertical-align:middle; border-radius:2px; box-shadow:0 0 0 1px rgba(255,255,255,0.35);"><rect width="20" height="13" fill="#004d98"/><rect x="4" width="4" height="13" fill="#a50044"/><rect x="12" width="4" height="13" fill="#a50044"/></svg>` : "";
 
     // Creamos el bloque de iconos solo si hay al menos uno activo
     let iconosHtml = "";
-    if(cb || pb) {
+    if(!cb || pb) { // Mostrar bloque si NO tiene combustible o SÍ tiene barça
       iconosHtml = `
         <div style="display: flex; gap: 6px; align-items: center; border-left: 1px solid rgba(255,255,255,0.2); padding-left: 8px; margin-left: 2px;">
           ${svgCombustible}

@@ -4531,14 +4531,14 @@ function onNuevaFechaFestivoChange(){
   const dia = d.getDay();
   const dup = festivos.find(f => f.fecha === v);
 
-  if(dia === 0 || dia === 1){
-    el.innerHTML = "⚠️ Cae en " + (dia === 0 ? "Domingo" : "Lunes") + " · no cuenta como laborable";
-    el.style.background = "#7f1d1d";
-    el.style.color = "#fca5a5";
-  } else if(dup){
+  if(dup){
     el.innerHTML = "⚠️ Ya existe un festivo ese día (" + dup.nombre + ")";
     el.style.background = "#78350f";
     el.style.color = "#fde68a";
+  } else if(dia === 0 || dia === 1){
+    el.innerHTML = "ℹ️ Cae en " + (dia === 0 ? "Domingo" : "Lunes") + " (día de descanso habitual)";
+    el.style.background = "#1e3a8a"; // Azul informativo
+    el.style.color = "#bfdbfe";
   } else {
     el.innerHTML = "✅ Día laborable válido";
     el.style.background = "#164e63";
@@ -4559,17 +4559,19 @@ function guardarNuevoFestivo(){
     return;
   }
 
-  const p = fecha.split("-");
-  const d = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
-  const dia = d.getDay();
-  if(dia === 0 || dia === 1){
-    alert("⚠️ Esa fecha cae en " + (dia === 0 ? "Domingo" : "Lunes") + ".\nNo cuenta como festivo trabajado.");
-    return;
-  }
-
   if(festivos.find(f => f.fecha === fecha)){
     alert("Ya existe un festivo en esa fecha.");
     return;
+  }
+
+  const p = fecha.split("-");
+  const d = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+  const dia = d.getDay();
+  
+  // 👇 AQUÍ ESTÁ EL CAMBIO: En vez de bloquear, preguntamos
+  if(dia === 0 || dia === 1){
+    const continuar = confirm("⚠️ Esa fecha cae en " + (dia === 0 ? "Domingo" : "Lunes") + ".\n\nNormalmente no cuenta como laborable, pero puedes guardarlo igualmente.\n\n¿Quieres añadirlo de todas formas?");
+    if(!continuar) return;
   }
 
   festivos.push({
@@ -4579,6 +4581,7 @@ function guardarNuevoFestivo(){
     fechaSolicitud: null, fechaDisfrute: null,
     sacrificado: false
   });
+  
   festivos.sort((a,b) => a.fecha.localeCompare(b.fecha));
   saveFestivos();
   cerrarModalFestivoNuevo();

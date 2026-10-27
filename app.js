@@ -2774,12 +2774,14 @@ async function lanzarNotificacionZona(texto){
     if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
     const LN = Cap.Plugins.LocalNotifications;
 
+    const idUnico = Math.floor(Date.now() / 1000) % 100000;
+
     await LN.schedule({
       notifications: [{
-        id: 1001,
-        title: 'Cambio de zona',
+        id: idUnico,
+        title: '📍 Cambio de zona',
         body: texto,
-        channelId: 'zona-cambio',
+        channelId: 'zona-cambio', // 👈 Volvemos al ID original
         smallIcon: 'ic_stat_icon_config_sample',
         sound: 'default',
         vibrate: true,
@@ -2797,19 +2799,25 @@ async function crearCanalNotificacionesZona(){
     if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
     const LN = Cap.Plugins.LocalNotifications;
 
+    // 👇 BORRAMOS el canal viejo para limpiar la configuración
+    try {
+      if(LN.deleteChannel) await LN.deleteChannel({ id: 'zona-cambio' });
+    } catch(e){}
+
+    // 👇 LO VOLVEMOS A CREAR con prioridad alta
     if(LN.createChannel){
       await LN.createChannel({
         id: 'zona-cambio',
         name: 'Cambios de zona',
         description: 'Avisa cuando entras o sales de la zona de trabajo',
-        importance: 5,
+        importance: 5, // Máxima prioridad (pop-up)
         visibility: 1,
         sound: 'default',
         vibration: true,
         lights: true,
         lightColor: '#4ade80'
       });
-      console.log('✅ Canal de notificaciones creado');
+      console.log('✅ Canal de notificaciones de zona recreado');
     }
   } catch(e){
     console.warn('Error creando canal:', e);
@@ -4634,28 +4642,41 @@ async function programarAvisosFestivos(){
   const LN = Cap.Plugins.LocalNotifications;
 
   try {
+    // 1. Comprobar permisos
     const perm = await LN.checkPermissions();
     if(perm.display !== 'granted') return;
 
+    // 2. Borrar el canal antiguo (para limpiar la configuración silenciosa que puso Android)
+    try {
+      if(LN.deleteChannel) {
+        await LN.deleteChannel({ id: 'festivos-aviso' });
+      }
+    } catch(e){
+      console.warn("No se pudo borrar el canal, quizás no existía:", e);
+    }
+
+    // 3. Volver a crear el canal original con prioridad ALTA y SONIDO
     if(LN.createChannel){
       await LN.createChannel({
         id: 'festivos-aviso',
         name: 'Avisos de Festivos',
         description: 'Recuerda solicitar los festivos antes de que caduquen',
-        importance: 5,
+        importance: 5, // 5 = Alta prioridad (hace que salga emergente)
         visibility: 1,
-        sound: 'default',
-        vibration: true
+        sound: 'default', // Fuerza el sonido
+        vibration: true,
+        lights: true
       });
     }
 
-    // Limpiamos avisos antiguos para no duplicar
+    // 4. Limpiar notificaciones antiguas para no duplicar
     const pending = await LN.getPending();
     const aBorrar = pending.notifications.filter(n => n.id >= 300000 && n.id < 400000);
     if(aBorrar.length > 0){
       await LN.cancel({ notifications: aBorrar });
     }
 
+    // 5. Buscar festivos pendientes de solicitar (que caduquen en los próximos 90 días)
     const ahora = new Date();
     const pendientes = festivos.filter(f => {
       if(!f.trabajado || f.solicitado || f.sacrificado) return false;
@@ -4667,18 +4688,20 @@ async function programarAvisosFestivos(){
 
     const notificaciones = [];
 
+    // 6. Programar los avisos
     pendientes.forEach(f => {
       const caducidad = fechaCaducidad(f.fecha); 
-      const alertas = [15, 5, 1];
+      const alertas = [15, 5, 1]; // Días antes de caducar
 
       alertas.forEach(diasAntes => {
         const fechaAviso = new Date(caducidad.getTime());
         fechaAviso.setDate(fechaAviso.getDate() - diasAntes);
         fechaAviso.setHours(10, 0, 0, 0); // A las 10:00 de la mañana
         
-        // 👇 EL CAMBIO: Usamos "ahora" en lugar de "hoy" para que no falle si lo abres a las 11:00
+        // Si la fecha del aviso ya ha pasado, no lo programamos
         if(fechaAviso.getTime() < ahora.getTime()) return; 
 
+        // Generamos un ID único basado en la fecha del festivo
         const p = f.fecha.split("-");
         const idBase = parseInt(p[0]) * 10000 + parseInt(p[1]) * 100 + parseInt(p[2]);
         const idFinal = 300000 + (idBase % 90000) + diasAntes;
@@ -4687,12 +4710,15 @@ async function programarAvisosFestivos(){
           id: idFinal,
           title: '💼 Festivo a punto de caducar',
           body: `Te quedan ${diasAntes} días para solicitar el festivo del ${formatearFechaBonita(f.fecha)} (${f.nombre}). ¡No lo dejes pasar!`,
-          channelId: 'festivos-aviso',
+          channelId: 'festivos-aviso', // 👈 Usamos el canal original
+          sound: 'default',            // 👈 Forzamos sonido
+          smallIcon: 'ic_stat_icon_config_sample',
           schedule: { at: fechaAviso, allowWhileIdle: true }
         });
       });
     });
 
+    // 7. Enviar al sistema
     if(notificaciones.length > 0){
       await LN.schedule({ notifications: notificaciones });
       console.log(`✅ Programados ${notificaciones.length} avisos de festivos.`);

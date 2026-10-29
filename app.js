@@ -600,49 +600,87 @@ function renderResetPanel(){
     }
   }
 
-  // ==================== AUTO-RESET DEL COCHE (VERSIÓN BLINDADA) ====================
-  // Buscamos el botón de "Saltar próximo reset" que SÍ sabemos que existe por tu captura
+  // ==================== AUTO-RESET DEL COCHE ====================
   const btnSaltar = document.querySelector('button[onclick="saltarProximoReset()"]');
-  
+  let anchorParaNuevosBoxes = btnSaltar ? btnSaltar.parentNode : box;
+
   if(btnSaltar){
     let boxCoche = document.getElementById("resetCocheBox");
     
-    // Si no existe el bloque, lo creamos justo DEBAJO del botón de saltar reset
     if(!boxCoche){
       boxCoche = document.createElement("div");
       boxCoche.id = "resetCocheBox";
       boxCoche.style.cssText = "margin-top:16px; margin-bottom:16px; padding:14px; background:#1e293b; border-radius:12px; border:1px solid #334155";
-      // Lo insertamos después del botón de saltar
       btnSaltar.parentNode.insertBefore(boxCoche, btnSaltar.nextSibling);
     }
 
-    // Evitar que se repinte mientras el usuario escribe en el reloj
-    if(document.activeElement && document.activeElement.id === "inputHoraJornadaReset") return;
+    if(!(document.activeElement && document.activeElement.id === "inputHoraJornadaReset")){
+      const cocheSel = cocheActual || "Ninguno";
+      boxCoche.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-size:13px;color:#38bdf8;font-weight:900;letter-spacing:1px">🚗 FIN DE JORNADA (COCHE)</div>
+          <div style="font-size:11px;color:#64748b;font-weight:700">Coche actual: <b style="color:#fff">${cocheSel}</b></div>
+        </div>
+        
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.4">
+          A esta hora, el coche se liberará solo. Podrás cambiarlo al día siguiente.
+        </div>
 
-    const cocheSel = cocheActual || "Ninguno";
-    boxCoche.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div style="font-size:13px;color:#38bdf8;font-weight:900;letter-spacing:1px">🚗 FIN DE JORNADA (COCHE)</div>
-        <div style="font-size:11px;color:#64748b;font-weight:700">Coche actual: <b style="color:#fff">${cocheSel}</b></div>
-      </div>
-      
-      <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.4">
-        A esta hora, el coche se liberará solo. Podrás cambiarlo al día siguiente.
-      </div>
-
-      <div style="display:flex;align-items:center;gap:10px">
-        <input type="time" id="inputHoraJornadaReset" value="${horaFinJornada}"
-          style="flex:1;font-size:24px;font-weight:900;padding:12px;border-radius:10px;
-                 border:2px solid #0891b2;background:#0f172a;color:#22d3ee;text-align:center;
-                 outline:none;font-family:monospace;box-sizing:border-box">
-        <button type="button" onclick="guardarHoraJornadaDesdeReset()"
-          style="background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px 18px;font-weight:900;font-size:14px;cursor:pointer">
-          Guardar
-        </button>
-      </div>
-    `;
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="time" id="inputHoraJornadaReset" value="${horaFinJornada}"
+            style="flex:1;font-size:24px;font-weight:900;padding:12px;border-radius:10px;
+                   border:2px solid #0891b2;background:#0f172a;color:#22d3ee;text-align:center;
+                   outline:none;font-family:monospace;box-sizing:border-box">
+          <button type="button" onclick="guardarHoraJornadaDesdeReset()"
+            style="background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px 18px;font-weight:900;font-size:14px;cursor:pointer">
+            Guardar
+          </button>
+        </div>
+      `;
+    }
   }
-  // ==============================================================================
+
+  // ==================== AVISOS DE RECORDATORIO ====================
+  if(btnSaltar){
+    let avisosBox = document.getElementById("avisosBox");
+    
+    if(!avisosBox){
+      avisosBox = document.createElement("div");
+      avisosBox.id = "avisosBox";
+      avisosBox.style.cssText = "margin-top:16px; margin-bottom:16px; padding:14px; background:#1e293b; border-radius:12px; border:1px solid #334155";
+      const boxCoche = document.getElementById("resetCocheBox");
+      if(boxCoche) {
+        boxCoche.parentNode.insertBefore(avisosBox, boxCoche.nextSibling);
+      } else {
+        btnSaltar.parentNode.insertBefore(avisosBox, btnSaltar.nextSibling);
+      }
+    }
+
+    if(!(document.activeElement && document.activeElement.id === "inputHoraRecordatorio")){
+      const opcionesDias = diasSemanaNombres.map((d, i) => `<option value="${i}" ${i === diaRecordatorio ? 'selected' : ''}>${d}</option>`).join("");
+      
+      avisosBox.innerHTML = `
+        <div style="font-size:13px;color:#38bdf8;font-weight:900;letter-spacing:1px;margin-bottom:10px">🔔 RECORDATORIOS DE CAJA</div>
+        
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.4">
+          ¿Qué día y a qué hora quieres que te avise para ingresar el dinero de las propinas?
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;">
+          <select id="inputDiaRecordatorio" style="flex:1;font-size:16px;font-weight:800;padding:12px;border-radius:10px;border:2px solid #0891b2;background:#0f172a;color:#22d3ee;outline:none;">
+            ${opcionesDias}
+          </select>
+          
+          <input type="time" id="inputHoraRecordatorio" value="${horaRecordatorio}" style="width:110px;font-size:18px;font-weight:900;padding:12px;border-radius:10px;border:2px solid #0891b2;background:#0f172a;color:#22d3ee;text-align:center;outline:none;">
+        </div>
+
+        <button type="button" onclick="guardarConfigRecordatorio()" style="width:100%; margin-top:12px; background:#0891b2; color:#fff; border:none; border-radius:10px; padding:12px; font-weight:900; font-size:14px; cursor:pointer;">
+          Guardar Día y Hora
+        </button>
+      `;
+    }
+  }
+  // ==============================================================
 
   renderHistorialPanel();
 }
@@ -4789,12 +4827,12 @@ function init(){
   solicitarPermisoNotificaciones();
 
   setTimeout(() => { activarPantallaSiempreActiva(); }, 600);
-
   setTimeout(() => { crearCanalNotificacionesZona(); }, 500);
-
   setTimeout(() => { checkFestivosCaducidad(); }, 1500);
-
   setTimeout(() => { programarAvisosFestivos(); }, 2000);
+  setTimeout(() => { programarAvisosFestivos(); }, 2000);
+  setTimeout(() => { programarAvisosResetPropinas(); }, 2200);
+  setTimeout(() => { programarAvisosDeposito(); }, 2400);
 
   setTimeout(() => {
     try{
@@ -6151,6 +6189,8 @@ let cocheActual = safeStorage.get("uberCambioCocheActual") || "";
 let horaFinJornada = safeStorage.get("uberCambioHoraFinJornada") || "18:00";
 let ultimoResetCocheFecha = safeStorage.get("uberCambioUltimoResetCocheFecha") || "";
 let timestampSeleccionCoche = parseInt(safeStorage.get("uberCambioTimestampCoche")) || 0;
+let diaRecordatorio = parseInt(safeStorage.get("uberCambioDiaRecordatorio")) || 2; // 2 = Martes por defecto
+let horaRecordatorio = safeStorage.get("uberCambioHoraRecordatorio") || "9:00";
 let pinesLista = loadPines();
 
 function saveHoraFinJornada(){ safeStorage.set("uberCambioHoraFinJornada", horaFinJornada); }
@@ -6309,6 +6349,24 @@ function guardarHoraJornadaDesdeReset(){
   horaFinJornada = v;
   saveHoraFinJornada();
   mostrarToast("⏰ Fin de jornada: " + v);
+}
+
+function guardarConfigRecordatorio(){
+  const diaInp = document.getElementById("inputDiaRecordatorio");
+  const horaInp = document.getElementById("inputHoraRecordatorio");
+  if(!diaInp || !horaInp) return;
+
+  diaRecordatorio = parseInt(diaInp.value);
+  horaRecordatorio = horaInp.value;
+  
+  safeStorage.set("uberCambioDiaRecordatorio", String(diaRecordatorio));
+  safeStorage.set("uberCambioHoraRecordatorio", horaRecordatorio);
+  
+  mostrarToast("✅ Recordatorios: " + diasSemanaNombres[diaRecordatorio] + " a las " + horaRecordatorio);
+  
+  // Recalcular avisos inmediatamente
+  programarAvisosResetPropinas();
+  programarAvisosDeposito();
 }
 
 function loadPines(){
@@ -7056,6 +7114,208 @@ function abrirModalMoverHucha(idx, sugerido){
   render(inicial);
   document.body.appendChild(m);
   m.addEventListener("click", e => { if(e.target === m) m.remove(); });
+}
+
+/* ==================== CANAL UNIFICADO Y AVISOS ==================== */
+const diasSemanaNombres = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+async function crearCanalRecordatorios(){
+  const Cap = window.Capacitor;
+  if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
+  const LN = Cap.Plugins.LocalNotifications;
+  
+  try {
+    // Creamos un único canal de alta prioridad para TODO
+    await LN.createChannel({
+      id: 'recordatorios-alta',
+      name: 'Avisos y Recordatorios',
+      description: 'Avisos de festivos, depósitos de caja y resets',
+      importance: 5, 
+      visibility: 1, 
+      sound: 'default', 
+      vibration: true,
+      lights: true
+    });
+  } catch(e){}
+}
+
+// Calcula la próxima fecha basándose en el día y hora configurados
+function calcularProximoAviso(){
+  const ahora = new Date();
+  const [hh, mm] = horaRecordatorio.split(":").map(Number);
+  let proximo = new Date();
+  
+  proximo.setDate(proximo.getDate() + (diaRecordatorio + 7 - proximo.getDay()) % 7);
+  proximo.setHours(hh, mm, 0, 0);
+  
+  if(proximo <= ahora) {
+    proximo.setDate(proximo.getDate() + 7); // Si ya pasó hoy, al siguiente
+  }
+  return proximo;
+}
+
+async function programarAvisosFestivos(){
+  const Cap = window.Capacitor;
+  if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
+  const LN = Cap.Plugins.LocalNotifications;
+  
+  try {
+    await crearCanalRecordatorios();
+    const pending = await LN.getPending();
+    const aBorrar = pending.notifications.filter(n => n.id >= 300000 && n.id < 400000);
+    if(aBorrar.length > 0) await LN.cancel({ notifications: aBorrar });
+
+    const ahora = new Date();
+    const pendientes = festivos.filter(f => !f.solicitado && !f.sacrificado && diasHastaCaducar(f) > 0 && diasHastaCaducar(f) <= 90);
+    const notificaciones = [];
+
+    pendientes.forEach(f => {
+      const caducidad = fechaCaducidad(f.fecha); 
+      const alertas = [15, 5, 1];
+
+      alertas.forEach(diasAntes => {
+        const fechaAviso = new Date(caducidad.getTime());
+        fechaAviso.setDate(fechaAviso.getDate() - diasAntes);
+        fechaAviso.setHours(10, 0, 0, 0); 
+        
+        if(fechaAviso.getTime() < ahora.getTime()) return; 
+
+        const p = f.fecha.split("-");
+        const idFinal = 300000 + (parseInt(p[0]) * 10000 + parseInt(p[1]) * 100 + parseInt(p[2])) % 90000 + diasAntes;
+
+        notificaciones.push({
+          id: idFinal, title: '💼 Festivo a punto de caducar',
+          body: `Te quedan ${diasAntes} días para solicitar el festivo del ${formatearFechaBonita(f.fecha)} (${f.nombre}).`,
+          channelId: 'recordatorios-alta', sound: 'default', schedule: { at: fechaAviso, allowWhileIdle: true }
+        });
+      });
+    });
+
+    if(notificaciones.length > 0) await LN.schedule({ notifications: notificaciones });
+  } catch(e){}
+}
+
+async function programarAvisosResetPropinas(){
+  const Cap = window.Capacitor;
+  if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
+  const LN = Cap.Plugins.LocalNotifications;
+
+  try {
+    await crearCanalRecordatorios();
+    const pending = await LN.getPending();
+    const aBorrar = pending.notifications.filter(n => n.id >= 400000 && n.id < 500000);
+    if(aBorrar.length > 0) await LN.cancel({ notifications: aBorrar });
+
+    if(diaReset === 0) return;
+    const proxReset = calcularProximoReset();
+    if(!proxReset) return;
+
+    const ahora = new Date();
+    const notificaciones = [];
+
+    let fechaLimite = new Date(proxReset.getTime());
+    const diaSemanaReset = fechaLimite.getDay(); 
+    
+    // Si el 22 cae en Sábado, Domingo o Lunes, el límite es el Viernes
+    if(diaSemanaReset === 6) fechaLimite.setDate(fechaLimite.getDate() - 1);
+    else if(diaSemanaReset === 0) fechaLimite.setDate(fechaLimite.getDate() - 2);
+    else if(diaSemanaReset === 1) fechaLimite.setDate(fechaLimite.getDate() - 3);
+    fechaLimite.setHours(10, 0, 0, 0); 
+
+    let fechaPreparacion = new Date(fechaLimite.getTime());
+    let diasHastaViernes = (fechaLimite.getDay() + 7 - 5) % 7;
+    if(diasHastaViernes === 0) diasHastaViernes = 7; 
+    fechaPreparacion.setDate(fechaPreparacion.getDate() - diasHastaViernes);
+    fechaPreparacion.setHours(10, 0, 0, 0);
+
+    let fechaUltimaSemana = new Date(fechaLimite.getTime());
+    let diasHastaMartes = (fechaLimite.getDay() + 7 - 2) % 7; 
+    fechaUltimaSemana.setDate(fechaUltimaSemana.getDate() - diasHastaMartes);
+    fechaUltimaSemana.setHours(10, 0, 0, 0);
+
+    const esMismoDia = (fechaUltimaSemana.getDate() === fechaLimite.getDate());
+    const nombreDiaLimite = diasSemanaNombres[fechaLimite.getDay()];
+
+    const alertas = [
+      { fecha: fechaPreparacion, title: '📅 Último viernes de margen', body: `Aprovecha hoy que las máquinas están abiertas. Recuerda que el límite real para ingresar las propinas es el ${nombreDiaLimite} de la próxima semana.` }
+    ];
+
+    if(!esMismoDia){
+      alertas.push({ fecha: fechaUltimaSemana, title: '🔔 ¡Empieza tu semana de entrega!', body: `Ya es ${diasSemanaNombres[diaRecordatorio]}. Tienes hasta el ${nombreDiaLimite} para meter las propinas en las máquinas.` });
+    }
+
+    alertas.push({ fecha: fechaLimite, title: '⚠️ ¡ÚLTIMO DÍA DE ENTREGA!', body: `Hoy es el último día para meter el dinero de las propinas en las máquinas.` });
+
+    alertas.forEach((alerta, index) => {
+      if(alerta.fecha.getTime() < ahora.getTime()) return;
+      const idFinal = 400000 + (alerta.fecha.getMonth() * 100) + alerta.fecha.getDate() + index;
+      notificaciones.push({
+        id: idFinal, title: alerta.title, body: alerta.body, channelId: 'recordatorios-alta',
+        sound: 'default', schedule: { at: alerta.fecha, allowWhileIdle: true }
+      });
+    });
+
+    if(notificaciones.length > 0) await LN.schedule({ notifications: notificaciones });
+  } catch(e){}
+}
+
+async function programarAvisosDeposito(){
+  const Cap = window.Capacitor;
+  if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
+  const LN = Cap.Plugins.LocalNotifications;
+
+  try {
+    await crearCanalRecordatorios();
+    const pending = await LN.getPending();
+    const aBorrar = pending.notifications.filter(n => n.id >= 500000 && n.id < 600000);
+    if(aBorrar.length > 0) await LN.cancel({ notifications: aBorrar });
+
+    // Calcular pendiente
+    const ops = loadHistorialOps();
+    const cierres = loadCierres();
+    const totalOps = ops.reduce((sum, op) => sum + (op.precio || 0), 0);
+    const totalCierres = cierres.reduce((sum, c) => sum + (c.total || 0), 0);
+    const pendiente = Math.max(0, totalOps - totalCierres);
+
+    if(pendiente <= 0) return; 
+
+    const ahora = new Date();
+    let proximoAviso = calcularProximoAviso(); // Calculado con la nueva función
+
+    const proxReset = calcularProximoReset();
+    let fechaLimite = new Date(proxReset.getTime());
+    const diaSemanaReset = fechaLimite.getDay();
+    if(diaSemanaReset === 6) fechaLimite.setDate(fechaLimite.getDate() - 1);
+    else if(diaSemanaReset === 0) fechaLimite.setDate(fechaLimite.getDate() - 2);
+    else if(diaSemanaReset === 1) fechaLimite.setDate(fechaLimite.getDate() - 3);
+    fechaLimite.setHours(10, 0, 0, 0);
+
+    let notificacion = null;
+
+    if (fechaLimite.getTime() <= proximoAviso.getTime()) {
+      let fechaAviso = new Date(Math.min(proximoAviso.getTime(), fechaLimite.getTime()));
+      if (fechaAviso > ahora) {
+        notificacion = {
+          id: 500001, title: '⚠️ ¡Última semana antes de nómina!',
+          body: `Última semana para ingresar antes de cerrar nómina. Aún tienes ${moneyText(pendiente)} pendientes de entregar.`
+        };
+      }
+    } else {
+      notificacion = {
+        id: 500002, title: '💶 Recordatorio de depósito',
+        body: `Oye, tienes ${moneyText(pendiente)} acumulados de viajes. Recuerda ingresarlos antes del viernes para estar al día.`
+      };
+    }
+
+    if (notificacion) {
+      await LN.schedule({
+        notifications: [{
+          id: notificacion.id, title: notificacion.title, body: notificacion.body,
+          channelId: 'recordatorios-alta', sound: 'default', schedule: { at: proximoAviso, allowWhileIdle: true }
+        }]
+      });
+    }
+  } catch(e){}
 }
 
 init();

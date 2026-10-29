@@ -357,6 +357,7 @@ function confirmTransaction(){
   document.getElementById("changeResult").style.display="none";
   updateReceived();
   alert("¡Operación guardada!");
+  programarAvisosDeposito();
 }
 function renderRecomendaciones(){const box=document.getElementById("recomendacionesBox");if(!box)return;if(statsOps.operations<10){box.innerHTML="";return}const ops=statsOps.operations;const falt=[],sob=[];denominations.forEach((d,i)=>{const aR=statsOps.received[i]/ops,aS=statsOps.spent[i]/ops;if(aS>0&&statsOps.spent[i]>statsOps.received[i]+2){const r=stock[i]/aS;if(r<30)falt.push({d,falta:Math.max(1,Math.ceil(aS*30)-stock[i])})}if(aR>aS*2&&statsOps.received[i]>8&&stock[i]>8)sob.push({d,exceso:statsOps.received[i]-statsOps.spent[i]})});if(!falt.length&&!sob.length){box.innerHTML="";return}let html="<div style='background:#0f172a;border:1px solid #475569;border-radius:10px;padding:12px;margin-top:14px'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>🤖 SUGERENCIAS · últimas "+ops+" operaciones</div>";if(falt.length){html+="<div style='font-size:11px;color:#fbbf24;font-weight:700;margin-bottom:4px'>⚠️ SE TE AGOTAN</div>";falt.forEach(x=>{html+="<div style='display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff'><span>"+x.d.n+"</span><span style='color:#fbbf24;font-weight:700'>pedir +"+x.falta+"</span></div>"})}if(sob.length){html+="<div style='font-size:11px;color:#4ade80;font-weight:700;margin:10px 0 4px'>💚 ACUMULAS DE MÁS</div>";sob.forEach(x=>{html+="<div style='display:flex;justify-content:space-between;padding:3px 0;font-size:13px;color:#fff'><span>"+x.d.n+"</span><span style='color:#4ade80;font-weight:700'>+"+x.exceso+" de más</span></div>"})}html+="</div>";box.innerHTML=html}
 
@@ -779,7 +780,17 @@ function saltarProximoReset(){
 
 function resetCuenta(){if(!confirm("¿Poner el INVENTARIO (caja) a CERO?\nLas propinas NO se tocan."))return;stock=new Array(denominations.length).fill(0);saveStock();renderStockList();if(received.length)calculate()}
 function resetPropinas(){if(!confirm("¿Poner las PROPINAS a CERO?\nEl inventario NO se toca."))return;totalTips=0;saveTips();renderStockList();renderResetPanel()}
-function resetHistorialDepositos(){if(!confirm("¿Borrar el HISTORIAL de depósitos?\n\nEl aprendizaje (stats) NO se toca."))return;safeStorage.remove("uberCambioCierres");renderHistorialPanel();renderCierreHistorico();const hc=document.getElementById("cierreHistorico");if(hc){hc.innerHTML="";hc.style.display="none"}alert("✅ Historial de depósitos borrado.")}
+function resetHistorialDepositos(){
+  if(!confirm("¿Borrar el HISTORIAL de depósitos?\n\nEl aprendizaje (stats) NO se toca."))return;
+  safeStorage.remove("uberCambioCierres");
+  renderHistorialPanel();
+  renderCierreHistorico();
+  const hc=document.getElementById("cierreHistorico");
+  if(hc){hc.innerHTML="";hc.style.display="none"}
+  alert("✅ Historial de depósitos borrado.");
+  
+  programarAvisosDeposito(); // 👈 AÑADE ESTO
+}
 function resetHistorialResets(){if(!confirm("¿Borrar el HISTORIAL de resets de propinas?\n\nLas propinas actuales NO se tocan."))return;safeStorage.remove("uberCambioHistoricoResets");renderHistorialPanel();renderResetPanel();alert("✅ Historial de resets borrado.")}
 function resetHistorialCambios(){if(!confirm("¿Borrar el HISTORIAL de cambios de billete?\n\nEl aprendizaje (stats) NO se toca."))return;safeStorage.remove("uberCambioCambios");renderCambioHistorial();alert("✅ Historial de cambios borrado.")}
 function resetEstadisticas(){if(!confirm("¿Borrar las estadísticas de aprendizaje?"))return;resetStats();renderStockList();alert("✅ Estadísticas reseteadas.")}
@@ -822,6 +833,7 @@ function checkAutoResetPropinas(){
 
     renderStockList();
     renderResetPanel();
+    programarAvisosDeposito();
   }
 }
 function renderHistorialPanel(){
@@ -996,6 +1008,7 @@ function confirmarCierre(){
   if(cont){cont.style.display="none";cont.innerHTML=""}
   btn.style.display="none";
   alert("✅ Depósito realizado.\nEntregados: "+moneyText(total));
+  programarAvisosDeposito();
 }
 
 function renderCierreHistorico(){
@@ -1197,8 +1210,10 @@ function añadirDepositoManual(){
   if(tienePiezas){
     alert("✅ Depósito manual añadido:\n"+moneyText(imp)+"\n\nY contado para el aprendizaje.");
   } else {
-    alert("✅ Depósito manual añadido:\n"+moneyText(imp));
+    alert("✅ Depósito manual añadido:\n"+moneyText(imp))
   }
+
+  programarAvisosDeposito();
 }
 
 /* ==================== MOVIMIENTO MANUAL ==================== */
@@ -4829,7 +4844,6 @@ function init(){
   setTimeout(() => { activarPantallaSiempreActiva(); }, 600);
   setTimeout(() => { crearCanalNotificacionesZona(); }, 500);
   setTimeout(() => { checkFestivosCaducidad(); }, 1500);
-  setTimeout(() => { programarAvisosFestivos(); }, 2000);
   setTimeout(() => { programarAvisosFestivos(); }, 2000);
   setTimeout(() => { programarAvisosResetPropinas(); }, 2200);
   setTimeout(() => { programarAvisosDeposito(); }, 2400);

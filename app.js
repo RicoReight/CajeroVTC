@@ -3002,7 +3002,7 @@ function saveDiasPersonales(){ safeStorage.set("uberCambioDiasPersonales", JSON.
 function fechaCaducidad(fechaStr){
   const p = fechaStr.split("-");
   const d = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
-  d.setMonth(d.getMonth() + 3);
+  d.setMonth(d.getMonth() + 2);
   return d;
 }
 function diasHastaCaducar(festivo){

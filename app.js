@@ -5252,8 +5252,7 @@ async function abrirMapaPantalla(){
   try {
     await cargarLeaflet();
   } catch(e){
-    cont.innerHTML = "<div style='text-align:center;color:#ef4444;padding:20px'>❌ Error: "+e.message+"</div>" +
-      "<div style='text-align:center;color:#94a3b8;padding:10px;font-size:12px'>¿Tienes internet? ¿Está bloqueado jsdelivr por el firewall?</div>";
+    cont.innerHTML = "<div style='text-align:center;color:#ef4444;padding:20px'>❌ Error: "+e.message+"</div>";
     return;
   }
 
@@ -5266,13 +5265,13 @@ async function abrirMapaPantalla(){
              background:linear-gradient(135deg,#1e293b,#0f172a);color:#94a3b8;
              font-size:15px;font-weight:900;letter-spacing:0.5px;transition:all 0.3s">
       ⚫ RASTREO DETENIDO
-      <div style='font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px'>Pulsa INICIAR para empezar a rastrear</div>
+      <div style='font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px'>Pulsa INICIAR para empezar</div>
     </div>
 
     <!-- 2. MAPA -->
     <div style="position:relative;margin-bottom:12px">
-      <div id="mapa-leaflet" style="width:100%;height:55vh;min-height:340px;border-radius:10px;background:#1e293b"></div>
-      <button type="button" onclick="centrarEnMiUbicacion()" title="Volver a mi ubicación"
+      <div id="mapa-leaflet" style="width:100%;height:50vh;min-height:300px;border-radius:12px;background:#1e293b;border:1px solid #334155"></div>
+      <button type="button" onclick="centrarEnMiUbicacion()" title="Mi ubicación"
         style="position:absolute;right:10px;bottom:20px;z-index:500;
                width:46px;height:46px;border-radius:50%;border:2px solid #0ea5e9;
                background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;
@@ -5283,62 +5282,66 @@ async function abrirMapaPantalla(){
     </div>
 
     <!-- 3. ZONA ACTUAL -->
-    <div id="mapaZonaActual" style="text-align:center;margin-bottom:12px;padding:12px;background:#1e293b;border-radius:10px;font-size:15px;font-weight:800;color:#94a3b8;border:1px solid #334155">
+    <div id="mapaZonaActual" style="text-align:center;margin-bottom:12px;padding:12px;background:#1e293b;border-radius:12px;font-size:15px;font-weight:800;color:#94a3b8;border:1px solid #334155">
       Zona: —
     </div>
 
     <!-- 4. BOTONES INICIAR / DETENER -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <button type="button" id="btnGeoIniciar" onclick="iniciarGeolocalizacion()"
-        style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:2px solid #0ea5e9;border-radius:10px;
-               padding:14px;font-weight:900;font-size:15px;cursor:pointer;letter-spacing:0.5px;transition:all 0.2s">
+        style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;
+               padding:14px;font-weight:900;font-size:15px;cursor:pointer;letter-spacing:0.5px;box-shadow:0 4px 10px rgba(16,185,129,0.3)">
         ▶ INICIAR
       </button>
       <button type="button" id="btnGeoDetener" onclick="detenerGeolocalizacion()"
-        style="background:#1e293b;color:#475569;border:2px solid #334155;border-radius:10px;
-               padding:14px;font-weight:900;font-size:15px;cursor:not-allowed;letter-spacing:0.5px;transition:all 0.2s">
+        style="background:#1e293b;color:#64748b;border:1px solid #334155;border-radius:10px;
+               padding:14px;font-weight:900;font-size:15px;cursor:not-allowed;letter-spacing:0.5px">
         ⏹ DETENER
       </button>
     </div>
 
-    <!-- 5. FECHA Y MOSTRAR RUTA -->
-    <div style="display:flex;gap:8px;margin-bottom:12px;width:100%;">
-      <input type="date" id="fechaRutaInput" 
-        style="flex:1;background:#0f172a;color:#38bdf8;border:1px solid #0ea5e9;border-radius:10px;padding:12px;font-weight:800;font-size:16px;outline:none;text-align:center;">
+    <!-- 5. FECHA Y RUTA (Tarjeta independiente para que no se vea apagado) -->
+    <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:14px; margin-bottom:12px;">
+      <div style="font-size:11px; color:#94a3b8; font-weight:800; letter-spacing:0.5px; margin-bottom:10px;">🗺️ HISTORIAL DE RUTAS</div>
       
-      <button type="button" onclick="toggleRecorridoMapa()" id="btnRecorridoMapa"
-        style="flex:1;background:#0f172a;color:#38bdf8;border:1px solid #0ea5e9;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
-        🗺️ Mostrar
-      </button>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <input type="date" id="fechaRutaInput" 
+          style="flex:1.2;background:#0f172a;color:#fff;border:1px solid #475569;border-radius:10px;padding:12px 10px;font-weight:800;font-size:16px;outline:none;text-align:center;">
+        
+        <button type="button" onclick="toggleRecorridoMapa()" id="btnRecorridoMapa"
+          style="flex:1;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:10px;padding:14px 10px;font-weight:900;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 10px rgba(14,165,233,0.3)">
+          🗺️ Ver
+        </button>
+      </div>
     </div>
 
     <!-- 6. LEYENDA -->
-    <div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:10px;margin-bottom:12px">
-      <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">📖 LEYENDA</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <div style="width:20px;height:4px;background:#4ade80;border-radius:2px"></div>
-        <span style="font-size:13px;color:#fff">🟢 Zona de trabajo</span>
+    <div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:12px;margin-bottom:12px">
+      <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px">📖 LEYENDA</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="width:20px;height:6px;background:#4ade80;border-radius:3px"></div>
+        <span style="font-size:13px;color:#e2e8f0;font-weight:600">Zona de trabajo</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <div style="width:20px;height:4px;background:#38bdf8;border-radius:2px"></div>
-        <span style="font-size:13px;color:#fff">🟡 Zona AMB</span>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="width:20px;height:6px;background:#38bdf8;border-radius:3px"></div>
+        <span style="font-size:13px;color:#e2e8f0;font-weight:600">Zona AMB</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <div style="width:20px;height:4px;background:#fb923c;border-radius:2px"></div>
-        <span style="font-size:13px;color:#fff">🟠 Zona Interurbana</span>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="width:20px;height:6px;background:#fb923c;border-radius:3px"></div>
+        <span style="font-size:13px;color:#e2e8f0;font-weight:600">Zona Interurbana</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <div style="width:20px;height:4px;background:#ef4444;border-radius:2px"></div>
-        <span style="font-size:13px;color:#fff">🔴 Fuera Provincia</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:20px;height:6px;background:#ef4444;border-radius:3px"></div>
+        <span style="font-size:13px;color:#e2e8f0;font-weight:600">Fuera Provincia</span>
       </div>
     </div>
 
     <!-- 7. DEBUG -->
-    <div style="text-align:center;margin-top:16px">
+    <div style="text-align:center;margin-top:10px;margin-bottom:20px">
       <button type="button" onclick="toggleDebugCoords()"
-        style="background:transparent;color:#475569;border:1px dashed #334155;border-radius:10px;
+        style="background:transparent;color:#64748b;border:1px dashed #475569;border-radius:10px;
                padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">
-        🐞 Probar coordenadas manuales
+        🐞 Probar coordenadas
       </button>
     </div>
 
@@ -5350,7 +5353,6 @@ async function abrirMapaPantalla(){
         <button type="button" onclick="setTestCoords(41.561185, 2.012338)" style="background:#9a3412;color:#fdba74;border:1px solid #fb923c;border-radius:8px;padding:8px;font-size:12px;font-weight:800;cursor:pointer">🟠 Interurbana</button>
         <button type="button" onclick="setTestCoords(41.137103, 1.199737)" style="background:#7f1d1d;color:#fca5a5;border:1px solid #ef4444;border-radius:8px;padding:8px;font-size:12px;font-weight:800;cursor:pointer">🔴 Fuera</button>
       </div>
-      <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px;letter-spacing:0.5px">O ESCRIBE TÚ MISMO</div>
       <div style="display:flex;gap:6px;margin-bottom:8px">
         <input type="text" id="testLat" placeholder="Lat (ej: 41.3874)" style="flex:1;font-size:14px;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;outline:none;min-width:0">
         <input type="text" id="testLon" placeholder="Lon (ej: 2.1686)" style="flex:1;font-size:14px;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;outline:none;min-width:0">
@@ -5361,53 +5363,27 @@ async function abrirMapaPantalla(){
 
   setTimeout(() => {
     try {
-      const limitesTrabajo = L.latLngBounds(
-        [40.80, 0.30],
-        [42.80, 3.20]
-      );
-
+      const limitesTrabajo = L.latLngBounds([40.80, 0.30], [42.80, 3.20]);
       mapaInstance = L.map("mapa-leaflet", {
-        zoomControl: true,
-        maxBounds: limitesTrabajo,
-        maxBoundsViscosity: 1.0,
-        minZoom: 9,
-        maxZoom: 18
+        zoomControl: true, maxBounds: limitesTrabajo, maxBoundsViscosity: 1.0, minZoom: 9, maxZoom: 18
       }).setView([41.3874, 2.1686], 11);
 
       L.tileLayer("https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=041dfb21-2b3c-44a9-99cf-2895e73db293", {
-        attribution: "&copy; Stadia Maps &copy; OpenMapTiles &copy; OpenStreetMap",
-        maxZoom: 20
+        attribution: "&copy; Stadia Maps &copy; OpenMapTiles &copy; OpenStreetMap", maxZoom: 20
       }).addTo(mapaInstance);
 
-      if(geoAMB){
-        capaAMB = L.geoJSON(geoAMB, {
-          style: { color: "#38bdf8", weight: 2, fillColor: "#38bdf8", fillOpacity: 0.15 }
-        }).addTo(mapaInstance);
-      }
-      if(geoZBE){
-        capaZBE = L.geoJSON(geoZBE, {
-          style: { color: "#4ade80", weight: 3, fillColor: "#4ade80", fillOpacity: 0.25 }
-        }).addTo(mapaInstance);
-      }
-      if(geoPROV){
-        capaPROV = L.geoJSON(geoPROV, {
-          style: { color: "#fb923c", weight: 3, fillColor: "#fb923c", fillOpacity: 0.1, dashArray: "5,5" }
-        }).addTo(mapaInstance);
-      }
+      if(geoAMB) capaAMB = L.geoJSON(geoAMB, { style: { color: "#38bdf8", weight: 2, fillColor: "#38bdf8", fillOpacity: 0.15 } }).addTo(mapaInstance);
+      if(geoZBE) capaZBE = L.geoJSON(geoZBE, { style: { color: "#4ade80", weight: 3, fillColor: "#4ade80", fillOpacity: 0.25 } }).addTo(mapaInstance);
+      if(geoPROV) capaPROV = L.geoJSON(geoPROV, { style: { color: "#fb923c", weight: 3, fillColor: "#fb923c", fillOpacity: 0.1, dashArray: "5,5" } }).addTo(mapaInstance);
 
       setTimeout(() => { if(mapaInstance) mapaInstance.invalidateSize(); }, 200);
       actualizarEstadoGeo();
-
-      if(ultimaPosicion){
-        actualizarMapaConPosicion(ultimaPosicion.lat, ultimaPosicion.lon, 0);
-      }
+      if(ultimaPosicion) actualizarMapaConPosicion(ultimaPosicion.lat, ultimaPosicion.lon, 0);
     } catch(e){
       console.error("Error montando el mapa:", e);
-      cont.innerHTML += "<div style='text-align:center;color:#ef4444;padding:20px'>Error montando el mapa: "+e.message+"</div>";
     }
   }, 100);
   
-  // Poner la fecha de hoy por defecto en el calendario del mapa
   const inpFecha = document.getElementById("fechaRutaInput");
   if(inpFecha) inpFecha.value = fechaLocalStr();
 }

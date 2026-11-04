@@ -5260,6 +5260,7 @@ async function abrirMapaPantalla(){
   await cargarPoligonos(cont);
 
   cont.innerHTML = `
+    <!-- 1. ESTADO -->
     <div id="geoEstadoBadge"
       style="text-align:center;margin-bottom:12px;padding:14px;border-radius:12px;border:2px solid #475569;
              background:linear-gradient(135deg,#1e293b,#0f172a);color:#94a3b8;
@@ -5268,9 +5269,9 @@ async function abrirMapaPantalla(){
       <div style='font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px'>Pulsa INICIAR para empezar a rastrear</div>
     </div>
 
+    <!-- 2. MAPA -->
     <div style="position:relative;margin-bottom:12px">
       <div id="mapa-leaflet" style="width:100%;height:55vh;min-height:340px;border-radius:10px;background:#1e293b"></div>
-
       <button type="button" onclick="centrarEnMiUbicacion()" title="Volver a mi ubicación"
         style="position:absolute;right:10px;bottom:20px;z-index:500;
                width:46px;height:46px;border-radius:50%;border:2px solid #0ea5e9;
@@ -5281,26 +5282,13 @@ async function abrirMapaPantalla(){
       </button>
     </div>
 
-    <button type="button" onclick="toggleRecorridoMapa()" id="btnRecorridoMapa"
-      style="width:100%;margin-bottom:10px;background:#0f172a;color:#38bdf8;border:1px solid #0ea5e9;border-radius:10px;padding:10px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
-      🗺️ Mostrar ruta de hoy
-    </button>
-
+    <!-- 3. ZONA ACTUAL -->
     <div id="mapaZonaActual" style="text-align:center;margin-bottom:12px;padding:12px;background:#1e293b;border-radius:10px;font-size:15px;font-weight:800;color:#94a3b8;border:1px solid #334155">
       Zona: —
     </div>
 
-    <div style="display:flex;gap:8px;margin-bottom:10px;width:100%;">
-      <input type="date" id="fechaRutaInput" 
-        style="flex:1;background:#0f172a;color:#38bdf8;border:1px solid #0ea5e9;border-radius:10px;padding:10px;font-weight:800;font-size:13px;outline:none;">
-      
-      <button type="button" onclick="toggleRecorridoMapa()" id="btnRecorridoMapa"
-        style="flex:2;background:#0f172a;color:#38bdf8;border:1px solid #0ea5e9;border-radius:10px;padding:10px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
-        🗺️ Mostrar ruta
-      </button>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+    <!-- 4. BOTONES INICIAR / DETENER -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
       <button type="button" id="btnGeoIniciar" onclick="iniciarGeolocalizacion()"
         style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:2px solid #0ea5e9;border-radius:10px;
                padding:14px;font-weight:900;font-size:15px;cursor:pointer;letter-spacing:0.5px;transition:all 0.2s">
@@ -5313,6 +5301,18 @@ async function abrirMapaPantalla(){
       </button>
     </div>
 
+    <!-- 5. FECHA Y MOSTRAR RUTA -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;width:100%;">
+      <input type="date" id="fechaRutaInput" 
+        style="flex:1;background:#0f172a;color:#38bdf8;border:1px solid #0ea5e9;border-radius:10px;padding:12px;font-weight:800;font-size:16px;outline:none;text-align:center;">
+      
+      <button type="button" onclick="toggleRecorridoMapa()" id="btnRecorridoMapa"
+        style="flex:1;background:#0f172a;color:#38bdf8;border:1px solid #0ea5e9;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+        🗺️ Mostrar
+      </button>
+    </div>
+
+    <!-- 6. LEYENDA -->
     <div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:10px;margin-bottom:12px">
       <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:8px">📖 LEYENDA</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -5333,6 +5333,7 @@ async function abrirMapaPantalla(){
       </div>
     </div>
 
+    <!-- 7. DEBUG -->
     <div style="text-align:center;margin-top:16px">
       <button type="button" onclick="toggleDebugCoords()"
         style="background:transparent;color:#475569;border:1px dashed #334155;border-radius:10px;
@@ -5343,14 +5344,12 @@ async function abrirMapaPantalla(){
 
     <div id="debugCoordsBox" style="display:none;margin-top:10px;padding:12px;background:#1e293b;border:1px dashed #475569;border-radius:10px">
       <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px;letter-spacing:0.5px">DEBUG · PRUEBA RÁPIDA</div>
-
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px">
         <button type="button" onclick="setTestCoords(41.410627, 2.150158)" style="background:#14532d;color:#4ade80;border:1px solid #22c55e;border-radius:8px;padding:8px;font-size:12px;font-weight:800;cursor:pointer">🟢 BCN</button>
         <button type="button" onclick="setTestCoords(41.474148, 2.088923)" style="background:#78350f;color:#fbbf24;border:1px solid #f59e0b;border-radius:8px;padding:8px;font-size:12px;font-weight:800;cursor:pointer">🟡 AMB</button>
         <button type="button" onclick="setTestCoords(41.561185, 2.012338)" style="background:#9a3412;color:#fdba74;border:1px solid #fb923c;border-radius:8px;padding:8px;font-size:12px;font-weight:800;cursor:pointer">🟠 Interurbana</button>
         <button type="button" onclick="setTestCoords(41.137103, 1.199737)" style="background:#7f1d1d;color:#fca5a5;border:1px solid #ef4444;border-radius:8px;padding:8px;font-size:12px;font-weight:800;cursor:pointer">🔴 Fuera</button>
       </div>
-
       <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px;letter-spacing:0.5px">O ESCRIBE TÚ MISMO</div>
       <div style="display:flex;gap:6px;margin-bottom:8px">
         <input type="text" id="testLat" placeholder="Lat (ej: 41.3874)" style="flex:1;font-size:14px;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;outline:none;min-width:0">
@@ -5407,10 +5406,11 @@ async function abrirMapaPantalla(){
       cont.innerHTML += "<div style='text-align:center;color:#ef4444;padding:20px'>Error montando el mapa: "+e.message+"</div>";
     }
   }, 100);
+  
+  // Poner la fecha de hoy por defecto en el calendario del mapa
   const inpFecha = document.getElementById("fechaRutaInput");
   if(inpFecha) inpFecha.value = fechaLocalStr();
 }
-
 function cerrarMapaPantalla(){
   const p = document.getElementById("mapaPantalla");
   if(p) p.style.display = "none";

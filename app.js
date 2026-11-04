@@ -6293,6 +6293,78 @@ function saveCocheActual(){
   safeStorage.set("uberCambioTimestampCoche", String(timestampSeleccionCoche));
 }
 
+function loadHistorialCoches() {
+  const s = safeStorage.get("uberCambioHistorialCoches");
+  if (s) {
+    try { return JSON.parse(s) || []; } catch(e) { return []; }
+  }
+  return [];
+}
+
+function registrarCocheDia(mat) {
+  const hoy = fechaLocalStr();
+  const h = loadHistorialCoches();
+  
+  // Si el último registro es de hoy y es el mismo coche, no duplicar
+  if (h.length > 0 && h[h.length - 1].fecha === hoy && h[h.length - 1].mat === mat) return;
+
+  h.push({ 
+    fecha: hoy, 
+    mat: mat, 
+    hora: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) 
+  });
+  
+  if (h.length > 300) h.shift(); // Limitar a 300 registros para no llenar la memoria
+  safeStorage.set("uberCambioHistorialCoches", JSON.stringify(h));
+}
+
+function abrirHistorialCoches() {
+  const h = loadHistorialCoches();
+  
+  const prev = document.getElementById("modalHistorialCoches");
+  if(prev) prev.remove();
+
+  let htmlItems = "";
+  if (h.length === 0) {
+    htmlItems = "<div style='text-align:center;color:#64748b;font-size:14px;padding:20px'>Aún no tienes registros.</div>";
+  } else {
+    // Mostrar los más recientes primero
+    [...h].reverse().forEach(item => {
+      const d = new Date(item.fecha + "T12:00:00");
+      const fechaBonita = d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' });
+      htmlItems += `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #334155;">
+          <div style="font-size:13px;color:#94a3b8;text-transform:capitalize;">${fechaBonita}</div>
+          <div style="font-size:16px;font-weight:900;color:#fff;letter-spacing:1px;">${item.mat}</div>
+          <div style="font-size:11px;color:#64748b;font-weight:700;">${item.hora || ""}</div>
+        </div>
+      `;
+    });
+  }
+
+  const m = document.createElement("div");
+  m.id = "modalHistorialCoches";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px";
+  
+  m.innerHTML = `
+    <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:400px;width:100%;border:1px solid #334155;max-height:85vh;display:flex;flex-direction:column;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div style="font-size:16px;font-weight:900;color:#38bdf8;">📅 Historial de Coches</div>
+        <button type="button" onclick="document.getElementById('modalHistorialCoches').remove()" style="background:#334155;color:#fff;border:none;padding:6px 12px;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">✕</button>
+      </div>
+      
+      <div style="overflow-y:auto;flex:1;padding-right:4px;">
+        ${htmlItems}
+      </div>
+      
+      <button type="button" onclick="document.getElementById('modalHistorialCoches').remove()" style="width:100%;margin-top:16px;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">Cerrar</button>
+    </div>
+  `;
+  
+  document.body.appendChild(m);
+  m.addEventListener("click", (e) => { if(e.target === m) m.remove(); });
+}
+
 function seleccionarCoche(mat){
   const item = pinesLista.find(x => x.mat === mat);
   if(!item) return;
@@ -6300,6 +6372,8 @@ function seleccionarCoche(mat){
   cocheActual = mat;
   timestampSeleccionCoche = Date.now(); // 👈 Guardamos la hora exacta
   saveCocheActual();
+
+  registrarCocheDia(mat);
 
   renderPinesResultados();
   actualizarBotonCochePrincipal(); // 👈 Actualiza el menú principal
@@ -6608,7 +6682,13 @@ function renderPinesResultados(){
 
   html += `</div>`;
   html += `<div style="text-align:center;font-size:11px;color:#475569;margin-top:14px">${pinesLista.length} matrícula${pinesLista.length !== 1 ? "s" : ""} registrada${pinesLista.length !== 1 ? "s" : ""}</div>`;
-
+  html += `
+    <div style="text-align:center;margin-top:16px;">
+      <button type="button" onclick="abrirHistorialCoches()" style="background:#1e293b;color:#38bdf8;border:1px solid #475569;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:8px;">
+        📅 Historial de coches
+      </button>
+    </div>
+  `;
   cont.innerHTML = html;
 }
 

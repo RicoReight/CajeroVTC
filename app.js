@@ -5290,6 +5290,16 @@ async function abrirMapaPantalla(){
       Zona: —
     </div>
 
+    <div style="display:flex;gap:8px;margin-bottom:10px;width:100%;">
+      <input type="date" id="fechaRutaInput" 
+        style="flex:1;background:#0f172a;color:#38bdf8;border:1px solid #0ea5e9;border-radius:10px;padding:10px;font-weight:800;font-size:13px;outline:none;">
+      
+      <button type="button" onclick="toggleRecorridoMapa()" id="btnRecorridoMapa"
+        style="flex:2;background:#0f172a;color:#38bdf8;border:1px solid #0ea5e9;border-radius:10px;padding:10px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+        🗺️ Mostrar ruta
+      </button>
+    </div>
+
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
       <button type="button" id="btnGeoIniciar" onclick="iniciarGeolocalizacion()"
         style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:2px solid #0ea5e9;border-radius:10px;
@@ -5397,6 +5407,8 @@ async function abrirMapaPantalla(){
       cont.innerHTML += "<div style='text-align:center;color:#ef4444;padding:20px'>Error montando el mapa: "+e.message+"</div>";
     }
   }, 100);
+  const inpFecha = document.getElementById("fechaRutaInput");
+  if(inpFecha) inpFecha.value = fechaLocalStr();
 }
 
 function cerrarMapaPantalla(){
@@ -5716,7 +5728,6 @@ function toggleRecorridoMapa() {
 function procesarNuevaPosicion(lat, lon, acc){
   ultimaPosicion = { lat, lon };
 
-  // 👇 1. Guardar el punto en el historial
   guardarPuntoRecorrido(lat, lon, acc);
 
   const zona = detectarZona(lat, lon);
@@ -5732,9 +5743,8 @@ function procesarNuevaPosicion(lat, lon, acc){
       mapaMarker.setLatLng([lat, lon]);
     }
     
-    // 👇 2. Si la ruta está visible, se va dibujando en tiempo real
     if (capaRecorridoActual) {
-       dibujarRecorridoEnMapa(fechaLocalStr());
+       dibujarRecorridoEnMapa((document.getElementById("fechaRutaInput")?.value) || fechaLocalStr());
     }
 
     mapaInstance.panTo([lat, lon]);

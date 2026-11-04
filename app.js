@@ -5300,16 +5300,18 @@ async function abrirMapaPantalla(){
       </button>
     </div>
 
-    <!-- 5. FECHA Y RUTA (Tarjeta independiente para que no se vea apagado) -->
+    <!-- 5. FECHA Y RUTA -->
     <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:14px; margin-bottom:12px;">
       <div style="font-size:11px; color:#94a3b8; font-weight:800; letter-spacing:0.5px; margin-bottom:10px;">🗺️ HISTORIAL DE RUTAS</div>
       
       <div style="display:flex;gap:10px;align-items:center;">
+        <!-- Input de fecha estirado y centrado -->
         <input type="date" id="fechaRutaInput" 
-          style="flex:1.2;background:#0f172a;color:#fff;border:1px solid #475569;border-radius:10px;padding:12px 10px;font-weight:800;font-size:16px;outline:none;text-align:center;">
+          style="flex:1; height:48px; box-sizing:border-box; background:#0f172a; color:#fff; border:1px solid #475569; border-radius:10px; padding:0 12px; font-weight:800; font-size:15px; outline:none; text-align:center; cursor:pointer;">
         
+        <!-- Botón más sobrio, misma altura -->
         <button type="button" onclick="toggleRecorridoMapa()" id="btnRecorridoMapa"
-          style="flex:1;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:10px;padding:14px 10px;font-weight:900;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 4px 10px rgba(14,165,233,0.3)">
+          style="flex:1; height:48px; box-sizing:border-box; background:#0284c7; color:#fff; border:none; border-radius:10px; font-weight:900; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s;">
           🗺️ Ver
         </button>
       </div>

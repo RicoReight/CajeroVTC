@@ -5093,6 +5093,8 @@ let zonaActual = null;
 let zonaPendiente = null;
 let burbujaActiva = false;
 
+let capaRecorridoActual = null;
+
 let procesandoZona = false;
 let zonaCandidata = null;
 let zonaCandidataCount = 0;
@@ -5278,6 +5280,11 @@ async function abrirMapaPantalla(){
         ◎
       </button>
     </div>
+
+    <button type="button" onclick="toggleRecorridoMapa()" id="btnRecorridoMapa"
+      style="width:100%;margin-bottom:10px;background:#0f172a;color:#38bdf8;border:1px solid #0ea5e9;border-radius:10px;padding:10px;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+      🗺️ Mostrar ruta de hoy
+    </button>
 
     <div id="mapaZonaActual" style="text-align:center;margin-bottom:12px;padding:12px;background:#1e293b;border-radius:10px;font-size:15px;font-weight:800;color:#94a3b8;border:1px solid #334155">
       Zona: —
@@ -5613,7 +5620,7 @@ async function reiniciarWatcherConTexto(texto){
       backgroundTitle: 'Mapa de zonas',          // 👈 Título unificado
       requestPermissions: false,
       stale: false,
-      distanceFilter: 15,
+      distanceFilter: 5,
       desiredAccuracy: 20,
       stationaryRadius: 25,
       stopOnTerminate: false,
@@ -5631,11 +5638,88 @@ async function reiniciarWatcherConTexto(texto){
   }
 }
 
+/* ==================== HISTORIAL DE RECORRIDOS ==================== */
+function obtenerClaveRecorrido(fechaStr) {
+  return "uberCambioRecorrido_" + fechaStr;
+}
+
+function guardarPuntoRecorrido(lat, lon, acc) {
+  if (acc && acc > 30) return; // Ignorar puntos con mala precisión
+
+  const hoy = fechaLocalStr();
+  const clave = obtenerClaveRecorrido(hoy);
+  
+  try {
+    let recorrido = JSON.parse(safeStorage.get(clave) || "[]");
+    
+    if (recorrido.length > 0) {
+      const ultimo = recorrido[recorrido.length - 1];
+      const dist = Math.sqrt(Math.pow(ultimo.lat - lat, 2) + Math.pow(ultimo.lon - lon, 2)) * 111000;
+      if (dist < 5) return; // Ignorar si te has movido menos de 5 metros
+    }
+
+    recorrido.push({ lat: lat, lon: lon, time: Date.now() });
+    if (recorrido.length > 5000) recorrido.shift();
+
+    safeStorage.set(clave, JSON.stringify(recorrido));
+  } catch(e) {
+    console.warn("Error guardando ruta:", e);
+  }
+}
+
+function obtenerRecorrido(fechaStr) {
+  return JSON.parse(safeStorage.get(obtenerClaveRecorrido(fechaStr)) || "[]");
+}
+
+function dibujarRecorridoEnMapa(fechaStr) {
+  if (!mapaInstance) return;
+
+  if (capaRecorridoActual) {
+    mapaInstance.removeLayer(capaRecorridoActual);
+    capaRecorridoActual = null;
+  }
+
+  const puntos = obtenerRecorrido(fechaStr);
+  if (puntos.length < 2) return;
+
+  const coordenadas = puntos.map(p => [p.lat, p.lon]);
+
+  capaRecorridoActual = L.polyline(coordenadas, {
+    color: '#38bdf8', 
+    weight: 4,
+    opacity: 0.9,
+    lineJoin: 'round',
+    smoothFactor: 0 // 👈 0 para que la línea siga exactamente los puntos
+  }).addTo(mapaInstance);
+}
+
+function toggleRecorridoMapa() {
+  const btn = document.getElementById("btnRecorridoMapa");
+  if (!mapaInstance) return;
+
+  if (capaRecorridoActual) {
+    mapaInstance.removeLayer(capaRecorridoActual);
+    capaRecorridoActual = null;
+    if(btn) btn.innerHTML = "🗺️ Mostrar ruta de hoy";
+  } else {
+    dibujarRecorridoEnMapa(fechaLocalStr());
+    if (capaRecorridoActual) {
+      mapaInstance.fitBounds(capaRecorridoActual.getBounds(), { padding: [30, 30] });
+      if(btn) btn.innerHTML = "❌ Ocultar ruta de hoy";
+    } else {
+      mostrarToast("Aún no hay ruta guardada para el día de hoy.");
+    }
+  }
+}
+/* ==================== FIN HISTORIAL DE RECORRIDOS ==================== */
+
 function procesarNuevaPosicion(lat, lon, acc){
   ultimaPosicion = { lat, lon };
 
-  const zona = detectarZona(lat, lon);
+  // 👇 1. Guardar el punto en el historial
+  guardarPuntoRecorrido(lat, lon, acc);
 
+  const zona = detectarZona(lat, lon);
   actualizarNotificacionZona(zona);
 
   if(mapaInstance){
@@ -5647,6 +5731,12 @@ function procesarNuevaPosicion(lat, lon, acc){
     } else {
       mapaMarker.setLatLng([lat, lon]);
     }
+    
+    // 👇 2. Si la ruta está visible, se va dibujando en tiempo real
+    if (capaRecorridoActual) {
+       dibujarRecorridoEnMapa(fechaLocalStr());
+    }
+
     mapaInstance.panTo([lat, lon]);
 
     const elZona = document.getElementById("mapaZonaActual");

@@ -5634,7 +5634,7 @@ function obtenerClaveRecorrido(fechaStr) {
 }
 
 function guardarPuntoRecorrido(lat, lon, acc) {
-  if (acc && acc > 30) return; // Ignorar puntos con mala precisión
+  if (acc && acc > 50) return; // Ignorar si la precisión es muy mala
 
   const hoy = fechaLocalStr();
   const clave = obtenerClaveRecorrido(hoy);
@@ -5645,16 +5645,16 @@ function guardarPuntoRecorrido(lat, lon, acc) {
     if (recorrido.length > 0) {
       const ultimo = recorrido[recorrido.length - 1];
       const dist = Math.sqrt(Math.pow(ultimo.lat - lat, 2) + Math.pow(ultimo.lon - lon, 2)) * 111000;
-      if (dist < 5) return; // Ignorar si te has movido menos de 5 metros
+      
+      // Filtro: Si te mueves menos de 10m o el GPS pega un salto loco de más de 500m, ignorar.
+      if (dist < 10 || dist > 500) return; 
     }
 
     recorrido.push({ lat: lat, lon: lon, time: Date.now() });
     if (recorrido.length > 5000) recorrido.shift();
 
     safeStorage.set(clave, JSON.stringify(recorrido));
-  } catch(e) {
-    console.warn("Error guardando ruta:", e);
-  }
+  } catch(e) {}
 }
 
 function obtenerRecorrido(fechaStr) {
@@ -5663,43 +5663,83 @@ function obtenerRecorrido(fechaStr) {
 
 function dibujarRecorridoEnMapa(fechaStr) {
   if (!mapaInstance) return;
-
   if (capaRecorridoActual) {
     mapaInstance.removeLayer(capaRecorridoActual);
     capaRecorridoActual = null;
   }
-
   const puntos = obtenerRecorrido(fechaStr);
   if (puntos.length < 2) return;
-
   const coordenadas = puntos.map(p => [p.lat, p.lon]);
-
   capaRecorridoActual = L.polyline(coordenadas, {
-    color: '#38bdf8', 
-    weight: 4,
-    opacity: 0.9,
-    lineJoin: 'round',
-    smoothFactor: 0 // 👈 0 para que la línea siga exactamente los puntos
+    color: '#38bdf8', weight: 4, opacity: 0.9, lineJoin: 'round', smoothFactor: 0
   }).addTo(mapaInstance);
 }
 
 function toggleRecorridoMapa() {
   const btn = document.getElementById("btnRecorridoMapa");
+  const inpFecha = document.getElementById("fechaRutaInput");
   if (!mapaInstance) return;
 
   if (capaRecorridoActual) {
     mapaInstance.removeLayer(capaRecorridoActual);
     capaRecorridoActual = null;
-    if(btn) btn.innerHTML = "🗺️ Mostrar ruta de hoy";
+    if(btn) btn.innerHTML = "Mostrar ruta";
   } else {
-    dibujarRecorridoEnMapa(fechaLocalStr());
+    const fechaSeleccionada = (inpFecha && inpFecha.value) ? inpFecha.value : fechaLocalStr();
+    dibujarRecorridoEnMapa(fechaSeleccionada);
     if (capaRecorridoActual) {
       mapaInstance.fitBounds(capaRecorridoActual.getBounds(), { padding: [30, 30] });
-      if(btn) btn.innerHTML = "❌ Ocultar ruta de hoy";
+      if(btn) btn.innerHTML = "Ocultar ruta";
     } else {
-      mostrarToast("Aún no hay ruta guardada para el día de hoy.");
+      mostrarToast("No hay ruta para el día " + fechaSeleccionada);
     }
   }
+}
+
+function loadHistorialCoches() {
+  const s = safeStorage.get("uberCambioHistorialCoches");
+  if (s) { try { return JSON.parse(s) || []; } catch(e) { return []; } }
+  return [];
+}
+
+function registrarCocheDia(mat) {
+  const hoy = fechaLocalStr();
+  const h = loadHistorialCoches();
+  if (h.length > 0 && h[h.length - 1].fecha === hoy && h[h.length - 1].mat === mat) return;
+  h.push({ fecha: hoy, mat: mat, hora: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) });
+  if (h.length > 300) h.shift();
+  safeStorage.set("uberCambioHistorialCoches", JSON.stringify(h));
+}
+
+function abrirHistorialCoches() {
+  const h = loadHistorialCoches();
+  const prev = document.getElementById("modalHistorialCoches");
+  if(prev) prev.remove();
+  let htmlItems = "";
+  if (h.length === 0) {
+    htmlItems = "<div style='text-align:center;color:#64748b;font-size:14px;padding:20px'>Aún no tienes registros.</div>";
+  } else {
+    [...h].reverse().forEach(item => {
+      const d = new Date(item.fecha + "T12:00:00");
+      const fechaBonita = d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' });
+      htmlItems += `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #334155;"><div style="font-size:13px;color:#94a3b8;text-transform:capitalize;">${fechaBonita}</div><div style="font-size:16px;font-weight:900;color:#fff;letter-spacing:1px;">${item.mat}</div><div style="font-size:11px;color:#64748b;font-weight:700;">${item.hora || ""}</div></div>`;
+    });
+  }
+  const m = document.createElement("div");
+  m.id = "modalHistorialCoches";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px";
+  m.innerHTML = `
+    <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:400px;width:100%;border:1px solid #334155;max-height:85vh;display:flex;flex-direction:column;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div style="font-size:16px;font-weight:900;color:#38bdf8;">📅 Historial de Coches</div>
+        <button type="button" onclick="document.getElementById('modalHistorialCoches').remove()" style="background:#334155;color:#fff;border:none;padding:6px 12px;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">✕</button>
+      </div>
+      <div style="overflow-y:auto;flex:1;padding-right:4px;">${htmlItems}</div>
+      <button type="button" onclick="document.getElementById('modalHistorialCoches').remove()" style="width:100%;margin-top:16px;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">Cerrar</button>
+    </div>
+  `;
+  document.body.appendChild(m);
+  m.addEventListener("click", (e) => { if(e.target === m) m.remove(); });
 }
 /* ==================== FIN HISTORIAL DE RECORRIDOS ==================== */
 
@@ -5945,9 +5985,10 @@ async function iniciarGeolocalizacion(){
       backgroundTitle: 'Mapa de zonas',
       requestPermissions: true,       // 👈 deja que el plugin pida el 2º plano
       stale: true,
-      distanceFilter: 30,
-      desiredAccuracy: 20,
+      distanceFilter: 5,
+      desiredAccuracy: 5,
       stationaryRadius: 25,
+      interval: 3000,
       stopOnTerminate: false,
       startOnBoot: true,
       preventSuspend: true,

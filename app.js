@@ -2809,28 +2809,26 @@ function cerrarDiasPantalla(){
 
 async function lanzarNotificacionZona(texto){
   if(safeStorage.get("uberCambioSonidoZona") === "0") return;
-
+ 
   try {
     const Cap = window.Capacitor;
     if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
     const LN = Cap.Plugins.LocalNotifications;
-
+ 
     const idUnico = Math.floor(Date.now() / 1000) % 100000;
-
+ 
     await LN.schedule({
       notifications: [{
         id: idUnico,
         title: '📍 Cambio de zona',
         body: texto,
         channelId: 'zona-cambio',
-        smallIcon: 'ic_stat_icon_config_sample',
-        sound: 'default',
-        vibrate: true,
-        schedule: { at: new Date(), allowWhileIdle: true }
+        smallIcon: 'ic_stat_icon_config_sample'
+        // sin "schedule" → se muestra inmediatamente
       }]
     });
   } catch(e){
-    console.warn('Error lanzando notificación:', e);
+    console.warn('Error lanzando notificación de zona:', e);
   }
 }
 
@@ -4833,6 +4831,7 @@ function init(){
   setTimeout(() => { programarAvisosFestivos(); }, 2000);
   setTimeout(() => { programarAvisosResetPropinas(); }, 2200);
   setTimeout(() => { programarAvisosDeposito(); }, 2400);
+  setTimeout(() => { asegurarAlarmasExactas(); }, 1000);
 
   setTimeout(() => {
     try{
@@ -5528,34 +5527,34 @@ async function actualizarNotificacionZona(nuevaZona){
     zonaPendiente = nuevaZona;
     return;
   }
-
+ 
   if(zonaActual === nuevaZona.codigo){
     zonaCandidata = null;
     zonaCandidataCount = 0;
     return;
   }
-
+ 
   if(zonaCandidata === nuevaZona.codigo){
     zonaCandidataCount++;
   } else {
     zonaCandidata = nuevaZona.codigo;
     zonaCandidataCount = 1;
   }
-
+ 
   if(zonaCandidataCount < ZONA_CONFIRMACION_MUESTRAS) return;
-
+ 
   procesandoZona = true;
   try {
     zonaActual = nuevaZona.codigo;
     zonaCandidata = null;
     zonaCandidataCount = 0;
-
-    // 👇 La notificación persistente del watcher ya informa del cambio
-    // (ver reiniciarWatcherConTexto). No hace falta una notificación aparte.
-    await reiniciarWatcherConTexto(nuevaZona.nombre);
+    ultimoCambioZonaMs = Date.now();
+ 
+    // 👇 CAMBIO CLAVE: notificación normal en vez de reiniciar el watcher
+    await lanzarNotificacionZona("Estás en: " + nuevaZona.nombre);
   } finally {
     procesandoZona = false;
-
+ 
     if(zonaPendiente){
       const zp = zonaPendiente;
       zonaPendiente = null;
@@ -5905,30 +5904,23 @@ async function iniciarGeolocalizacion(){
       alert('❌ Plugin de geolocalización no instalado');
       return;
     }
-
-    // ═══════════════════════════════════════════════════════
-    // PASO 1: PERMISOS (usa @capacitor/geolocation y local-notifications)
-    // ═══════════════════════════════════════════════════════
+ 
     const permisosOk = await pedirPermisosUbicacionYNotificaciones();
     if(!permisosOk) return;
-
-    // ═══════════════════════════════════════════════════════
-    // PASO 2: EXENCIÓN DE OPTIMIZACIÓN DE BATERÍA
-    // ═══════════════════════════════════════════════════════
+ 
     await pedirExencionBateria();
-
+ 
     const BG = Cap.Plugins.BackgroundGeolocation;
-
-    // Resetear estado de zona
+ 
     zonaActual = null;
     zonaPendiente = null;
     zonaCandidata = null;
     zonaCandidataCount = 0;
     procesandoZona = false;
     ultimoCambioZonaMs = 0;
-
+ 
     mostrarToast("🔎 Buscando tu posición...");
-
+ 
     if(navigator.geolocation){
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -5942,48 +5934,30 @@ async function iniciarGeolocalizacion(){
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
       );
     }
-
+ 
     if(geoWatcherId){
       try { await BG.removeWatcher({ id: geoWatcherId }); } catch(e){}
       geoWatcherId = null;
     }
-
+ 
     const onLocation = (location, error) => {
       if(error){ console.warn('Error geolocalización:', error); return; }
       if(!location) return;
       actualizarMapaConPosicion(location.latitude, location.longitude, Math.round(location.accuracy));
     };
-
-    // ═══════════════════════════════════════════════════════
-    // WATCHER  ⚠️ requestPermissions: true
-    // ═══════════════════════════════════════════════════════
+ 
+    // UN SOLO watcher que ya no se toca mientras el rastreo esté activo
     geoWatcherId = await BG.addWatcher({
-      backgroundMessage: 'Buscando zona…',
+      backgroundMessage: 'Rastreo de zonas activo',
       backgroundTitle: 'Mapa de zonas',
-      requestPermissions: true,       // 👈 deja que el plugin pida el 2º plano
-      stale: true,
-      distanceFilter: 10,
-      desiredAccuracy: 20,
-      stationaryRadius: 25,           // 👈 AQUÍ ESTABA LA COMA QUE FALTABA
-      stopOnTerminate: false,
-      startOnBoot: true,
-      preventSuspend: true,
-      heartbeatInterval: 60,
-      foregroundService: true,
-      debug: false,
-      pausesLocationUpdatesAutomatically: false,
-      useSignificantChangesOnly: false
+      requestPermissions: true,
+      stale: false,
+      distanceFilter: 10
     }, onLocation);
-
+ 
     geoActivo = true;
     actualizarEstadoGeo();
-
-    if(zonaPendiente){
-      const zp = zonaPendiente;
-      zonaPendiente = null;
-      await reiniciarWatcherConTexto(zp.nombre);
-    }
-
+ 
   } catch(e){
     console.error('Error general:', e);
     alert('❌ Error: ' + (e.message || JSON.stringify(e)));
@@ -5991,7 +5965,6 @@ async function iniciarGeolocalizacion(){
     actualizarEstadoGeo();
   }
 }
-
 async function detenerGeolocalizacion(){
   try {
     const Cap = window.Capacitor;
@@ -7308,24 +7281,46 @@ function abrirModalMoverHucha(idx, sugerido){
 /* ==================== CANAL UNIFICADO Y AVISOS ==================== */
 const diasSemanaNombres = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
+async function asegurarAlarmasExactas(){
+  try {
+    const LN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+    if(!LN || !LN.checkExactNotificationSetting) return true;
+ 
+    const r = await LN.checkExactNotificationSetting();
+    if(r.exact_alarm === 'granted') return true;
+ 
+    if(safeStorage.get("uberCambioPidioAlarmas") === "1") return false;
+    safeStorage.set("uberCambioPidioAlarmas", "1");
+ 
+    if(confirm("⏰ Para que los recordatorios suenen a su hora, activa el permiso «Alarmas y recordatorios» para esta app.\n\n¿Abrir ajustes ahora?")){
+      await LN.requestExactNotificationSetting();
+    }
+    return false;
+  } catch(e){
+    console.warn('asegurarAlarmasExactas:', e);
+    return false;
+  }
+}
+
 async function crearCanalRecordatorios(){
   const Cap = window.Capacitor;
   if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
   const LN = Cap.Plugins.LocalNotifications;
-  
+ 
   try {
-    // Creamos un único canal de alta prioridad para TODO
     await LN.createChannel({
       id: 'recordatorios-alta',
       name: 'Avisos y Recordatorios',
       description: 'Avisos de festivos, depósitos de caja y resets',
-      importance: 5, 
-      visibility: 1, 
-      sound: 'default', 
+      importance: 5,
+      visibility: 1,
+      sound: 'default',
       vibration: true,
       lights: true
     });
-  } catch(e){}
+  } catch(e){
+    console.warn('crearCanalRecordatorios:', e);
+  }
 }
 
 // Calcula la próxima fecha basándose en el día y hora configurados
@@ -7347,164 +7342,200 @@ async function programarAvisosFestivos(){
   const Cap = window.Capacitor;
   if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
   const LN = Cap.Plugins.LocalNotifications;
-  
+ 
   try {
+    const perm = await LN.checkPermissions();
+    if(perm.display !== 'granted') return;
+ 
     await crearCanalRecordatorios();
+ 
     const pending = await LN.getPending();
     const aBorrar = pending.notifications.filter(n => n.id >= 300000 && n.id < 400000);
     if(aBorrar.length > 0) await LN.cancel({ notifications: aBorrar });
-
+ 
     const ahora = new Date();
-    const pendientes = festivos.filter(f => !f.solicitado && !f.sacrificado && diasHastaCaducar(f) > 0 && diasHastaCaducar(f) <= 90);
+    const pendientes = festivos.filter(f => {
+      if(!f.trabajado || f.solicitado || f.sacrificado) return false;
+      const d = diasHastaCaducar(f);
+      return d > 0 && d <= 90;
+    });
+ 
     const notificaciones = [];
-
+ 
     pendientes.forEach(f => {
-      const caducidad = fechaCaducidad(f.fecha); 
-      const alertas = [15, 5, 1];
-
-      alertas.forEach(diasAntes => {
+      const caducidad = fechaCaducidad(f.fecha);
+      const p = f.fecha.split("-");
+      const idBase = (parseInt(p[0]) * 10000 + parseInt(p[1]) * 100 + parseInt(p[2])) % 9000;
+ 
+      [15, 5, 1].forEach((diasAntes, k) => {
         const fechaAviso = new Date(caducidad.getTime());
         fechaAviso.setDate(fechaAviso.getDate() - diasAntes);
-        fechaAviso.setHours(10, 0, 0, 0); 
-        
-        if(fechaAviso.getTime() < ahora.getTime()) return; 
-
-        const p = f.fecha.split("-");
-        const idFinal = 300000 + (parseInt(p[0]) * 10000 + parseInt(p[1]) * 100 + parseInt(p[2])) % 90000 + diasAntes;
-
+        fechaAviso.setHours(10, 0, 0, 0);
+        if(fechaAviso.getTime() <= ahora.getTime()) return;
+ 
         notificaciones.push({
-          id: idFinal, title: '💼 Festivo a punto de caducar',
-          body: `Te quedan ${diasAntes} días para solicitar el festivo del ${formatearFechaBonita(f.fecha)} (${f.nombre}).`,
-          channelId: 'recordatorios-alta', sound: 'default', schedule: { at: fechaAviso, allowWhileIdle: true }
+          id: 300000 + idBase * 10 + k,
+          title: '💼 Festivo a punto de caducar',
+          body: `Te quedan ${diasAntes} día${diasAntes !== 1 ? 's' : ''} para solicitar el festivo del ${formatearFechaBonita(f.fecha)} (${f.nombre}).`,
+          channelId: 'recordatorios-alta',
+          schedule: { at: fechaAviso, allowWhileIdle: true }
         });
       });
     });
-
-    if(notificaciones.length > 0) await LN.schedule({ notifications: notificaciones });
-  } catch(e){}
+ 
+    if(notificaciones.length > 0){
+      await LN.schedule({ notifications: notificaciones });
+      console.log('✅ Avisos de festivos programados:', notificaciones.length);
+    }
+  } catch(e){
+    console.error('programarAvisosFestivos:', e);
+  }
 }
 
 async function programarAvisosResetPropinas(){
   const Cap = window.Capacitor;
   if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
   const LN = Cap.Plugins.LocalNotifications;
-
+ 
   try {
+    const perm = await LN.checkPermissions();
+    if(perm.display !== 'granted') return;
+ 
     await crearCanalRecordatorios();
+ 
     const pending = await LN.getPending();
     const aBorrar = pending.notifications.filter(n => n.id >= 400000 && n.id < 500000);
     if(aBorrar.length > 0) await LN.cancel({ notifications: aBorrar });
-
+ 
     if(diaReset === 0) return;
     const proxReset = calcularProximoReset();
     if(!proxReset) return;
-
+ 
     const ahora = new Date();
-    const notificaciones = [];
-
+ 
+    // Límite: si el reset cae en sábado/domingo/lunes, el límite es el viernes
     let fechaLimite = new Date(proxReset.getTime());
-    const diaSemanaReset = fechaLimite.getDay(); 
-    
-    // Si el 22 cae en Sábado, Domingo o Lunes, el límite es el Viernes
-    if(diaSemanaReset === 6) fechaLimite.setDate(fechaLimite.getDate() - 1);
-    else if(diaSemanaReset === 0) fechaLimite.setDate(fechaLimite.getDate() - 2);
-    else if(diaSemanaReset === 1) fechaLimite.setDate(fechaLimite.getDate() - 3);
-    fechaLimite.setHours(10, 0, 0, 0); 
-
+    const ds = fechaLimite.getDay();
+    if(ds === 6) fechaLimite.setDate(fechaLimite.getDate() - 1);
+    else if(ds === 0) fechaLimite.setDate(fechaLimite.getDate() - 2);
+    else if(ds === 1) fechaLimite.setDate(fechaLimite.getDate() - 3);
+    fechaLimite.setHours(10, 0, 0, 0);
+ 
     let fechaPreparacion = new Date(fechaLimite.getTime());
     let diasHastaViernes = (fechaLimite.getDay() + 7 - 5) % 7;
-    if(diasHastaViernes === 0) diasHastaViernes = 7; 
+    if(diasHastaViernes === 0) diasHastaViernes = 7;
     fechaPreparacion.setDate(fechaPreparacion.getDate() - diasHastaViernes);
     fechaPreparacion.setHours(10, 0, 0, 0);
-
+ 
     let fechaUltimaSemana = new Date(fechaLimite.getTime());
-    let diasHastaMartes = (fechaLimite.getDay() + 7 - 2) % 7; 
+    let diasHastaMartes = (fechaLimite.getDay() + 7 - 2) % 7;
     fechaUltimaSemana.setDate(fechaUltimaSemana.getDate() - diasHastaMartes);
     fechaUltimaSemana.setHours(10, 0, 0, 0);
-
+ 
     const esMismoDia = (fechaUltimaSemana.getDate() === fechaLimite.getDate());
     const nombreDiaLimite = diasSemanaNombres[fechaLimite.getDay()];
-
+ 
     const alertas = [
-      { fecha: fechaPreparacion, title: '📅 Último viernes de margen', body: `Aprovecha hoy que las máquinas están abiertas. Recuerda que el límite real para ingresar las propinas es el ${nombreDiaLimite} de la próxima semana.` }
+      { fecha: fechaPreparacion, title: '📅 Último viernes de margen',
+        body: `Aprovecha hoy que las máquinas están abiertas. El límite real para ingresar las propinas es el ${nombreDiaLimite} de la próxima semana.` }
     ];
-
+ 
     if(!esMismoDia){
-      alertas.push({ fecha: fechaUltimaSemana, title: '🔔 ¡Empieza tu semana de entrega!', body: `Ya es ${diasSemanaNombres[diaRecordatorio]}. Tienes hasta el ${nombreDiaLimite} para meter las propinas en las máquinas.` });
+      alertas.push({ fecha: fechaUltimaSemana, title: '🔔 ¡Empieza tu semana de entrega!',
+        body: `Tienes hasta el ${nombreDiaLimite} para meter las propinas en las máquinas.` });
     }
-
-    alertas.push({ fecha: fechaLimite, title: '⚠️ ¡ÚLTIMO DÍA DE ENTREGA!', body: `Hoy es el último día para meter el dinero de las propinas en las máquinas.` });
-
-    alertas.forEach((alerta, index) => {
-      if(alerta.fecha.getTime() < ahora.getTime()) return;
-      const idFinal = 400000 + (alerta.fecha.getMonth() * 100) + alerta.fecha.getDate() + index;
+ 
+    alertas.push({ fecha: fechaLimite, title: '⚠️ ¡ÚLTIMO DÍA DE ENTREGA!',
+      body: 'Hoy es el último día para meter el dinero de las propinas en las máquinas.' });
+ 
+    const notificaciones = [];
+    alertas.forEach((a, index) => {
+      if(a.fecha.getTime() <= ahora.getTime()) return;
+      const idFinal = 400000 + (a.fecha.getMonth() * 100 + a.fecha.getDate()) * 10 + index;
       notificaciones.push({
-        id: idFinal, title: alerta.title, body: alerta.body, channelId: 'recordatorios-alta',
-        sound: 'default', schedule: { at: alerta.fecha, allowWhileIdle: true }
+        id: idFinal, title: a.title, body: a.body,
+        channelId: 'recordatorios-alta',
+        schedule: { at: a.fecha, allowWhileIdle: true }
       });
     });
-
-    if(notificaciones.length > 0) await LN.schedule({ notifications: notificaciones });
-  } catch(e){}
+ 
+    if(notificaciones.length > 0){
+      await LN.schedule({ notifications: notificaciones });
+      console.log('✅ Avisos de reset programados:', notificaciones.length);
+    }
+  } catch(e){
+    console.error('programarAvisosResetPropinas:', e);
+  }
 }
 
 async function programarAvisosDeposito(){
   const Cap = window.Capacitor;
   if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
   const LN = Cap.Plugins.LocalNotifications;
-
+ 
   try {
+    const perm = await LN.checkPermissions();
+    if(perm.display !== 'granted') return;
+ 
     await crearCanalRecordatorios();
+ 
     const pending = await LN.getPending();
     const aBorrar = pending.notifications.filter(n => n.id >= 500000 && n.id < 600000);
     if(aBorrar.length > 0) await LN.cancel({ notifications: aBorrar });
-
-    // Calcular pendiente
+ 
+    // Dinero pendiente de ingresar
     const ops = loadHistorialOps();
     const cierres = loadCierres();
-    const totalOps = ops.reduce((sum, op) => sum + (op.precio || 0), 0);
-    const totalCierres = cierres.reduce((sum, c) => sum + (c.total || 0), 0);
+    const totalOps = ops.reduce((s, op) => s + (op.precio || 0), 0);
+    const totalCierres = cierres.reduce((s, c) => s + (c.total || 0), 0);
     const pendiente = Math.max(0, totalOps - totalCierres);
-
-    if(pendiente <= 0) return; 
-
+    if(pendiente <= 0) return;
+ 
     const ahora = new Date();
-    let proximoAviso = calcularProximoAviso(); // Calculado con la nueva función
-
-    const proxReset = calcularProximoReset();
-    let fechaLimite = new Date(proxReset.getTime());
-    const diaSemanaReset = fechaLimite.getDay();
-    if(diaSemanaReset === 6) fechaLimite.setDate(fechaLimite.getDate() - 1);
-    else if(diaSemanaReset === 0) fechaLimite.setDate(fechaLimite.getDate() - 2);
-    else if(diaSemanaReset === 1) fechaLimite.setDate(fechaLimite.getDate() - 3);
-    fechaLimite.setHours(10, 0, 0, 0);
-
-    let notificacion = null;
-
-    if (fechaLimite.getTime() <= proximoAviso.getTime()) {
-      let fechaAviso = new Date(Math.min(proximoAviso.getTime(), fechaLimite.getTime()));
-      if (fechaAviso > ahora) {
-        notificacion = {
-          id: 500001, title: '⚠️ ¡Última semana antes de nómina!',
-          body: `Última semana para ingresar antes de cerrar nómina. Aún tienes ${moneyText(pendiente)} pendientes de entregar.`
-        };
-      }
+    const proximoAviso = calcularProximoAviso();
+ 
+    // Límite de entrega (si hay reset configurado)
+    let fechaLimite = null;
+    const proxReset = (diaReset !== 0) ? calcularProximoReset() : null;   // 👈 puede ser null
+    if(proxReset){
+      fechaLimite = new Date(proxReset.getTime());
+      const ds = fechaLimite.getDay();
+      if(ds === 6) fechaLimite.setDate(fechaLimite.getDate() - 1);
+      else if(ds === 0) fechaLimite.setDate(fechaLimite.getDate() - 2);
+      else if(ds === 1) fechaLimite.setDate(fechaLimite.getDate() - 3);
+      fechaLimite.setHours(10, 0, 0, 0);
+    }
+ 
+    let cuando = proximoAviso;
+    let notif;
+ 
+    const unaSemana = 7 * 24 * 3600 * 1000;
+    if(fechaLimite && proximoAviso.getTime() > fechaLimite.getTime()){
+      // El aviso normal llegaría tarde → avisa el propio día límite
+      cuando = fechaLimite;
+      notif = { id: 500001, title: '⚠️ ¡Última semana antes de nómina!',
+        body: `Último día para ingresar. Aún tienes ${moneyText(pendiente)} pendientes de entregar.` };
+    } else if(fechaLimite && (fechaLimite.getTime() - proximoAviso.getTime()) < unaSemana){
+      notif = { id: 500001, title: '⚠️ ¡Última semana antes de nómina!',
+        body: `Última semana para ingresar antes de cerrar nómina. Aún tienes ${moneyText(pendiente)} pendientes de entregar.` };
     } else {
-      notificacion = {
-        id: 500002, title: '💶 Recordatorio de depósito',
-        body: `Oye, tienes ${moneyText(pendiente)} acumulados de viajes. Recuerda ingresarlos antes del viernes para estar al día.`
-      };
+      notif = { id: 500002, title: '💶 Recordatorio de depósito',
+        body: `Tienes ${moneyText(pendiente)} acumulados de viajes. Recuerda ingresarlos antes del viernes para estar al día.` };
     }
-
-    if (notificacion) {
-      await LN.schedule({
-        notifications: [{
-          id: notificacion.id, title: notificacion.title, body: notificacion.body,
-          channelId: 'recordatorios-alta', sound: 'default', schedule: { at: proximoAviso, allowWhileIdle: true }
-        }]
-      });
-    }
-  } catch(e){}
+ 
+    if(cuando.getTime() <= ahora.getTime()) return;
+ 
+    await LN.schedule({
+      notifications: [{
+        id: notif.id, title: notif.title, body: notif.body,
+        channelId: 'recordatorios-alta',
+        schedule: { at: cuando, allowWhileIdle: true }
+      }]
+    });
+    console.log('✅ Aviso de depósito programado para', cuando.toString());
+  } catch(e){
+    console.error('programarAvisosDeposito:', e);
+  }
 }
 
 init();

@@ -5985,10 +5985,9 @@ async function iniciarGeolocalizacion(){
       backgroundTitle: 'Mapa de zonas',
       requestPermissions: true,       // 👈 deja que el plugin pida el 2º plano
       stale: true,
-      distanceFilter: 5,
-      desiredAccuracy: 5,
-      stationaryRadius: 25,
-      interval: 3000,
+      distanceFilter: 10,
+      desiredAccuracy: 20,
+      stationaryRadius: 25
       stopOnTerminate: false,
       startOnBoot: true,
       preventSuspend: true,

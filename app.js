@@ -13,7 +13,7 @@ const TOPES_DEFAULT={1:30,2:30,5:30,10:25,20:25,50:20,100:20,200:20,500:8,1000:8
 const ARRANQUE={10000:0,5000:0,2000:2,1000:3,500:4,200:5,100:8,50:8,20:15,10:15,5:10,2:10,1:15};
 const FACTOR_LLENADO=0.7;
 let stock=loadStock(),totalTips=loadTips(),reservaMinima=loadReserva(),topesRecibir=loadTopes();
-let hucha = loadHucha();   // ← MOVIDO ARRIBA
+let hucha = loadHucha();
 let diaReset=loadDiaReset(),ultimoResetPropinas=loadUltimoResetPropinas(),statsOps=loadStats();
 let resetSkip = parseInt(safeStorage.get("uberCambioResetSkip")) || 0;
 let modoEdicion = safeStorage.get("uberCambioModoEdicion") === "1";
@@ -601,7 +601,6 @@ function renderResetPanel(){
     }
   }
 
-  // ==================== AUTO-RESET DEL COCHE ====================
   const btnSaltar = document.querySelector('button[onclick="saltarProximoReset()"]');
   let anchorParaNuevosBoxes = btnSaltar ? btnSaltar.parentNode : box;
 
@@ -641,7 +640,6 @@ function renderResetPanel(){
     }
   }
 
-  // ==================== AVISOS DE RECORDATORIO ====================
   if(btnSaltar){
     let avisosBox = document.getElementById("avisosBox");
     
@@ -681,7 +679,6 @@ function renderResetPanel(){
       `;
     }
   }
-  // ==============================================================
 
   renderHistorialPanel();
 }
@@ -744,8 +741,6 @@ function guardarHoraJornadaDesdeReset(){
   horaFinJornada = v;
   saveHoraFinJornada();
   mostrarToast("⏰ Fin de jornada: " + v);
-  // No llamamos a renderResetPanel() aquí para no perder el foco, 
-  // el input ya tiene el valor que el usuario acaba de guardar.
 }
 
 function saltarProximoReset(){
@@ -789,7 +784,7 @@ function resetHistorialDepositos(){
   if(hc){hc.innerHTML="";hc.style.display="none"}
   alert("✅ Historial de depósitos borrado.");
   
-  programarAvisosDeposito(); // 👈 AÑADE ESTO
+  programarAvisosDeposito();
 }
 function resetHistorialResets(){if(!confirm("¿Borrar el HISTORIAL de resets de propinas?\n\nLas propinas actuales NO se tocan."))return;safeStorage.remove("uberCambioHistoricoResets");renderHistorialPanel();renderResetPanel();alert("✅ Historial de resets borrado.")}
 function resetHistorialCambios(){if(!confirm("¿Borrar el HISTORIAL de cambios de billete?\n\nEl aprendizaje (stats) NO se toca."))return;safeStorage.remove("uberCambioCambios");renderCambioHistorial();alert("✅ Historial de cambios borrado.")}
@@ -1210,7 +1205,7 @@ function añadirDepositoManual(){
   if(tienePiezas){
     alert("✅ Depósito manual añadido:\n"+moneyText(imp)+"\n\nY contado para el aprendizaje.");
   } else {
-    alert("✅ Depósito manual añadido:\n"+moneyText(imp))
+    alert("✅ Depósito manual añadido:\n"+moneyText(imp));
   }
 
   programarAvisosDeposito();
@@ -1721,7 +1716,6 @@ function calcularCambio(){
   renderCambioResultado(tot);
 }
 
-// ⬇️ FIRMA CORREGIDA (3 args) ⬇️
 function renderCambioManual(total,minEnt,soloMonedas){
   const cont=document.getElementById("cambioContenido");
   if(!cont)return;
@@ -1778,7 +1772,6 @@ function resetCambioManual(total){cambioState.aRecibir={};cambioState.ordenRecib
 function deshacerCambioRecibir(total){if(!cambioState.ordenRecibir)cambioState.ordenRecibir=[];const last=cambioState.ordenRecibir.pop();if(last==null)return;if(cambioState.aRecibir[last]>0){cambioState.aRecibir[last]--;if(cambioState.aRecibir[last]<=0)delete cambioState.aRecibir[last]}actualizarCambioManual(total)}
 function actualizarCambioManual(total){let s=0;denominations.forEach(d=>{const n=cambioState.aRecibir[d.c]||0;s+=d.c*n;const bd=document.getElementById("cambioManBadge"+d.c);if(bd){if(n>0){bd.textContent="x"+n;bd.style.display="block"}else bd.style.display="none"}});const el=document.getElementById("cambioManSuma");if(el)el.textContent=moneyText(s);const est=document.getElementById("cambioManEstado");const btn=document.getElementById("cambioManBtn");if(est&&btn){if(s===total){est.innerHTML="<span style='color:#4ade80'>✅ Cuadra perfectamente</span>";btn.style.opacity="1";btn.style.pointerEvents="auto"}else if(s<total){est.innerHTML="<span style='color:#fbbf24'>⚠️ Te faltan "+moneyText(total-s)+"</span>";btn.style.opacity="0.5";btn.style.pointerEvents="none"}else{est.innerHTML="<span style='color:#ef4444'>⚠️ Te pasas por "+moneyText(s-total)+"</span>";btn.style.opacity="0.5";btn.style.pointerEvents="none"}}}
 
-// ⬇️ CONFIRMAR CAMBIO CON TRY/CATCH ⬇️
 function confirmarCambio(total){
   let s = 0;
   denominations.forEach(d => { s += d.c * (cambioState.aRecibir[d.c] || 0); });
@@ -1991,7 +1984,6 @@ function calcularFaltantes(v, c){
   return { faltantes: fal, total, totalDeHucha, totalDeBanco };
 }
 
-/* ==================== INTERCAMBIOS RECOMENDADOS ==================== */
 function calcularIntercambiosRecomendados(){
   const ops = statsOps.operations;
   if(ops < 10) return { sobran: [], totalSobra: 0, monedasSobran: [], totalMonedasSobra: 0 };
@@ -2030,7 +2022,6 @@ function calcularIntercambiosRecomendados(){
 
   return { sobran, totalSobra, monedasSobran, totalMonedasSobra };
 }
-/* ==================== FIN INTERCAMBIOS ==================== */
 
 function abrirReponerPantalla(){const d=document.getElementById("drawer"),o=document.getElementById("overlay");if(d)d.classList.remove("active");if(o)o.classList.remove("active");const p=document.getElementById("reponerPantalla");if(p)p.style.display="block";reponerState.manualInicializado=false;reponerState.manualAdd={};reponerState.importeManual=0;renderReponerInicio()}
 function cerrarReponerPantalla(){const p=document.getElementById("reponerPantalla");if(p)p.style.display="none"}
@@ -2328,7 +2319,6 @@ function confirmarReponer(){
   cerrarReponerPantalla();
 }
 
-/* ==================== MODO DEBUG (ERUDA) ==================== */
 function cargarEruda(){
   return new Promise((resolve, reject) => {
     if(window.eruda){ resolve(); return; }
@@ -2372,8 +2362,6 @@ function toggleModoDebug(){
   }
   renderResetPanel();
 }
-/* ==================== FIN MODO DEBUG ==================== */
-
 
 function setupBackupUI(){const p=document.getElementById("panelInventario");if(!p)return;if(document.getElementById("backupBox"))return;const box=document.createElement("div");box.id="backupBox";box.style.cssText="margin-top:16px;border-top:1px solid #334155;padding-top:14px";const tt=document.createElement("div");tt.textContent="COPIA DE SEGURIDAD";tt.style.cssText="font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:0.5px;margin-bottom:8px";const be=document.createElement("button");be.type="button";be.textContent="💾 Guardar copia";be.style.cssText="width:100%;background:#334155;color:#fff;padding:12px;border-radius:10px;margin-bottom:8px;font-weight:700;font-size:15px;border:none;cursor:pointer";be.onclick=exportInventory;const bi=document.createElement("button");bi.type="button";bi.textContent="📂 Cargar copia";bi.style.cssText=be.style.cssText;bi.onclick=()=>fi.click();const fi=document.createElement("input");fi.type="file";fi.accept="application/json,.json";fi.style.display="none";fi.onchange=e=>{const f=e.target.files[0];if(f)importInventory(f);fi.value=""};box.appendChild(tt);box.appendChild(be);box.appendChild(bi);box.appendChild(fi);p.appendChild(box)}
 
@@ -2834,7 +2822,7 @@ async function lanzarNotificacionZona(texto){
         id: idUnico,
         title: '📍 Cambio de zona',
         body: texto,
-        channelId: 'zona-cambio', // 👈 Volvemos al ID original
+        channelId: 'zona-cambio',
         smallIcon: 'ic_stat_icon_config_sample',
         sound: 'default',
         vibrate: true,
@@ -2852,18 +2840,16 @@ async function crearCanalNotificacionesZona(){
     if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
     const LN = Cap.Plugins.LocalNotifications;
 
-    // 👇 BORRAMOS el canal viejo para limpiar la configuración
     try {
       if(LN.deleteChannel) await LN.deleteChannel({ id: 'zona-cambio' });
     } catch(e){}
 
-    // 👇 LO VOLVEMOS A CREAR con prioridad alta
     if(LN.createChannel){
       await LN.createChannel({
         id: 'zona-cambio',
         name: 'Cambios de zona',
         description: 'Avisa cuando entras o sales de la zona de trabajo',
-        importance: 5, // Máxima prioridad (pop-up)
+        importance: 5,
         visibility: 1,
         sound: 'default',
         vibration: true,
@@ -2982,7 +2968,7 @@ function loadFestivos(){
 }
 function saveFestivos(){ 
   safeStorage.set("uberCambioFestivos", JSON.stringify(festivos)); 
-  programarAvisosFestivos(); // 👈 Añade esto
+  programarAvisosFestivos();
 }
 
 function loadDiasPersonales(){
@@ -3062,7 +3048,7 @@ function nombreEstado(est){
     caducado:"Caducado",
     libre:"No trabajado",
     sacrificado:"Sacrificado",
-    futuro:"Aún no trabajado" // 👈 ANTES PONÍA "Pendiente"
+    futuro:"Aún no trabajado"
   };
   return n[est] || est;
 }
@@ -5259,7 +5245,6 @@ async function abrirMapaPantalla(){
   await cargarPoligonos(cont);
 
   cont.innerHTML = `
-    <!-- 1. ESTADO -->
     <div id="geoEstadoBadge"
       style="text-align:center;margin-bottom:12px;padding:14px;border-radius:12px;border:2px solid #475569;
              background:linear-gradient(135deg,#1e293b,#0f172a);color:#94a3b8;
@@ -5268,7 +5253,6 @@ async function abrirMapaPantalla(){
       <div style='font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px'>Pulsa INICIAR para empezar</div>
     </div>
 
-    <!-- 2. MAPA -->
     <div style="position:relative;margin-bottom:12px">
       <div id="mapa-leaflet" style="width:100%;height:50vh;min-height:300px;border-radius:12px;background:#1e293b;border:1px solid #334155"></div>
       <button type="button" onclick="centrarEnMiUbicacion()" title="Mi ubicación"
@@ -5281,12 +5265,10 @@ async function abrirMapaPantalla(){
       </button>
     </div>
 
-    <!-- 3. ZONA ACTUAL -->
     <div id="mapaZonaActual" style="text-align:center;margin-bottom:12px;padding:12px;background:#1e293b;border-radius:12px;font-size:15px;font-weight:800;color:#94a3b8;border:1px solid #334155">
       Zona: —
     </div>
 
-    <!-- 4. BOTONES INICIAR / DETENER -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <button type="button" id="btnGeoIniciar" onclick="iniciarGeolocalizacion()"
         style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;
@@ -5300,16 +5282,13 @@ async function abrirMapaPantalla(){
       </button>
     </div>
 
-    <!-- 5. FECHA Y RUTA -->
     <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:14px; margin-bottom:12px;">
       <div style="font-size:11px; color:#94a3b8; font-weight:800; letter-spacing:0.5px; margin-bottom:10px;">🗺️ HISTORIAL DE RUTAS</div>
       
       <div style="display:flex;gap:10px;align-items:center;">
-        <!-- Input de fecha estirado y centrado -->
         <input type="date" id="fechaRutaInput" 
           style="flex:1; height:48px; box-sizing:border-box; background:#0f172a; color:#fff; border:1px solid #475569; border-radius:10px; padding:0 12px; font-weight:800; font-size:15px; outline:none; text-align:center; cursor:pointer;">
         
-        <!-- Botón más sobrio, misma altura -->
         <button type="button" onclick="toggleRecorridoMapa()" id="btnRecorridoMapa"
           style="flex:1; height:48px; box-sizing:border-box; background:#0284c7; color:#fff; border:none; border-radius:10px; font-weight:900; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s;">
           🗺️ Ver
@@ -5317,7 +5296,6 @@ async function abrirMapaPantalla(){
       </div>
     </div>
 
-    <!-- 6. LEYENDA -->
     <div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:12px;margin-bottom:12px">
       <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px">📖 LEYENDA</div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
@@ -5338,7 +5316,6 @@ async function abrirMapaPantalla(){
       </div>
     </div>
 
-    <!-- 7. DEBUG -->
     <div style="text-align:center;margin-top:10px;margin-bottom:20px">
       <button type="button" onclick="toggleDebugCoords()"
         style="background:transparent;color:#64748b;border:1px dashed #475569;border-radius:10px;
@@ -5610,7 +5587,7 @@ async function reiniciarWatcherConTexto(texto){
       backgroundTitle: 'Mapa de zonas',          // 👈 Título unificado
       requestPermissions: false,
       stale: false,
-      distanceFilter: 5,
+      distanceFilter: 10,
       desiredAccuracy: 20,
       stationaryRadius: 25,
       stopOnTerminate: false,
@@ -5987,7 +5964,7 @@ async function iniciarGeolocalizacion(){
       stale: true,
       distanceFilter: 10,
       desiredAccuracy: 20,
-      stationaryRadius: 25
+      stationaryRadius: 25,           // 👈 AQUÍ ESTABA LA COMA QUE FALTABA
       stopOnTerminate: false,
       startOnBoot: true,
       preventSuspend: true,

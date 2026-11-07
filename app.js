@@ -2807,24 +2807,23 @@ function cerrarDiasPantalla(){
 }
 /* ==================== FIN PANTALLAS NUEVAS ==================== */
 
+const ID_NOTIF_ZONA = 9001;
 async function lanzarNotificacionZona(texto){
   if(safeStorage.get("uberCambioSonidoZona") === "0") return;
- 
+
   try {
     const Cap = window.Capacitor;
     if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
     const LN = Cap.Plugins.LocalNotifications;
- 
-    const idUnico = Math.floor(Date.now() / 1000) % 100000;
- 
+
     await LN.schedule({
       notifications: [{
-        id: idUnico,
+        id: ID_NOTIF_ZONA,
         title: '📍 Cambio de zona',
         body: texto,
         channelId: 'zona-cambio',
         smallIcon: 'ic_stat_icon_config_sample'
-        // sin "schedule" → se muestra inmediatamente
+        // sin "schedule" → se muestra al instante
       }]
     });
   } catch(e){

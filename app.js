@@ -3008,6 +3008,7 @@ function loadFestivos(){
 function saveFestivos(){ 
   safeStorage.set("uberCambioFestivos", JSON.stringify(festivos)); 
   programarAvisosFestivos();
+  try { actualizarBotonCochePrincipal(); } catch(e){}
 }
 
 function loadDiasPersonales(){
@@ -3333,6 +3334,8 @@ function renderDiasTrabajo(){
   const aprobados   = festivosAnio.filter(f => estadoFestivo(f) === "aprobado").length;
   const completados = festivosAnio.filter(f => estadoFestivo(f) === "completado").length;
   const acumulados  = festivosAnio.filter(f => estadoFestivo(f) === "acumulado").length;
+  const acumuladosTrab  = festivosAnio.filter(f => estadoFestivo(f) === "acumulado" && !esDiaNoTrabajado(f.fecha)).length;
+  const acumuladosLibre = festivosAnio.filter(f => estadoFestivo(f) === "acumulado" &&  esDiaNoTrabajado(f.fecha)).length;
   const porCaducar  = festivosAnio.filter(f => estadoFestivo(f) === "porCaducar").length;
 
   const personalesAnio = diasPersonales.filter(d =>
@@ -3365,6 +3368,10 @@ function renderDiasTrabajo(){
       <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
         <div style="font-size:10px;color:#94a3b8;font-weight:700">🔵 ACUMULADOS</div>
         <div style="font-size:22px;font-weight:900;color:#38bdf8;margin-top:4px">${acumulados}</div>
+        <div style="font-size:9px;color:#64748b;margin-top:5px;line-height:1.5">
+          <div style="color:#fbbf24">💼 Trabajados (2M): <b>${acumuladosTrab}</b></div>
+          <div style="color:#a78bfa">🏖️ Libranza (31D): <b>${acumuladosLibre}</b></div>
+        </div>
       </div>
       <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
         <div style="font-size:10px;color:#94a3b8;font-weight:700">🟣 SOLICITADOS</div>
@@ -6589,6 +6596,15 @@ function checkResetCoche(){
   }
 }
 
+function contarPendientes(){
+  try {
+    const pendFest = festivos.filter(estaPendiente).length;
+    return pendFest;
+  } catch(e){
+    return 0;
+  }
+}
+
 function actualizarBotonCochePrincipal(){
   let elTexto = null;
   const allEls = Array.from(document.querySelectorAll('div, span, h1, h2, h3, p'));
@@ -6621,49 +6637,37 @@ function actualizarBotonCochePrincipal(){
   if(!widget){
     widget = document.createElement("div");
     widget.id = "widgetCochePrincipal";
-    widget.style.cssText = "margin-bottom: 12px; display: flex; justify-content: flex-start; width: 100%;";
+    widget.style.cssText = "margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%;";
     target.parentNode.insertBefore(widget, target);
   }
 
+  // ── Chip izquierdo: coche ──
+  let carHtml = "";
   if(cocheActual){
     const cocheData = pinesLista.find(x => x.mat === cocheActual);
     const cb = cocheData ? cocheData.combustible : false;
     const pb = cocheData ? cocheData.pinturaBarca : false;
     const sp = cocheData ? cocheData.sinPeaje : false;
 
-    // Surtidor: sale si NO tiene tarjeta (!cb) y en color rojo para avisar
     const svgCombustible = !cb ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M3 13h10"/><path d="M13 8h2a2 2 0 0 1 2 2v6a2 2 0 0 0 4 0V9l-3-3"/></svg>` : "";
-    
-    // Barça: sale si SÍ lo tiene (pb)
     const svgBarca = pb ? `<svg viewBox="0 0 20 13" width="14" height="10" style="vertical-align:middle; border-radius:2px; box-shadow:0 0 0 1px rgba(255,255,255,0.35);"><rect width="20" height="13" fill="#004d98"/><rect x="4" width="4" height="13" fill="#a50044"/><rect x="12" width="4" height="13" fill="#a50044"/></svg>` : "";
+    const svgSinPeaje = sp ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M2 20 V10 L6 6 L10 10 V20"/><path d="M14 20 V9"/><path d="M14 9 L22 5"/><path d="M1 20 H23"/></svg>` : "";
 
-    // Caseta de peaje: sale si SÍ no tiene tarjeta de peajes (sp), en rojo para avisar
-    const svgSinPeaje = sp ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M5 22V6"/><path d="M5 6L20 2"/><path d="M2 22h20"/><circle cx="5" cy="6" r="1.5"/></svg>` : "";
-
-    // Creamos el bloque de iconos solo si hay al menos uno activo
     let iconosHtml = "";
-    if(!cb || pb || sp) {
-      iconosHtml = `
-        <div style="display: flex; gap: 6px; align-items: center; border-left: 1px solid rgba(255,255,255,0.2); padding-left: 8px; margin-left: 2px;">
-          ${svgCombustible}
-          ${svgBarca}
-          ${svgSinPeaje}
-        </div>
-      `;
+    if(!cb || pb || sp){
+      iconosHtml = `<div style="display: flex; gap: 6px; align-items: center; border-left: 1px solid rgba(255,255,255,0.2); padding-left: 8px; margin-left: 2px;">${svgCombustible}${svgBarca}${svgSinPeaje}</div>`;
     }
 
-    widget.innerHTML = `
+    carHtml = `
       <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="background: linear-gradient(135deg, #064e3b, #065f46); border: 1px solid #10b981; border-radius: 20px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 10px; box-shadow: 0 2px 8px rgba(16,185,129,0.2); cursor: pointer;">
         <span style="font-size: 14px;">🚗</span>
         <span style="font-size: 14px; font-weight: 900; color: #fff; letter-spacing: 1px;">${cocheActual}</span>
-        
         ${iconosHtml}
-
         <span style="font-size: 14px; color: #4ade80; font-weight: 900; margin-left: ${iconosHtml ? '2px' : '6px'};">›</span>
       </div>
     `;
   } else {
-    widget.innerHTML = `
+    carHtml = `
       <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="background: #1e293b; border: 1px dashed #475569; border-radius: 20px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
         <span style="font-size: 14px;">🚗</span>
         <span style="font-size: 13px; font-weight: 700; color: #94a3b8;">Asignar coche</span>
@@ -6671,7 +6675,21 @@ function actualizarBotonCochePrincipal(){
       </div>
     `;
   }
-  
+
+  // ── Chip derecho: alertas ──
+  const pend = contarPendientes();
+  let alertHtml = "";
+  if(pend > 0){
+    alertHtml = `
+      <div onclick="if(typeof abrirDiasPantalla==='function')abrirDiasPantalla()" style="background: linear-gradient(135deg,#7c2d12,#9a3412); border: 1px solid #ea580c; border-radius: 20px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; box-shadow: 0 2px 8px rgba(234,88,12,0.3);">
+        <span style="font-size: 14px;">🔔</span>
+        <span style="font-size: 12px; font-weight: 900; color: #fed7aa; letter-spacing: 0.5px;">${pend} pendiente${pend !== 1 ? "s" : ""}</span>
+        <span style="font-size: 14px; color: #fbbf24; font-weight: 900;">›</span>
+      </div>
+    `;
+  }
+
+  widget.innerHTML = carHtml + alertHtml;
   return true;
 }
 
@@ -6759,7 +6777,7 @@ function renderPinesResultados(){
 
   const svgCombustible = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M3 13h10"/><path d="M13 8h2a2 2 0 0 1 2 2v6a2 2 0 0 0 4 0V9l-3-3"/></svg>`;
   const svgBarca = `<svg viewBox="0 0 20 13" width="18" height="12" style="display:inline-block;vertical-align:middle;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,0.35)"><rect width="20" height="13" fill="#004d98"/><rect x="4" width="4" height="13" fill="#a50044"/><rect x="12" width="4" height="13" fill="#a50044"/></svg>`;
-  const svgSinPeaje = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M5 22V6"/><path d="M5 6L20 2"/><path d="M2 22h20"/><circle cx="5" cy="6" r="1.5"/></svg>`;
+  const svgSinPeaje = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M2 20 V10 L6 6 L10 10 V20"/><rect x="4.5" y="12" width="3" height="3"/><path d="M14 20 V9"/><path d="M14 9 L22 5"/><path d="M1 20 H23"/></svg>`;
 
   const styleDefault = "background:#1e293b;border:2px solid #475569;color:#fff";
   const styleRojo    = "background:#7f1d1d;border:2px solid #ef4444;color:#fff";
@@ -6842,6 +6860,8 @@ function renderPinesResultados(){
         </div>
         <button type="button" onclick="togglePinCombustible('${x.mat}')" title="Combustible: ${cb?'SÍ':'NO'}"
           style="width:34px;height:34px;padding:0;border-radius:8px;${styleComb(cb)};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">${svgCombustible}</button>
+        <button type="button" onclick="togglePinBarca('${x.mat}')" title="Pintura Barça: ${pb?'SÍ':'NO'}"
+          style="width:34px;height:34px;padding:0;border-radius:8px;${styleBarca(pb)};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">${svgBarca}</button>
         <button type="button" onclick="togglePinSinPeaje('${x.mat}')" title="Sin tarjeta de peajes: ${sp?'SÍ':'NO'}"
           style="width:34px;height:34px;padding:0;border-radius:8px;${styleSinPeaje(sp)};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">${svgSinPeaje}</button>
         ${esActual ? `
@@ -6936,7 +6956,7 @@ function abrirModalPin(existente){
 
   const svgCombustible = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M3 13h10"/><path d="M13 8h2a2 2 0 0 1 2 2v6a2 2 0 0 0 4 0V9l-3-3"/></svg>`;
   const svgBarca = `<svg viewBox="0 0 20 13" width="26" height="17" style="display:inline-block;vertical-align:middle;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,0.35)"><rect width="20" height="13" fill="#004d98"/><rect x="4" width="4" height="13" fill="#a50044"/><rect x="12" width="4" height="13" fill="#a50044"/></svg>`;
-  const svgSinPeaje = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M5 22V6"/><path d="M5 6L20 2"/><path d="M2 22h20"/><circle cx="5" cy="6" r="1.5"/></svg>`;
+  const svgSinPeaje = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M2 20 V10 L6 6 L10 10 V20"/><rect x="4.5" y="12" width="3" height="3"/><path d="M14 20 V9"/><path d="M14 9 L22 5"/><path d="M1 20 H23"/></svg>`;
 
   const styleDefault = "background:#1e293b;border:2px solid #475569;color:#fff";
   const styleRojo    = "background:#7f1d1d;border:2px solid #ef4444;color:#fff";

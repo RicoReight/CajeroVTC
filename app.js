@@ -6604,7 +6604,7 @@ function actualizarBotonCochePrincipal(){
     const svgBarca = pb ? `<svg viewBox="0 0 20 13" width="14" height="10" style="vertical-align:middle; border-radius:2px; box-shadow:0 0 0 1px rgba(255,255,255,0.35);"><rect width="20" height="13" fill="#004d98"/><rect x="4" width="4" height="13" fill="#a50044"/><rect x="12" width="4" height="13" fill="#a50044"/></svg>` : "";
 
     // Caseta de peaje: sale si SÍ no tiene tarjeta de peajes (sp), en rojo para avisar
-    const svgSinPeaje = sp ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M3 10l9-6 9 6"/><rect x="5" y="10" width="14" height="10" rx="1"/><rect x="9" y="13" width="6" height="3"/><path d="M2 22h20"/></svg>` : "";
+    const svgSinPeaje = sp ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M5 22V6"/><path d="M5 6L20 2"/><path d="M2 22h20"/><circle cx="5" cy="6" r="1.5"/></svg>` : "";
 
     // Creamos el bloque de iconos solo si hay al menos uno activo
     let iconosHtml = "";
@@ -6725,7 +6725,7 @@ function renderPinesResultados(){
 
   const svgCombustible = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M3 13h10"/><path d="M13 8h2a2 2 0 0 1 2 2v6a2 2 0 0 0 4 0V9l-3-3"/></svg>`;
   const svgBarca = `<svg viewBox="0 0 20 13" width="18" height="12" style="display:inline-block;vertical-align:middle;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,0.35)"><rect width="20" height="13" fill="#004d98"/><rect x="4" width="4" height="13" fill="#a50044"/><rect x="12" width="4" height="13" fill="#a50044"/></svg>`;
-  const svgSinPeaje = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M3 10l9-6 9 6"/><rect x="5" y="10" width="14" height="10" rx="1"/><rect x="9" y="13" width="6" height="3"/><path d="M2 22h20"/></svg>`;
+  const svgSinPeaje = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M5 22V6"/><path d="M5 6L20 2"/><path d="M2 22h20"/><circle cx="5" cy="6" r="1.5"/></svg>`;
 
   const styleDefault = "background:#1e293b;border:2px solid #475569;color:#fff";
   const styleRojo    = "background:#7f1d1d;border:2px solid #ef4444;color:#fff";
@@ -6902,7 +6902,7 @@ function abrirModalPin(existente){
 
   const svgCombustible = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M3 13h10"/><path d="M13 8h2a2 2 0 0 1 2 2v6a2 2 0 0 0 4 0V9l-3-3"/></svg>`;
   const svgBarca = `<svg viewBox="0 0 20 13" width="26" height="17" style="display:inline-block;vertical-align:middle;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,0.35)"><rect width="20" height="13" fill="#004d98"/><rect x="4" width="4" height="13" fill="#a50044"/><rect x="12" width="4" height="13" fill="#a50044"/></svg>`;
-  const svgSinPeaje = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M3 10l9-6 9 6"/><rect x="5" y="10" width="14" height="10" rx="1"/><rect x="9" y="13" width="6" height="3"/><path d="M2 22h20"/></svg>`;
+  const svgSinPeaje = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M5 22V6"/><path d="M5 6L20 2"/><path d="M2 22h20"/><circle cx="5" cy="6" r="1.5"/></svg>`;
 
   const styleDefault = "background:#1e293b;border:2px solid #475569;color:#fff";
   const styleRojo    = "background:#7f1d1d;border:2px solid #ef4444;color:#fff";

@@ -3893,10 +3893,34 @@ function pedirFechaDisfrute(f, callback){
   const prev = document.getElementById("modalFechaDisfrute");
   if(prev) prev.remove();
 
+  // Calcular rango permitido
+  const minDate = fechaMinimaSolicitud(f.fecha);       // día siguiente al festivo
+  const maxDate = fechaCaducidad(f);                    // +2 meses o 31 dic
+  if(!maxDate){
+    alert("⚠️ Este festivo no se puede solicitar.");
+    callback(null);
+    return;
+  }
+  minDate.setHours(0,0,0,0);
+  maxDate.setHours(23,59,59,999);
+
+  const minStr = fechaLocalStr(minDate);
+  const maxStr = fechaLocalStr(maxDate);
+
+  // Fecha sugerida: clamp entre min y max
   const hoy = new Date();
-  const sugerido = f.fechaDisfrute || (hoy.getFullYear() + "-" +
-                   String(hoy.getMonth()+1).padStart(2,"0") + "-" +
-                   String(hoy.getDate()).padStart(2,"0"));
+  hoy.setHours(0,0,0,0);
+  let sugeridoDate;
+  if(f.fechaDisfrute){
+    sugeridoDate = new Date(f.fechaDisfrute + "T00:00:00");
+  } else if(hoy < minDate){
+    sugeridoDate = new Date(minDate);
+  } else if(hoy > maxDate){
+    sugeridoDate = new Date(maxDate);
+  } else {
+    sugeridoDate = new Date(hoy);
+  }
+  const sugerido = fechaLocalStr(sugeridoDate);
 
   const m = document.createElement("div");
   m.id = "modalFechaDisfrute";
@@ -3913,13 +3937,14 @@ function pedirFechaDisfrute(f, callback){
       </div>
 
       <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:6px">FECHA DE DISFRUTE</div>
-      <input type="date" id="fdFecha" value="${sugerido}"
+      <input type="date" id="fdFecha" value="${sugerido}" min="${minStr}" max="${maxStr}"
         style="width:100%;font-size:18px;padding:14px;border-radius:10px;
                border:2px solid #0891b2;background:#0f172a;color:#fff;
                margin-bottom:16px;outline:none">
 
-      <div style="font-size:11px;color:#22d3ee;font-weight:700;padding:10px 12px;background:#164e63;border-radius:8px;margin-bottom:16px;line-height:1.4;text-align:center">
-        💡 Puede ser este año o el que viene
+      <div style="font-size:11px;color:#22d3ee;font-weight:700;padding:10px 12px;background:#164e63;border-radius:8px;margin-bottom:16px;line-height:1.5;text-align:center">
+        📅 Del <b>${formatearFechaBonita(minStr)}</b><br>
+        al <b>${formatearFechaBonita(maxStr)}</b>
       </div>
 
       <div style="display:flex;gap:8px">
@@ -3947,6 +3972,15 @@ function pedirFechaDisfrute(f, callback){
     const v = document.getElementById("fdFecha").value;
     if(!/^\d{4}-\d{2}-\d{2}$/.test(v)){
       alert("Selecciona una fecha válida");
+      return;
+    }
+    const fecha = new Date(v + "T00:00:00");
+    if(fecha < minDate || fecha > maxDate){
+      alert(
+        "⚠️ Fecha fuera del plazo\n\n" +
+        "Debe estar entre el " + formatearFechaBonita(minStr) +
+        " y el " + formatearFechaBonita(maxStr) + "."
+      );
       return;
     }
     cerrar();

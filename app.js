@@ -3115,14 +3115,14 @@ function estadoFestivo(f){
 
 function colorEstadoFestivo(estado){
   const c = {
-    solicitado:"#a78bfa",
+    solicitado:"#ec4899",     // ← rosa
     aprobado:"#4ade80",
     completado:"#94a3b8",
     acumulado:"#38bdf8",
     porCaducar:"#fbbf24",
     caducado:"#ef4444",
     libre:"#fb923c",
-    sacrificado:"#a855f7",
+    sacrificado:"#78350f",    // ← marrón
     futuro:"#fcd34d",
     vacaciones:"#22d3ee"
   };
@@ -3686,10 +3686,10 @@ function abrirModalFestivo(fechaStr){
         <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:8px">¿LO HAS SOLICITADO?</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
           <button type="button" onclick="setFestivoSolicitado(true)"
-            style="padding:14px 8px;border-radius:10px;border:2px solid ${f.solicitado&&!f.sacrificado?'#a78bfa':'#475569'};
-                   background:${f.solicitado&&!f.sacrificado?'linear-gradient(135deg,#4c1d95,#6d28d9)':'#0f172a'};
-                   color:${f.solicitado&&!f.sacrificado?'#c4b5fd':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px">
-            🟣 Sí
+            style="padding:14px 8px;border-radius:10px;border:2px solid ${f.solicitado&&!f.sacrificado?'#ec4899':'#475569'};
+                   background:${f.solicitado&&!f.sacrificado?'linear-gradient(135deg,#831843,#be185d)':'#0f172a'};
+                   color:${f.solicitado&&!f.sacrificado?'#fbcfe8':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px">
+            🌸 Sí
           </button>
           <button type="button" onclick="setFestivoSolicitado(false)"
             style="padding:14px 8px;border-radius:10px;border:2px solid ${!f.solicitado&&!f.sacrificado?'#fbbf24':'#475569'};
@@ -3709,32 +3709,32 @@ function abrirModalFestivo(fechaStr){
               🟢 Aprobado
             </button>
             <button type="button" onclick="setFestivoAprobado(false)"
-              style="padding:14px 8px;border-radius:10px;border:2px solid ${!f.aprobado?'#a78bfa':'#475569'};
-                     background:${!f.aprobado?'#4c1d95':'#0f172a'};
-                     color:${!f.aprobado?'#c4b5fd':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px">
-              🟣 Pendiente
+              style="padding:14px 8px;border-radius:10px;border:2px solid ${!f.aprobado?'#ec4899':'#475569'};
+                     background:${!f.aprobado?'#831843':'#0f172a'};
+                     color:${!f.aprobado?'#fbcfe8':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px">
+              🌸 Pendiente
             </button>
           </div>
         ` : ""}
 
         <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:8px">O SACRIFICADO POR LA EMPRESA</div>
         <button type="button" onclick="setFestivoSacrificado(${!f.sacrificado})"
-          style="width:100%;padding:14px 8px;border-radius:10px;border:2px solid ${f.sacrificado?'#a855f7':'#475569'};
-                 background:${f.sacrificado?'linear-gradient(135deg,#4c1d95,#6d28d9)':'#0f172a'};
-                 color:${f.sacrificado?'#e9d5ff':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px;margin-bottom:16px">
+          style="width:100%;padding:14px 8px;border-radius:10px;border:2px solid ${f.sacrificado?'#78350f':'#475569'};
+                 background:${f.sacrificado?'linear-gradient(135deg,#451a03,#78350f)':'#0f172a'};
+                 color:${f.sacrificado?'#fde68a':'#94a3b8'};font-weight:900;cursor:pointer;font-size:14px;margin-bottom:16px">
           🔥 ${f.sacrificado ? "Sacrificado · pulsa para quitar" : "Marcar como sacrificado"}
         </button>
 
         ${f.sacrificado ? `
-          <div style="background:#4c1d95;border:1px solid #8b5cf6;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:#e9d5ff;line-height:1.5;text-align:center">
+          <div style="background:#451a03;border:1px solid #78350f;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:#fde68a;line-height:1.5;text-align:center">
             🔥 Este festivo fue <b>sacrificado</b> por la empresa<br>
             No cuenta como pendiente ni bloquea el año
           </div>
         ` : ""}
 
         ${!f.sacrificado && f.solicitado && f.fechaDisfrute ? `
-          <div style="background:${f.aprobado ? '#064e3b' : '#4c1d95'};border:1px solid ${f.aprobado ? '#059669' : '#8b5cf6'};border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:${f.aprobado ? '#a7f3d0' : '#e9d5ff'};line-height:1.5;text-align:center">
-            ${f.aprobado ? '✅ Aprobado por la empresa' : '⏳ Pendiente de aprobación'}<br>
+          <div style="background:${f.aprobado ? '#064e3b' : '#831843'};border:1px solid ${f.aprobado ? '#059669' : '#ec4899'};border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:${f.aprobado ? '#a7f3d0' : '#fbcfe8'};line-height:1.5;text-align:center">
+            ${f.aprobado ? '✅ Aprobado por la empresa' : '🌸 Pendiente de aprobación'}<br>
             🎉 Disfrute: <b style="font-size:15px;color:#fff">${formatearFechaBonita(f.fechaDisfrute)}</b>
             ${f.fechaDisfrute < fechaLocalStr() ? `<br><span style="color:#64748b">(ya disfrutado)</span>` : ""}
           </div>
@@ -6677,21 +6677,56 @@ function obtenerAvisos(){
     }
   } catch(e){}
 
-  // 6) Depósito de propinas pendiente
+  // 6) Depósito de propinas pendiente (sincronizado con la notificación)
   try {
     const ops = loadHistorialOps();
     const cierres = loadCierres();
     const totalOps = ops.reduce((s, op) => s + (op.precio || 0), 0);
     const totalCierres = cierres.reduce((s, c) => s + (c.total || 0), 0);
     const pendiente = Math.max(0, totalOps - totalCierres);
+
     if(pendiente > 0){
-      avisos.push({
-        tipo: "info",
-        icono: "💶",
-        titulo: moneyText(pendiente) + " pendientes de depositar",
-        subtitulo: "Propinas de viajes sin ingresar",
-        accion: "cierre"
-      });
+      // Detectar si estamos en "última semana" (igual que programarAvisosDeposito)
+      let enUltimaSemana = false;
+      let fechaLimite = null;
+      try {
+        if(diaReset !== 0){
+          const prox = calcularProximoReset();
+          if(prox){
+            fechaLimite = new Date(prox.getTime());
+            const ds = fechaLimite.getDay();
+            if(ds === 6) fechaLimite.setDate(fechaLimite.getDate() - 1);
+            else if(ds === 0) fechaLimite.setDate(fechaLimite.getDate() - 2);
+            else if(ds === 1) fechaLimite.setDate(fechaLimite.getDate() - 3);
+            fechaLimite.setHours(0,0,0,0);
+
+            const ahoraDia = new Date();
+            ahoraDia.setHours(0,0,0,0);
+            const diasHastaLimite = Math.ceil((fechaLimite - ahoraDia) / (1000*60*60*24));
+            if(diasHastaLimite >= 0 && diasHastaLimite <= 7) enUltimaSemana = true;
+          }
+        }
+      } catch(e){}
+
+      if(enUltimaSemana && fechaLimite){
+        // ⚠️ Aviso urgente de última semana (sincronizado con la notificación)
+        avisos.push({
+          tipo: "urgente",
+          icono: "⚠️",
+          titulo: "Última semana para depositar",
+          subtitulo: "Límite: " + formatearFechaBonita(fechaLocalStr(fechaLimite)) + " · " + moneyText(pendiente),
+          accion: "cierre"
+        });
+      } else {
+        // 💶 Aviso normal de depósito pendiente
+        avisos.push({
+          tipo: "info",
+          icono: "💶",
+          titulo: moneyText(pendiente) + " pendientes de depositar",
+          subtitulo: "Propinas de viajes sin ingresar",
+          accion: "cierre"
+        });
+      }
     }
   } catch(e){}
 

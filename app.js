@@ -6596,13 +6596,159 @@ function checkResetCoche(){
   }
 }
 
-function contarPendientes(){
-  try {
-    const pendFest = festivos.filter(estaPendiente).length;
-    return pendFest;
-  } catch(e){
-    return 0;
+function obtenerAvisos(){
+  const avisos = [];
+  const ahora = new Date();
+
+  // 1) Festivos por caducar (≤15 días, sin solicitar)
+  const porCaducar = festivos.filter(f => {
+    if(!f.trabajado || f.solicitado || f.sacrificado) return false;
+    const d = diasHastaCaducar(f);
+    return d >= 0 && d <= 15;
+  });
+  if(porCaducar.length){
+    avisos.push({
+      tipo: "urgente",
+      icono: "⚠️",
+      titulo: porCaducar.length + " festivo" + (porCaducar.length !== 1 ? "s" : "") + " por caducar",
+      subtitulo: "Menos de 15 días para solicitarlo",
+      accion: "dias"
+    });
   }
+
+  // 2) Festivos sin solicitar (aún con margen)
+  const sinSolicitar = festivos.filter(f => {
+    if(!f.trabajado || f.solicitado || f.sacrificado) return false;
+    const d = diasHastaCaducar(f);
+    return d > 15;
+  });
+  if(sinSolicitar.length){
+    avisos.push({
+      tipo: "info",
+      icono: "📅",
+      titulo: sinSolicitar.length + " festivo" + (sinSolicitar.length !== 1 ? "s" : "") + " sin solicitar",
+      subtitulo: "Aún estás a tiempo",
+      accion: "dias"
+    });
+  }
+
+  // 3) Solicitados pendientes de aprobar
+  const pendAprobar = festivos.filter(f => f.solicitado && !f.aprobado && !f.sacrificado);
+  if(pendAprobar.length){
+    avisos.push({
+      tipo: "info",
+      icono: "⏳",
+      titulo: pendAprobar.length + " pendiente" + (pendAprobar.length !== 1 ? "s" : "") + " de aprobar",
+      subtitulo: "La empresa no ha confirmado todavía",
+      accion: "dias"
+    });
+  }
+
+  // 4) Aprobados sin fecha de disfrute
+  const sinDisfrute = festivos.filter(f => f.solicitado && f.aprobado && !f.sacrificado && !f.fechaDisfrute);
+  if(sinDisfrute.length){
+    avisos.push({
+      tipo: "info",
+      icono: "🎉",
+      titulo: sinDisfrute.length + " sin fecha de disfrute",
+      subtitulo: "Aprobado pero sin día elegido",
+      accion: "dias"
+    });
+  }
+
+  // 5) Reset de propinas próximo (≤3 días)
+  try {
+    if(diaReset !== 0){
+      const prox = calcularProximoReset();
+      if(prox){
+        const dias = Math.ceil((prox - ahora) / (1000*60*60*24));
+        if(dias >= 0 && dias <= 3){
+          avisos.push({
+            tipo: dias <= 1 ? "urgente" : "info",
+            icono: "🔄",
+            titulo: "Reset de propinas en " + dias + " día" + (dias !== 1 ? "s" : ""),
+            subtitulo: formatearFechaBonita(fechaLocalStr(prox)),
+            accion: "sistema"
+          });
+        }
+      }
+    }
+  } catch(e){}
+
+  // 6) Depósito de propinas pendiente
+  try {
+    const ops = loadHistorialOps();
+    const cierres = loadCierres();
+    const totalOps = ops.reduce((s, op) => s + (op.precio || 0), 0);
+    const totalCierres = cierres.reduce((s, c) => s + (c.total || 0), 0);
+    const pendiente = Math.max(0, totalOps - totalCierres);
+    if(pendiente > 0){
+      avisos.push({
+        tipo: "info",
+        icono: "💶",
+        titulo: moneyText(pendiente) + " pendientes de depositar",
+        subtitulo: "Propinas de viajes sin ingresar",
+        accion: "cierre"
+      });
+    }
+  } catch(e){}
+
+  return avisos;
+}
+
+function ejecutarAccionAviso(accion){
+  const m = document.getElementById("modalAvisos");
+  if(m) m.remove();
+  try {
+    if(accion === "dias") abrirDiasPantalla();
+    else if(accion === "cierre") abrirCierrePantalla();
+    else if(accion === "sistema"){
+      toggleMenu();
+      drawerTab("sistema");
+    }
+  } catch(e){ console.warn("Acción aviso:", e); }
+}
+
+function abrirModalAvisos(){
+  const prev = document.getElementById("modalAvisos");
+  if(prev) prev.remove();
+
+  const avisos = obtenerAvisos();
+  if(!avisos.length){ mostrarToast("✅ Sin avisos pendientes"); return; }
+
+  const m = document.createElement("div");
+  m.id = "modalAvisos";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px";
+
+  let html = `
+    <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:400px;width:100%;border:1px solid #334155">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div style="font-size:16px;font-weight:900;color:#fbbf24">🔔 Avisos</div>
+        <button type="button" onclick="document.getElementById('modalAvisos').remove()" style="background:#334155;color:#fff;border:none;padding:6px 12px;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">✕</button>
+      </div>
+  `;
+
+  avisos.forEach(a => {
+    const bg = a.tipo === "urgente" ? "#7f1d1d" : "#0f172a";
+    const border = a.tipo === "urgente" ? "#ef4444" : "#334155";
+    const color = a.tipo === "urgente" ? "#fca5a5" : "#e2e8f0";
+    html += `
+      <div onclick="ejecutarAccionAviso('${a.accion}')" style="background:${bg};border:1px solid ${border};border-radius:10px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer">
+        <span style="font-size:22px;flex-shrink:0">${a.icono}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:800;color:${color}">${a.titulo}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:2px">${a.subtitulo}</div>
+        </div>
+        <span style="font-size:18px;color:#64748b">›</span>
+      </div>
+    `;
+  });
+
+  html += `<button type="button" onclick="document.getElementById('modalAvisos').remove()" style="width:100%;margin-top:12px;background:#334155;color:#fff;border:none;padding:12px;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer">Cerrar</button></div>`;
+
+  m.innerHTML = html;
+  document.body.appendChild(m);
+  m.addEventListener("click", (e) => { if(e.target === m) m.remove(); });
 }
 
 function actualizarBotonCochePrincipal(){
@@ -6676,15 +6822,20 @@ function actualizarBotonCochePrincipal(){
     `;
   }
 
-  // ── Chip derecho: alertas ──
-  const pend = contarPendientes();
+  // ── Chip derecho: campana de avisos ──
+  const avisos = obtenerAvisos();
   let alertHtml = "";
-  if(pend > 0){
+  if(avisos.length > 0){
+    const urgente = avisos.some(a => a.tipo === "urgente");
+    const colorBg = urgente ? "linear-gradient(135deg,#7f1d1d,#991b1b)" : "linear-gradient(135deg,#7c2d12,#9a3412)";
+    const colorBorder = urgente ? "#ef4444" : "#ea580c";
+    const colorIcon = urgente ? "#fca5a5" : "#fed7aa";
+    const shadow = urgente ? "rgba(239,68,68,0.45)" : "rgba(234,88,12,0.35)";
+
     alertHtml = `
-      <div onclick="if(typeof abrirDiasPantalla==='function')abrirDiasPantalla()" style="background: linear-gradient(135deg,#7c2d12,#9a3412); border: 1px solid #ea580c; border-radius: 20px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; box-shadow: 0 2px 8px rgba(234,88,12,0.3);">
-        <span style="font-size: 14px;">🔔</span>
-        <span style="font-size: 12px; font-weight: 900; color: #fed7aa; letter-spacing: 0.5px;">${pend} pendiente${pend !== 1 ? "s" : ""}</span>
-        <span style="font-size: 14px; color: #fbbf24; font-weight: 900;">›</span>
+      <div onclick="abrirModalAvisos()" title="${avisos.length} aviso${avisos.length !== 1 ? 's' : ''}" style="background:${colorBg}; border:1px solid ${colorBorder}; border-radius:20px; padding:6px 12px; display:inline-flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 2px 8px ${shadow};">
+        <span style="font-size:16px;">🔔</span>
+        <span style="font-size:14px; font-weight:900; color:${colorIcon}; letter-spacing:0.5px;">${avisos.length}</span>
       </div>
     `;
   }

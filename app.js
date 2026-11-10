@@ -3366,12 +3366,18 @@ function renderDiasTrabajo(){
   html += `
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
       <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
-        <div style="font-size:10px;color:#94a3b8;font-weight:700">🔵 ACUMULADOS</div>
-        <div style="font-size:22px;font-weight:900;color:#38bdf8;margin-top:4px">${acumulados}</div>
-        <div style="font-size:9px;color:#64748b;margin-top:5px;line-height:1.5">
-          <div style="color:#fbbf24">💼 Trabajados (2M): <b>${acumuladosTrab}</b></div>
-          <div style="color:#a78bfa">🏖️ Libranza (31D): <b>${acumuladosLibre}</b></div>
-        </div>
+        <div style="font-size:10px;color:#f97316;font-weight:900">💼 TRABAJADOS</div>
+        <div style="font-size:22px;font-weight:900;color:#f97316;margin-top:4px">${acumuladosTrab}</div>
+        <div style="font-size:9px;color:#94a3b8;margin-top:4px;font-weight:600">Caducan +2 meses</div>
+      </div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
+        <div style="font-size:10px;color:#22d3ee;font-weight:900">🏖️ LIBRANZA</div>
+        <div style="font-size:22px;font-weight:900;color:#22d3ee;margin-top:4px">${acumuladosLibre}</div>
+        <div style="font-size:9px;color:#94a3b8;margin-top:4px;font-weight:600">Caducan 31 dic</div>
+      </div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
+        <div style="font-size:10px;color:#94a3b8;font-weight:700">🟡 POR CADUCAR</div>
+        <div style="font-size:22px;font-weight:900;color:#fbbf24;margin-top:4px">${porCaducar}</div>
       </div>
       <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
         <div style="font-size:10px;color:#94a3b8;font-weight:700">🟣 SOLICITADOS</div>
@@ -3384,14 +3390,6 @@ function renderDiasTrabajo(){
       <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
         <div style="font-size:10px;color:#94a3b8;font-weight:700">⚪ COMPLETADOS</div>
         <div style="font-size:22px;font-weight:900;color:#94a3b8;margin-top:4px">${completados}</div>
-      </div>
-      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
-        <div style="font-size:10px;color:#94a3b8;font-weight:700">🟡 POR CADUCAR</div>
-        <div style="font-size:22px;font-weight:900;color:#fbbf24;margin-top:4px">${porCaducar}</div>
-      </div>
-      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
-        <div style="font-size:10px;color:#94a3b8;font-weight:700">👤 PERSONALES</div>
-        <div style="font-size:22px;font-weight:900;color:#a78bfa;margin-top:4px">${personalesRestantes}/2</div>
       </div>
     </div>
   `;
@@ -6616,11 +6614,15 @@ function obtenerAvisos(){
     });
   }
 
-  // 2) Festivos sin solicitar (aún con margen)
+  // 2) Festivos sin solicitar (ya pasados, aún con margen)
+  const hoyStrAvisos = fechaLocalStr();
   const sinSolicitar = festivos.filter(f => {
     if(!f.trabajado || f.solicitado || f.sacrificado) return false;
+    if(f.fecha >= hoyStrAvisos) return false; // futuro → aún no se puede solicitar
+    const enVac = diasPersonales.find(x => x.fecha === f.fecha && x.tipo === "vacacion");
+    if(enVac) return false;
     const d = diasHastaCaducar(f);
-    return d > 15;
+    return d > 15 && d !== Infinity;
   });
   if(sinSolicitar.length){
     avisos.push({

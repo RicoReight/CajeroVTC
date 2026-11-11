@@ -5463,15 +5463,9 @@ async function abrirMapaPantalla(){
 
     <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:14px; margin-bottom:12px;">
       <div style="font-size:11px; color:#94a3b8; font-weight:800; letter-spacing:0.5px; margin-bottom:10px;">🗺️ HISTORIAL DE RUTAS</div>
-      
-      <div style="display:flex;gap:10px;align-items:center;">
-        <input type="date" id="fechaRutaInput" 
-          style="flex:1; height:48px; box-sizing:border-box; background:#0f172a; color:#fff; border:1px solid #475569; border-radius:10px; padding:0 12px; font-weight:800; font-size:15px; outline:none; text-align:center; cursor:pointer;">
-        
-        <button type="button" onclick="toggleRecorridoMapa()" id="btnRecorridoMapa"
-          style="flex:1; height:48px; box-sizing:border-box; background:#0284c7; color:#fff; border:none; border-radius:10px; font-weight:900; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s;">
-          🗺️ Ver
-        </button>
+      <input type="hidden" id="fechaRutaInput" value="">
+      <div id="listaRutasHistorial" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+        <!-- Se rellena automáticamente al cargar el mapa -->
       </div>
     </div>
 
@@ -5545,6 +5539,9 @@ async function abrirMapaPantalla(){
   
   const inpFecha = document.getElementById("fechaRutaInput");
   if(inpFecha) inpFecha.value = fechaLocalStr();
+  
+  // 👇 Pintar la lista de rutas guardadas
+  renderListaRutasHistorial();
 }
 function cerrarMapaPantalla(){
   const p = document.getElementById("mapaPantalla");
@@ -8169,5 +8166,92 @@ function abrirDiasNoTrabajadosPantalla(){
   pintar();
 }
 /* ==================== FIN PANTALLA DÍAS NO TRABAJADOS ==================== */
+
+/* ==================== HISTORIAL DE RUTAS EN LISTA ==================== */
+function renderListaRutasHistorial() {
+  const cont = document.getElementById("listaRutasHistorial");
+  if (!cont) return;
+
+  const fechas = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith("uberCambioRecorrido_") && !k.includes("_Matched")) {
+      const fecha = k.replace("uberCambioRecorrido_", "");
+      if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) fechas.push(fecha);
+    }
+  }
+  
+  fechas.sort().reverse(); // Más reciente primero
+
+  if (fechas.length === 0) {
+    cont.innerHTML = "<div style='color:#64748b;font-size:13px;text-align:center;padding:10px'>No hay rutas guardadas</div>";
+    return;
+  }
+
+  const fechaActual = document.getElementById("fechaRutaInput")?.value || "";
+
+  let html = "";
+  fechas.forEach(f => {
+    const tieneMatched = localStorage.getItem("uberCambioRecorridoMatched_" + f);
+    const esActual = (f === fechaActual && capaRecorridoActual);
+    
+    const p = f.split("-");
+    const dateObj = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+    const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    const fechaBonita = `${p[2]}/${p[1]}/${p[0]} <span style="font-size:11px;color:#64748b">(${dias[dateObj.getDay()]})</span>`;
+    
+    html += `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:#0f172a; border:1px solid ${esActual?'#3b82f6':'#334155'}; border-radius:8px; padding:10px;">
+        <div style="font-size:14px; font-weight:800; color:#fff;">
+          ${fechaBonita} ${tieneMatched ? '<span title="Ajustada a calles" style="font-size:10px; color:#4ade80; border:1px solid #4ade80; padding:2px 4px; border-radius:4px; margin-left:4px;">CALLE</span>' : ''}
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button type="button" onclick="verRutaHistorial('${f}')" style="background:${esActual?'#3b82f6':'#1e293b'}; color:#fff; border:none; border-radius:6px; padding:6px 10px; font-weight:700; font-size:12px; cursor:pointer;">
+            ${esActual ? 'Ocultar' : 'Ver'}
+          </button>
+          <button type="button" onclick="borrarRutaHistorial('${f}')" style="background:#7f1d1d; color:#fca5a5; border:none; border-radius:6px; padding:6px 10px; font-size:14px; cursor:pointer;">
+            🗑️
+          </button>
+        </div>
+      </div>
+    `;
+  });
+  cont.innerHTML = html;
+}
+
+function verRutaHistorial(fechaStr) {
+  const inp = document.getElementById("fechaRutaInput");
+  if (!inp || !mapaInstance) return;
+
+  if (inp.value === fechaStr && capaRecorridoActual) {
+    // Si ya está en pantalla, la ocultamos
+    mapaInstance.removeLayer(capaRecorridoActual);
+    capaRecorridoActual = null;
+  } else {
+    // Si no, la dibujamos
+    inp.value = fechaStr;
+    dibujarRecorridoEnMapa(fechaStr);
+    if (capaRecorridoActual) {
+      mapaInstance.fitBounds(capaRecorridoActual.getBounds(), { padding: [30, 30] });
+    }
+  }
+  renderListaRutasHistorial(); // Actualiza los botones
+}
+
+function borrarRutaHistorial(fechaStr) {
+  if(!confirm("¿Borrar la ruta del " + fechaStr + "?\n\nEsta acción no se puede deshacer.")) return;
+
+  localStorage.removeItem("uberCambioRecorrido_" + fechaStr);
+  localStorage.removeItem("uberCambioRecorridoMatched_" + fechaStr);
+
+  const inp = document.getElementById("fechaRutaInput");
+  if (inp && inp.value === fechaStr && capaRecorridoActual) {
+     mapaInstance.removeLayer(capaRecorridoActual);
+     capaRecorridoActual = null;
+  }
+
+  renderListaRutasHistorial();
+  mostrarToast("🗑️ Ruta borrada");
+}
 
 init();

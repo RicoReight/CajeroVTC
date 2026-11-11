@@ -3646,8 +3646,8 @@ function renderCalendarioMes(){
       // Es el día original pero tiene un día de disfrute asignado → Rosa (Solicitado)
       colorEstado = colorEstadoFestivo("solicitado");
     } else if(festivoDisfrute) {
-      // Es el día de disfrute → Verde (Aprobado) con etiqueta DISF
-      colorEstado = colorEstadoFestivo("aprobado");
+      // Es el día de disfrute → Usamos su estado real (puede ser rosa, verde o gris)
+      colorEstado = colorEstadoFestivo(estadoFestivo(festivoDisfrute));
       etiqueta = "DISF";
     } else if(diaPersonal){
       colorEstado = diaPersonal.tipo === "vacacion" ? "#22d3ee" : "#a78bfa";

@@ -5523,7 +5523,8 @@ async function abrirMapaPantalla(){
     try {
       const limitesTrabajo = L.latLngBounds([40.80, 0.30], [42.80, 3.20]);
       mapaInstance = L.map("mapa-leaflet", {
-        zoomControl: true, maxBounds: limitesTrabajo, maxBoundsViscosity: 1.0, minZoom: 9, maxZoom: 18
+        zoomControl: true, maxBounds: limitesTrabajo, maxBoundsViscosity: 1.0, minZoom: 9, maxZoom: 18,
+        preferCanvas: true // 👈 Renderizado rápido
       }).setView([41.3874, 2.1686], 11);
 
       L.tileLayer("https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=041dfb21-2b3c-44a9-99cf-2895e73db293", {
@@ -5789,46 +5790,86 @@ function obtenerClaveRecorrido(fechaStr) {
   return "uberCambioRecorrido_" + fechaStr;
 }
 
+
+let cacheRecorridoHoy = null;
+let cacheFechaHoy = null;
+let ultimoGuardadoRecorridoMs = 0;
 function guardarPuntoRecorrido(lat, lon, acc) {
-  if (acc && acc > 50) return; // Ignorar si la precisión es muy mala
+  if (acc && acc > 50) return; 
 
   const hoy = fechaLocalStr();
-  const clave = obtenerClaveRecorrido(hoy);
-  
-  try {
-    let recorrido = JSON.parse(safeStorage.get(clave) || "[]");
-    
-    if (recorrido.length > 0) {
-      const ultimo = recorrido[recorrido.length - 1];
-      const dist = Math.sqrt(Math.pow(ultimo.lat - lat, 2) + Math.pow(ultimo.lon - lon, 2)) * 111000;
-      
-      // Filtro: Si te mueves menos de 10m o el GPS pega un salto loco de más de 500m, ignorar.
-      if (dist < 10 || dist > 500) return; 
+
+  // Si cambia el día, recargamos la caché
+  if (cacheFechaHoy !== hoy) {
+    cacheFechaHoy = hoy;
+    try {
+      cacheRecorridoHoy = JSON.parse(safeStorage.get(obtenerClaveRecorrido(hoy)) || "[]");
+    } catch(e) {
+      cacheRecorridoHoy = [];
     }
+  }
 
-    recorrido.push({ lat: lat, lon: lon, time: Date.now() });
-    if (recorrido.length > 5000) recorrido.shift();
+  if (cacheRecorridoHoy.length > 0) {
+    const ultimo = cacheRecorridoHoy[cacheRecorridoHoy.length - 1];
+    const dist = Math.sqrt(Math.pow(ultimo.lat - lat, 2) + Math.pow(ultimo.lon - lon, 2)) * 111000;
+    if (dist < 10 || dist > 500) return; 
+  }
 
-    safeStorage.set(clave, JSON.stringify(recorrido));
-  } catch(e) {}
+  // Añadimos a la memoria RAM (instantáneo)
+  cacheRecorridoHoy.push({ lat: lat, lon: lon, time: Date.now() });
+  
+  // Límite de 5000 puntos por día (borra de 500 en 500 para no bloquear)
+  if (cacheRecorridoHoy.length > 5000) {
+    cacheRecorridoHoy.splice(0, 500); 
+  }
+
+  // 👇 Guardado inteligente: solo pasamos a localStorage cada 30 segundos
+  const ahora = Date.now();
+  if (ahora - ultimoGuardadoRecorridoMs > 30000) {
+    try {
+      safeStorage.set(obtenerClaveRecorrido(hoy), JSON.stringify(cacheRecorridoHoy));
+      ultimoGuardadoRecorridoMs = ahora;
+    } catch(e) {}
+  }
 }
 
 function obtenerRecorrido(fechaStr) {
+  // Si es el día de hoy y tenemos la caché en RAM, la usamos (es instantáneo)
+  if (cacheFechaHoy === fechaStr && cacheRecorridoHoy) {
+    return cacheRecorridoHoy;
+  }
   return JSON.parse(safeStorage.get(obtenerClaveRecorrido(fechaStr)) || "[]");
 }
 
 function dibujarRecorridoEnMapa(fechaStr) {
   if (!mapaInstance) return;
+
+  const puntos = obtenerRecorrido(fechaStr);
+  if (!puntos || puntos.length < 2) return;
+
+  // Si ya hay una capa en el mapa para esta misma fecha, solo añadimos el punto nuevo
+  if (capaRecorridoActual && capaRecorridoActual._fecha === fechaStr) {
+    if (puntos.length > capaRecorridoActual._numPuntos) {
+      const nuevos = puntos.slice(capaRecorridoActual._numPuntos);
+      nuevos.forEach(p => capaRecorridoActual.addLatLng([p.lat, p.lon]));
+      capaRecorridoActual._numPuntos = puntos.length;
+    }
+    return;
+  }
+
+  // Si es una fecha nueva o no hay capa, la creamos
   if (capaRecorridoActual) {
     mapaInstance.removeLayer(capaRecorridoActual);
     capaRecorridoActual = null;
   }
-  const puntos = obtenerRecorrido(fechaStr);
-  if (puntos.length < 2) return;
+
   const coordenadas = puntos.map(p => [p.lat, p.lon]);
   capaRecorridoActual = L.polyline(coordenadas, {
-    color: '#38bdf8', weight: 4, opacity: 0.9, lineJoin: 'round', smoothFactor: 0
+    color: '#38bdf8', weight: 4, opacity: 0.9, lineJoin: 'round', smoothFactor: 1.5
   }).addTo(mapaInstance);
+  
+  capaRecorridoActual._fecha = fechaStr;
+  capaRecorridoActual._numPuntos = puntos.length;
 }
 
 function toggleRecorridoMapa() {
@@ -5918,7 +5959,15 @@ function procesarNuevaPosicion(lat, lon, acc){
     }
     
     if (capaRecorridoActual) {
-       dibujarRecorridoEnMapa((document.getElementById("fechaRutaInput")?.value) || fechaLocalStr());
+      const ahora = Date.now();
+      // 👇 Solo dibuja cada 5 segundos (evita que el mapa se sature)
+      if (ahora - (window.__ultimoDibujoRuta || 0) > 5000) { 
+        const inpF = document.getElementById("fechaRutaInput");
+        // Si cambia el día, actualizamos el input para que no se congele a medianoche
+        if (inpF && inpF.value !== fechaLocalStr()) inpF.value = fechaLocalStr(); 
+        dibujarRecorridoEnMapa((inpF?.value) || fechaLocalStr());
+        window.__ultimoDibujoRuta = ahora;
+      }
     }
 
     mapaInstance.panTo([lat, lon]);

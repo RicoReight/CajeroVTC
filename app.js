@@ -5844,20 +5844,23 @@ function obtenerRecorrido(fechaStr) {
 function dibujarRecorridoEnMapa(fechaStr) {
   if (!mapaInstance) return;
 
-  const puntos = obtenerRecorrido(fechaStr);
+  // 1. Comprobar si tenemos la ruta ajustada (OSRM)
+  const claveMatched = "uberCambioRecorridoMatched_" + fechaStr;
+  let puntosStr = safeStorage.get(claveMatched);
+  
+  let puntos;
+  if (puntosStr) {
+    puntos = JSON.parse(puntosStr); // Usar la perfecta
+  } else {
+    puntos = obtenerRecorrido(fechaStr); // Usar la normal
+  }
+
   if (!puntos || puntos.length < 2) return;
 
-  // Si ya hay una capa en el mapa para esta misma fecha, solo añadimos el punto nuevo
-  if (capaRecorridoActual && capaRecorridoActual._fecha === fechaStr) {
-    if (puntos.length > capaRecorridoActual._numPuntos) {
-      const nuevos = puntos.slice(capaRecorridoActual._numPuntos);
-      nuevos.forEach(p => capaRecorridoActual.addLatLng([p.lat, p.lon]));
-      capaRecorridoActual._numPuntos = puntos.length;
-    }
+  if (capaRecorridoActual && capaRecorridoActual._fecha === fechaStr && capaRecorridoActual._numPuntos === puntos.length) {
     return;
   }
 
-  // Si es una fecha nueva o no hay capa, la creamos
   if (capaRecorridoActual) {
     mapaInstance.removeLayer(capaRecorridoActual);
     capaRecorridoActual = null;
@@ -6194,6 +6197,66 @@ async function iniciarGeolocalizacion(){
     actualizarEstadoGeo();
   }
 }
+
+/* ==================== MAP MATCHING (OSRM) ==================== */
+async function ajustarRutaACalles(puntosOriginales) {
+  if (!puntosOriginales || puntosOriginales.length < 2) return puntosOriginales;
+  
+  try {
+    let rutasFinales = [];
+    const maxPoints = 100; // OSRM acepta máx 100 por petición
+    
+    for (let i = 0; i < puntosOriginales.length; i += maxPoints) {
+      const inicio = Math.max(0, i - 1);
+      const bloque = puntosOriginales.slice(inicio, i + maxPoints);
+      if (bloque.length < 2) continue;
+
+      const coords = bloque.map(p => `${p.lon},${p.lat}`).join(';');
+      const url = `https://router.project-osrm.org/match/v1/driving/${coords}?geometries=geojson&overview=full`;
+      
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("OSRM falló");
+      
+      const data = await response.json();
+      
+      if (data.code === "Ok" && data.matchings && data.matchings.length > 0) {
+        const rutaAjustada = data.matchings[0].geometry.coordinates.map(c => ({
+          lat: c[1], lon: c[0]
+        }));
+        rutasFinales = rutasFinales.concat(rutaAjustada);
+      } else {
+        rutasFinales = rutasFinales.concat(bloque);
+      }
+    }
+    return rutasFinales;
+  } catch (e) {
+    console.warn("No se pudo ajustar a calles:", e);
+    return puntosOriginales;
+  }
+}
+
+async function procesarRutaFinalDia() {
+  const hoy = fechaLocalStr();
+  const puntos = obtenerRecorrido(hoy);
+  if (!puntos || puntos.length < 2) return;
+  
+  mostrarToast("🪄 Ajustando ruta a las calles...");
+  
+  const puntosAjustados = await ajustarRutaACalles(puntos);
+  
+  if (puntosAjustados && puntosAjustados.length > 1) {
+    // Guardamos la ruta perfecta con una clave especial "_Matched"
+    const claveMatched = "uberCambioRecorridoMatched_" + hoy;
+    safeStorage.set(claveMatched, JSON.stringify(puntosAjustados));
+    mostrarToast("✅ Ruta ajustada a las calles");
+    
+    // Si el mapa está abierto, redibujamos
+    if (mapaInstance && document.getElementById("fechaRutaInput")?.value === hoy) {
+      dibujarRecorridoEnMapa(hoy);
+    }
+  }
+}
+
 async function detenerGeolocalizacion(){
   try {
     const Cap = window.Capacitor;
@@ -6205,11 +6268,17 @@ async function detenerGeolocalizacion(){
       mostrarToast('⏹️ Rastreo detenido');
     }
     geoActivo = false;
+    safeStorage.set("uberCambioGeoActivo", "0");
     actualizarEstadoGeo();
+    
+    procesarRutaFinalDia(); // 👈 AÑADE ESTA LÍNEA AQUÍ
+
   } catch(e){
     console.warn('Error deteniendo:', e);
     geoActivo = false;
+    safeStorage.set("uberCambioGeoActivo", "0");
     actualizarEstadoGeo();
+    procesarRutaFinalDia(); // 👈 Y AQUÍ TAMBIÉN
   }
 }
 

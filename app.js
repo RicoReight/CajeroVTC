@@ -5473,10 +5473,15 @@ async function abrirMapaPantalla(){
     </div>
 
     <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:14px; margin-bottom:12px;">
-      <div style="font-size:11px; color:#94a3b8; font-weight:800; letter-spacing:0.5px; margin-bottom:10px;">🗺️ HISTORIAL DE RUTAS</div>
-      <input type="hidden" id="fechaRutaInput" value="">
-      <div id="listaRutasHistorial" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
-        <!-- Se rellena automáticamente al cargar el mapa -->
+      <div onclick="toggleHistorialRutas()" style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;">
+        <div style="font-size:11px; color:#94a3b8; font-weight:800; letter-spacing:0.5px;">🗺️ HISTORIAL DE RUTAS</div>
+        <span id="historialRutasFlecha" style="font-size:14px; color:#64748b; transition:transform 0.2s; display:inline-block;">▶</span>
+      </div>
+      <div id="historialRutasContenedor" style="display:none; margin-top:12px;">
+        <input type="hidden" id="fechaRutaInput" value="">
+        <div id="listaRutasHistorial" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+          <!-- Se rellena automáticamente al cargar el mapa -->
+        </div>
       </div>
     </div>
 
@@ -5553,6 +5558,7 @@ async function abrirMapaPantalla(){
   
   // 👇 Pintar la lista de rutas guardadas
   renderListaRutasHistorial();
+  aplicarEstadoHistorialRutas();
 }
 function cerrarMapaPantalla(){
   const p = document.getElementById("mapaPantalla");
@@ -8178,6 +8184,38 @@ function abrirDiasNoTrabajadosPantalla(){
   pintar();
 }
 /* ==================== FIN PANTALLA DÍAS NO TRABAJADOS ==================== */
+
+function toggleHistorialRutas(){
+  const cont = document.getElementById("historialRutasContenedor");
+  const flecha = document.getElementById("historialRutasFlecha");
+  if(!cont || !flecha) return;
+
+  const abierto = cont.style.display !== "none";
+  if(abierto){
+    cont.style.display = "none";
+    flecha.style.transform = "rotate(0deg)";
+    safeStorage.set("uberCambioHistorialRutasAbierto", "0");
+  } else {
+    cont.style.display = "block";
+    flecha.style.transform = "rotate(90deg)";
+    safeStorage.set("uberCambioHistorialRutasAbierto", "1");
+  }
+}
+
+function aplicarEstadoHistorialRutas(){
+  const cont = document.getElementById("historialRutasContenedor");
+  const flecha = document.getElementById("historialRutasFlecha");
+  if(!cont || !flecha) return;
+
+  const abierto = safeStorage.get("uberCambioHistorialRutasAbierto") === "1";
+  if(abierto){
+    cont.style.display = "block";
+    flecha.style.transform = "rotate(90deg)";
+  } else {
+    cont.style.display = "none";
+    flecha.style.transform = "rotate(0deg)";
+  }
+}
 
 /* ==================== HISTORIAL DE RUTAS EN LISTA ==================== */
 function renderListaRutasHistorial() {

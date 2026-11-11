@@ -5033,6 +5033,17 @@ function init(){
   // ==================== AUTO-RESET DEL COCHE ====================
   try { checkResetCoche(); } catch(e){}
   setInterval(checkResetCoche, 60000);   // Comprueba cada minuto
+    // ==================== AUTO-RECONEXIÓN DEL GPS ====================
+  if(safeStorage.get("uberCambioGeoActivo") === "1"){
+    console.log("🔄 Restaurando rastreo GPS automáticamente...");
+    setTimeout(() => {
+      try {
+        if(!geoWatcherId){
+          iniciarGeolocalizacion();
+        }
+      } catch(e){ console.warn("Auto-reconexión GPS:", e); }
+    }, 3000);
+  }
 
   // ==================== BOTÓN DEL COCHE EN MENÚ PRINCIPAL ====================
   // Intentamos pintar el botón varias veces hasta que el HTML esté listo
@@ -7252,6 +7263,7 @@ function abrirModalPin(existente){
   const esNuevo = !existente;
   const cb = existente ? (existente.combustible !== false) : true;
   const pb = existente ? !!existente.pinturaBarca : false;
+  const sp = existente ? !!existente.sinPeaje : false;
 
   const m = document.createElement("div");
   m.id = "modalPinEditar";

@@ -3601,6 +3601,16 @@ function renderDiasTrabajo(){
   cont.innerHTML = html;
 }
 
+function irADiaDisfrute(fechaDisfrute) {
+  if(!fechaDisfrute) return;
+  const p = fechaDisfrute.split("-");
+  diasAnioVista = parseInt(p[0]);
+  diasMesVista = parseInt(p[1]) - 1;
+  renderDiasTrabajo();
+  mostrarToast("📅 Saltando al día de disfrute");
+}
+
+
 function renderCalendarioMes(){
   const primerDia = new Date(diasAnioVista, diasMesVista, 1);
   const totalDias = new Date(diasAnioVista, diasMesVista + 1, 0).getDate();
@@ -3620,17 +3630,30 @@ function renderCalendarioMes(){
 
   for(let d = 1; d <= totalDias; d++){
     const fechaStr = `${diasAnioVista}-${String(diasMesVista+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    const festivo = festivos.find(f => f.fecha === fechaStr);
+
+    // Buscar si es un festivo original o si es el día de disfrute de un festivo
+    const festivoOriginal = festivos.find(f => f.fecha === fechaStr);
+    const festivoDisfrute = festivos.find(f => f.fechaDisfrute === fechaStr && f.solicitado);
+    const festivo = festivoOriginal || festivoDisfrute;
+
     const diaPersonal = diasPersonales.find(f => f.fecha === fechaStr);
 
     let colorEstado = null;
     let etiqueta = "";
-    if(diaPersonal){
+
+    // LÓGICA DE COLORES
+    if(festivoOriginal && festivoOriginal.fechaDisfrute && (festivoOriginal.solicitado || festivoOriginal.aprobado)) {
+      // Es el día original pero tiene un día de disfrute asignado → Rosa (Solicitado)
+      colorEstado = colorEstadoFestivo("solicitado");
+    } else if(festivoDisfrute) {
+      // Es el día de disfrute → Verde (Aprobado) con etiqueta DISF
+      colorEstado = colorEstadoFestivo("aprobado");
+      etiqueta = "DISF";
+    } else if(diaPersonal){
       colorEstado = diaPersonal.tipo === "vacacion" ? "#22d3ee" : "#a78bfa";
       etiqueta = diaPersonal.tipo === "vacacion" ? "VAC" : "PER";
     } else if(festivo){
       colorEstado = colorEstadoFestivo(estadoFestivo(festivo));
-      etiqueta = "";
     }
 
     const hoy = new Date();
@@ -3638,14 +3661,12 @@ function renderCalendarioMes(){
 
     let bg, border, colorNum, shadow, fontWeight;
     if(colorEstado){
-      // Día con estado → cuadrado entero pintado
-      bg = hexToRgba(colorEstado, 0.22);
+      bg = hexToRgba(colorEstado, 0.45);
       border = colorEstado;
-      colorNum = colorEstado;
+      colorNum = "#fff";
       fontWeight = "900";
-      shadow = "none";
+      shadow = "inset 0 0 0 1px rgba(0,0,0,0.2)";
     } else {
-      // Día normal
       bg = "#0f172a";
       border = "#334155";
       colorNum = "#cbd5e1";
@@ -3653,22 +3674,36 @@ function renderCalendarioMes(){
       shadow = "none";
     }
 
-    // Si es HOY, resaltar con borde azul
     if(esHoy){
-      border = "#3b82f6";
-      shadow = "0 0 0 2px rgba(59,130,246,0.45)";
       if(!colorEstado){
-        bg = "#1e40af";
+        bg = "#1e3a8a";
+        border = "#3b82f6";
         colorNum = "#fff";
       }
+      shadow = "0 0 0 3px rgba(59,130,246,0.7), inset 0 0 0 1px rgba(0,0,0,0.2)";
     }
 
-    const click = diaPersonal ? `onclick="borrarDiaPersonal('${fechaStr}')"` : (festivo ? `onclick="abrirModalFestivo('${fechaStr}')"` : "");
+    // LÓGICA DE CLIC
+    let click = "";
+    if(festivoOriginal){
+      if(festivoOriginal.fechaDisfrute && (festivoOriginal.solicitado || festivoOriginal.aprobado)){
+        // Si tiene disfrute → Salta al día de disfrute
+        click = `onclick="irADiaDisfrute('${festivoOriginal.fechaDisfrute}')"`;
+      } else {
+        // Si no tiene disfrute → Abre modal normal
+        click = `onclick="abrirModalFestivo('${fechaStr}')"`;
+      }
+    } else if(festivoDisfrute){
+      // Si pulsas el día de disfrute → Abre modal del festivo original
+      click = `onclick="abrirModalFestivo('${festivoDisfrute.fecha}')"`;
+    } else if(diaPersonal){
+      click = `onclick="borrarDiaPersonal('${fechaStr}')"`;
+    }
 
     html += `
       <div ${click} style="aspect-ratio:1;
         background:${bg};
-        border:1.5px solid ${border};
+        border:2px solid ${border};
         border-radius:8px;
         box-shadow:${shadow};
         display:flex;

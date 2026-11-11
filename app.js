@@ -3606,6 +3606,15 @@ function renderCalendarioMes(){
   const totalDias = new Date(diasAnioVista, diasMesVista + 1, 0).getDate();
   const diaSemanaInicio = (primerDia.getDay() + 6) % 7;
 
+  // Helper: convierte "#rrggbb" + alpha a "rgba(...)"
+  const hexToRgba = (hex, alpha) => {
+    const h = hex.replace("#","");
+    const r = parseInt(h.substring(0,2),16);
+    const g = parseInt(h.substring(2,4),16);
+    const b = parseInt(h.substring(4,6),16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  };
+
   let html = "";
   for(let i = 0; i < diaSemanaInicio; i++) html += `<div style="aspect-ratio:1"></div>`;
 
@@ -3614,23 +3623,64 @@ function renderCalendarioMes(){
     const festivo = festivos.find(f => f.fecha === fechaStr);
     const diaPersonal = diasPersonales.find(f => f.fecha === fechaStr);
 
-    let circColor = null;
-    if(diaPersonal) circColor = diaPersonal.tipo === "vacacion" ? "#22d3ee" : "#a78bfa";
-    else if(festivo) circColor = colorEstadoFestivo(estadoFestivo(festivo));
+    let colorEstado = null;
+    let etiqueta = "";
+    if(diaPersonal){
+      colorEstado = diaPersonal.tipo === "vacacion" ? "#22d3ee" : "#a78bfa";
+      etiqueta = diaPersonal.tipo === "vacacion" ? "VAC" : "PER";
+    } else if(festivo){
+      colorEstado = colorEstadoFestivo(estadoFestivo(festivo));
+      etiqueta = "";
+    }
 
     const hoy = new Date();
     const esHoy = (hoy.getFullYear() === diasAnioVista && hoy.getMonth() === diasMesVista && hoy.getDate() === d);
 
-    const bg = esHoy ? "#1e40af" : "#0f172a";
-    const border = esHoy ? "#3b82f6" : "#334155";
+    let bg, border, colorNum, shadow, fontWeight;
+    if(colorEstado){
+      // Día con estado → cuadrado entero pintado
+      bg = hexToRgba(colorEstado, 0.22);
+      border = colorEstado;
+      colorNum = colorEstado;
+      fontWeight = "900";
+      shadow = "none";
+    } else {
+      // Día normal
+      bg = "#0f172a";
+      border = "#334155";
+      colorNum = "#cbd5e1";
+      fontWeight = "600";
+      shadow = "none";
+    }
+
+    // Si es HOY, resaltar con borde azul
+    if(esHoy){
+      border = "#3b82f6";
+      shadow = "0 0 0 2px rgba(59,130,246,0.45)";
+      if(!colorEstado){
+        bg = "#1e40af";
+        colorNum = "#fff";
+      }
+    }
+
     const click = diaPersonal ? `onclick="borrarDiaPersonal('${fechaStr}')"` : (festivo ? `onclick="abrirModalFestivo('${fechaStr}')"` : "");
 
     html += `
-      <div ${click} style="aspect-ratio:1;background:${bg};border:1px solid ${border};border-radius:8px;
-                            display:flex;flex-direction:column;align-items:center;justify-content:center;
-                            padding:2px;cursor:${circColor?'pointer':'default'}">
-        <div style="font-size:12px;color:${esHoy?'#fff':'#cbd5e1'};font-weight:${esHoy?'900':'600'}">${d}</div>
-        ${circColor ? `<div style="width:7px;height:7px;border-radius:50%;background:${circColor};margin-top:2px"></div>` : ""}
+      <div ${click} style="aspect-ratio:1;
+        background:${bg};
+        border:1.5px solid ${border};
+        border-radius:8px;
+        box-shadow:${shadow};
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        padding:2px;
+        position:relative;
+        cursor:${colorEstado?'pointer':'default'};
+        transition:transform 0.1s, background 0.15s;">
+        <div style="font-size:13px;color:${colorNum};font-weight:${fontWeight};line-height:1;">${d}</div>
+        ${etiqueta ? `<div style="font-size:7px;color:${colorEstado};font-weight:900;letter-spacing:0.3px;margin-top:2px;line-height:1;">${etiqueta}</div>` : ""}
       </div>
     `;
   }

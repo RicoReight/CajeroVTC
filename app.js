@@ -8171,6 +8171,7 @@ async function programarAvisosDeposito(){
  
     await crearCanalRecordatorios();
  
+    // Borramos notificaciones antiguas de depósito para no duplicar
     const pending = await LN.getPending();
     const aBorrar = pending.notifications.filter(n => n.id >= 500000 && n.id < 600000);
     if(aBorrar.length > 0) await LN.cancel({ notifications: aBorrar });
@@ -8184,17 +8185,17 @@ async function programarAvisosDeposito(){
     if(pendiente <= 0) return;
  
     const ahora = new Date();
-    const proximoAviso = calcularProximoAviso();
+    const proximoAviso = calcularProximoAviso(); // Calcula el próximo Viernes (o el día configurado) a la hora configurada
  
-    // Límite de entrega (si hay reset configurado)
+    // Calcular cuándo es el límite de entrega (los 7 días antes del reset)
     let fechaLimite = null;
-    const proxReset = (diaReset !== 0) ? calcularProximoReset() : null;   // 👈 puede ser null
+    const proxReset = (diaReset !== 0) ? calcularProximoReset() : null;
     if(proxReset){
       fechaLimite = new Date(proxReset.getTime());
       const ds = fechaLimite.getDay();
-      if(ds === 6) fechaLimite.setDate(fechaLimite.getDate() - 1);
-      else if(ds === 0) fechaLimite.setDate(fechaLimite.getDate() - 2);
-      else if(ds === 1) fechaLimite.setDate(fechaLimite.getDate() - 3);
+      if(ds === 6) fechaLimite.setDate(fechaLimite.getDate() - 1); // Si cae sábado, es el viernes
+      else if(ds === 0) fechaLimite.setDate(fechaLimite.getDate() - 2); // Si cae domingo, es el viernes
+      else if(ds === 1) fechaLimite.setDate(fechaLimite.getDate() - 3); // Si cae lunes, es el viernes
       fechaLimite.setHours(10, 0, 0, 0);
     }
  
@@ -8202,8 +8203,9 @@ async function programarAvisosDeposito(){
     let notif;
  
     const unaSemana = 7 * 24 * 3600 * 1000;
+    
+    // Si la fecha límite está muy cerca (menos de una semana), o el aviso normal llegaría después del límite
     if(fechaLimite && proximoAviso.getTime() > fechaLimite.getTime()){
-      // El aviso normal llegaría tarde → avisa el propio día límite
       cuando = fechaLimite;
       notif = { id: 500001, title: '⚠️ ¡Última semana antes de nómina!',
         body: `Último día para ingresar. Aún tienes ${moneyText(pendiente)} pendientes de entregar.` };
@@ -8211,6 +8213,7 @@ async function programarAvisosDeposito(){
       notif = { id: 500001, title: '⚠️ ¡Última semana antes de nómina!',
         body: `Última semana para ingresar antes de cerrar nómina. Aún tienes ${moneyText(pendiente)} pendientes de entregar.` };
     } else {
+      // Aviso normal (el de todas las semanas)
       notif = { id: 500002, title: '💶 Recordatorio de depósito',
         body: `Tienes ${moneyText(pendiente)} acumulados de viajes. Recuerda ingresarlos antes del viernes para estar al día.` };
     }

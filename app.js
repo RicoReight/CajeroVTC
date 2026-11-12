@@ -1561,13 +1561,25 @@ function renderRecomendacionCambio(){
     let restante = totalSobra;
     const pedir = {};
     const cands = denominations.slice().sort((a,b) => b.c - a.c);
+    
     cands.forEach(d => {
       if (restante >= d.c) {
+        const tope = topesRecibir[d.c] || 0;
+        // 👇 SI EL TOPE ES 0, NO LO PEDIMOS
+        if(tope === 0) return; 
+        
+        const i = denominations.findIndex(x => x.c === d.c);
+        const sa = stock[i] || 0;
+        const espacio = Math.max(0, tope - sa);
         const n = Math.floor(restante / d.c);
-        let limite = (d.c < 10 && restante > 50) ? 4 : n;
+        let limite = Math.min(n, espacio);
+        
+        if(d.c < 10 && restante > 50) limite = Math.min(limite, 4);
+
         if (limite > 0) { pedir[d.c] = (pedir[d.c] || 0) + limite; restante -= limite * d.c; }
       }
     });
+
     const entregar = {};
     sobran.forEach(x => { entregar[x.d.c] = x.cantidad; });
     Object.keys(pedir).forEach(cStr => {
@@ -2017,6 +2029,10 @@ function calcularFaltantes(v, c){
     const sa = stock[i] || 0;
     const ha = hucha[i] || 0;
     const t = (topesRecibir[d.c] || 0);
+    
+    // 👇 SI EL TOPE ES 0, IGNORAMOS ESTA PIEZA
+    if(t === 0) return;
+
     const limSup = Math.max(1, Math.floor(t * FACTOR_LLENADO));
     let o;
     if(ops >= 5){ const gm = statsOps.spent[i]/ops; o = Math.ceil(gm*v) + c; }

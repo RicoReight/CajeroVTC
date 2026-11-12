@@ -811,7 +811,18 @@ function saltarProximoReset(){
 }
 
 function resetCuenta(){if(!confirm("¿Poner el INVENTARIO (caja) a CERO?\nLas propinas NO se tocan."))return;stock=new Array(denominations.length).fill(0);saveStock();renderStockList();if(received.length)calculate()}
-function resetPropinas(){if(!confirm("¿Poner las PROPINAS a CERO?\nEl inventario NO se toca."))return;totalTips=0;saveTips();renderStockList();renderResetPanel()}
+function resetPropinas(){
+  if(!confirm("¿Poner las PROPINAS a CERO?\nEl inventario NO se toca.")) return;
+  totalTips=0;
+  saveTips();
+  
+  // Limpiamos también el historial de peajes del mes
+  safeStorage.remove("uberCambioPeajesHistorial");
+  
+  renderStockList();
+  renderResetPanel();
+  mostrarToast("✅ Propinas y peajes reseteados");
+}
 function resetHistorialDepositos(){
   if(!confirm("¿Borrar el HISTORIAL de depósitos?\n\nEl aprendizaje (stats) NO se toca."))return;
   safeStorage.remove("uberCambioCierres");
@@ -857,6 +868,7 @@ function checkAutoResetPropinas(){
     saveTips();
     saveHistorialOps([]);
 
+    safeStorage.remove("uberCambioPeajesHistorial");
     ultimoResetPropinas = now.toISOString();
     saveUltimoResetPropinas();
 
@@ -8533,19 +8545,17 @@ function calcPeajeSugerencia(){
 
   // 3. Si no hay forma exacta, buscamos el billete ÚNICO más pequeño que cubra el peaje
   if(!used){
-    // Filtramos los billetes que valgan más que el peaje y los ordenamos de menor a mayor (10€ antes que 100€)
     const candidatas = denominations.filter(d => d.c >= peajeState.importe).sort((a,b) => a.c - b.c);
     for(const d of candidatas){
       const i = denominations.findIndex(x => x.c === d.c);
       if(stock[i] > 0) {
         used = new Array(denominations.length).fill(0);
-        used[i] = 1; // Usamos ese billete
+        used[i] = 1;
         break;
       }
     }
   }
 
-  // 4. Si sigue sin haber (porque no tiene ni un billete mayor), que intente pagar con lo que sea
   if(!used){
     mostrarToast("⚠️ No tienes piezas suficientes para pagar este peaje.");
     return;
@@ -8567,17 +8577,15 @@ function calcPeajeSugerencia(){
 }
 
 function confirmarPagoPeaje(){
-  // Restar del stock lo pagado
+  // Restar del stock lo pagado (SIN tocar statsOps)
   Object.keys(peajeState.pagado).forEach(cStr => {
     const c = parseInt(cStr);
     const n = peajeState.pagado[c];
     const i = denominations.findIndex(d => d.c === c);
     if(i >= 0 && n > 0){
       stock[i] = Math.max(0, stock[i] - n);
-      statsOps.manualOut[i] += n;
     }
   });
-  saveStats();
   saveStock();
   renderStockList();
   updateCashSummary();
@@ -8588,7 +8596,6 @@ function confirmarPagoPeaje(){
     peajeState.fase = 3;
     renderPeajePantalla();
   } else {
-    // Pago exacto, terminamos
     finalizarPeaje();
   }
 }
@@ -8607,7 +8614,7 @@ function resetCambioPeaje(){
 function finalizarPeaje(){
   const st = peajeState;
   
-  // Sumar el cambio al stock (si hay)
+  // Sumar el cambio al stock (SIN tocar statsOps)
   let totCambio = 0;
   Object.keys(st.cambioRecibido).forEach(cStr => {
     const c = parseInt(cStr);
@@ -8616,28 +8623,17 @@ function finalizarPeaje(){
       const i = denominations.findIndex(d => d.c === c);
       if(i >= 0){
         stock[i] += n;
-        statsOps.manualIn[i] += n;
       }
       totCambio += c * n;
     }
   });
 
-  saveStats();
   saveStock();
   renderStockList();
   updateCashSummary();
 
-  // Guardar en el historial de peajes
+  // Guardar SOLO en el historial privado de peajes
   guardarPeajeHistorial(st.importe, st.totEntregado, totCambio);
-
-  // Actualizar el historial de operaciones general (para el resumen)
-  añadirHistorialOp({
-    fecha: new Date().toISOString(),
-    precio: 0,
-    dado: 0,
-    propina: 0,
-    cambio: 0
-  });
 
   mostrarToast("✅ Peaje guardado. Caja cuadrada.");
   cerrarPeajePantalla();
@@ -8660,7 +8656,7 @@ function guardarPeajeHistorial(importe, pagado, cambioDevuelto){
     pagado: pagado,
     cambio: cambioDevuelto
   });
-  if(h.length > 1000) h.shift(); // Límite
+  if(h.length > 1000) h.shift();
   savePeajesHistorial(h);
 }
 /* ==================== FIN MODO PEAJE ==================== */

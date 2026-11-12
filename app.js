@@ -8702,4 +8702,22 @@ function actualizarFactorLlenadoDesdeUI(){
   renderTopesList(); 
 }
 
+function actualizarTextoMargen(){
+  const inp = document.getElementById("factorLlenadoInput");
+  const txtP = document.getElementById("txtMargenPorcentaje");
+  const txtE = document.getElementById("txtMargenEjemplo");
+  if(!inp || !txtP || !txtE) return;
+  
+  let n = parseInt(inp.value) || 70;
+  n = Math.max(10, Math.min(100, n)); // Limitar entre 10 y 100
+  
+  txtP.textContent = n;
+  
+  // Ejemplo usando un tope de 20
+  const topeEjemplo = 20;
+  const bajada = Math.max(1, Math.floor(topeEjemplo * (n / 100)));
+  
+  txtE.innerHTML = `Si pones <b>${n}%</b>, y tu tope es <b>${topeEjemplo}</b>, la app te pedirá bajar a <b>${bajada}</b>.`;
+}
+
 init();

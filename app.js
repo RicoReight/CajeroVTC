@@ -8522,77 +8522,37 @@ function calcPeajeSugerencia(){
   
   peajeState.importe = Math.round(val * 100);
   
-  // Calcular pago óptimo respetando la reserva mínima
+  // 1. Intentar combinación exacta respetando la reserva mínima
   const disp = stock.map((n,i) => Math.max(0, n - (reservaMinima[denominations[i].c] || 0)));
-  let used = null;
-  let totEntregado = 0;
-  let pagado = {};
-
-  // 🧠 LÓGICA INTELIGENTE:
-  // Buscamos combinación exacta
-  used = findSmartChange(peajeState.importe, disp);
+  let used = findSmartChange(peajeState.importe, disp);
   
-  // Si no hay exacto, pagamos con un billete grande
+  // 2. Si no hay, intentar combinación exacta IGNORANDO la reserva (usando todo el stock)
   if(!used){
-    const candidatas = denominations.filter(d => d.c > peajeState.importe);
+    used = findSmartChange(peajeState.importe, stock);
+  }
+
+  // 3. Si no hay forma exacta, buscamos el billete ÚNICO más pequeño que cubra el peaje
+  if(!used){
+    // Filtramos los billetes que valgan más que el peaje y los ordenamos de menor a mayor (10€ antes que 100€)
+    const candidatas = denominations.filter(d => d.c >= peajeState.importe).sort((a,b) => a.c - b.c);
     for(const d of candidatas){
       const i = denominations.findIndex(x => x.c === d.c);
       if(stock[i] > 0) {
         used = new Array(denominations.length).fill(0);
-        used[i] = 1;
+        used[i] = 1; // Usamos ese billete
         break;
       }
     }
   }
 
-  // 🚀 EL TRUCO: Si hay combinación, buscamos la que MÁS piezas acumuladas use.
-  if(used){
-    const pesoUso = stock.map((n, i) => {
-      const ratio = statsOps.received[i] > 0 ? (statsOps.spent[i] / statsOps.received[i]) : 0;
-      return n + (ratio * 2); 
-    });
-
-    let bestCombo = null;
-    let bestScore = -Infinity;
-    
-    function probarCombo(index, restante, actual) {
-      if(restante === 0) {
-        let score = 0;
-        for(let i=0; i<actual.length; i++){
-          if(actual[i] > 0) {
-            score += actual[i] * (pesoUso[i] + 1); 
-          }
-        }
-        if(score > bestScore) {
-          bestScore = score;
-          bestCombo = [...actual];
-        }
-        return;
-      }
-      if(restante < 0 || index >= denominations.length) return;
-      
-      const d = denominations[index];
-      const maxPosible = Math.min(disp[index], Math.floor(restante / d.c));
-      
-      for(let i = maxPosible; i >= 0; i--) {
-        actual[index] = i;
-        probarCombo(index + 1, restante - (i * d.c), actual);
-        actual[index] = 0;
-      }
-    }
-    
-    probarCombo(0, peajeState.importe, new Array(denominations.length).fill(0));
-    
-    if(bestCombo) {
-      used = bestCombo;
-    }
-  }
-
+  // 4. Si sigue sin haber (porque no tiene ni un billete mayor), que intente pagar con lo que sea
   if(!used){
-    mostrarToast("⚠️ No tienes piezas para pagar este peaje.");
+    mostrarToast("⚠️ No tienes piezas suficientes para pagar este peaje.");
     return;
   }
 
+  const pagado = {};
+  let totEntregado = 0;
   used.forEach((n,i) => {
     if(n > 0){
       pagado[denominations[i].c] = n;

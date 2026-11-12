@@ -1577,8 +1577,9 @@ function renderRecomendacionCambio(){
     cands.forEach(d => {
       if (restante >= d.c) {
         const tope = topesRecibir[d.c] || 0;
-        // 👇 SI EL TOPE ES 0, NO LO PEDIMOS
-        if(tope === 0) return; 
+        
+        // 👇 SI EL TOPE ES 0, IGNORAMOS EL BILLETE
+        if(tope === 0) return;
         
         const i = denominations.findIndex(x => x.c === d.c);
         const sa = stock[i] || 0;
@@ -1588,7 +1589,10 @@ function renderRecomendacionCambio(){
         
         if(d.c < 10 && restante > 50) limite = Math.min(limite, 4);
 
-        if (limite > 0) { pedir[d.c] = (pedir[d.c] || 0) + limite; restante -= limite * d.c; }
+        if (limite > 0) { 
+          pedir[d.c] = (pedir[d.c] || 0) + limite; 
+          restante -= limite * d.c; 
+        }
       }
     });
 

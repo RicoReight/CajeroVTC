@@ -8389,4 +8389,320 @@ function borrarRutaHistorial(fechaStr) {
   mostrarToast("🗑️ Ruta borrada");
 }
 
+/* ==================== MODO PEAJE ==================== */
+let peajeState = { fase: 1, importe: 0, pagado: null, cambioRecibido: {} };
+
+function abrirPeajePantalla(){
+  const d=document.getElementById("drawer"),o=document.getElementById("overlay");
+  if(d)d.classList.remove("active");
+  if(o)o.classList.remove("active");
+  const p=document.getElementById("peajePantalla");
+  if(p)p.style.display="block";
+  peajeState = { fase: 1, importe: 0, pagado: null, cambioRecibido: {} };
+  renderPeajePantalla();
+}
+function cerrarPeajePantalla(){
+  document.getElementById("peajePantalla").style.display="none";
+}
+
+function renderPeajePantalla(){
+  const cont = document.getElementById("peajeContenido");
+  if(!cont) return;
+  const st = peajeState;
+
+  // ── FASE 1: Pedir precio del peaje ──
+  if(st.fase === 1){
+    // Calcular total gastado este mes para mostrarlo
+    const peajesMes = loadPeajesHistorial().filter(p => p.fecha.startsWith(fechaLocalStr().slice(0,7)));
+    const totalMes = peajesMes.reduce((s, p) => s + p.importe, 0);
+
+    cont.innerHTML = `
+      <div class="card" style="margin:0 0 12px 0;text-align:center;background:#1e293b;border:1px solid #475569">
+        <div style="font-size:14px;color:#94a3b8;font-weight:800;margin-bottom:12px">¿CUÁNTO VALE EL PEAJE?</div>
+        <input type="number" id="peajeInput" inputmode="decimal" step="0.01" placeholder="Ej: 4.20" style="width:100%;font-size:32px;font-weight:900;padding:16px;border-radius:12px;border:2px solid #3b82f6;background:#0f172a;color:#38bdf8;text-align:center;outline:none;margin-bottom:14px">
+        <button type="button" onclick="calcPeajeSugerencia()" style="width:100%;background:#0284c7;color:#fff;border:none;border-radius:10px;padding:16px;font-weight:900;font-size:16px;cursor:pointer">
+          🔎 Calcular cómo pagar
+        </button>
+      </div>
+      <div class="card" style="margin:0 0 12px 0;background:#0f172a;border:1px solid #334155;text-align:center">
+        <div style="font-size:11px;color:#94a3b8;font-weight:700">GASTADO ESTE MES</div>
+        <div style="font-size:20px;font-weight:900;color:#fca5a5;margin-top:4px">${moneyText(totalMes)}</div>
+      </div>`;
+    setTimeout(() => { const inp = document.getElementById("peajeInput"); if(inp) inp.focus(); }, 100);
+    return;
+  }
+
+  // ── FASE 2: Confirmar pago y ver cambio ──
+  if(st.fase === 2){
+    let html = `<div class="card" style="margin:0 0 12px 0;background:#1e293b;border:2px solid #0284c7">
+      <div style="font-size:12px;color:#93c5fd;font-weight:900;letter-spacing:0.5px;margin-bottom:8px">💵 PAGA CON ESTO (${moneyText(st.importe)})</div>
+      <div class="change-grid" style="margin-bottom:12px">`;
+    
+    let totEntregado = 0;
+    Object.keys(st.pagado).forEach(cStr => {
+      const c = parseInt(cStr);
+      const n = st.pagado[c];
+      const d = denominations.find(x => x.c === c);
+      if(d && n > 0){
+        totEntregado += n * c;
+        const cl = d.type === "bill" ? "bill-graphic " : "coin-graphic ";
+        html += `<div class="cash-item"><div class="badge">x${n}</div><div class="${cl}${d.class}">${d.short}</div></div>`;
+      }
+    });
+    html += `</div>`;
+
+    const dif = totEntregado - st.importe;
+    if(dif > 0){
+      html += `<div style="font-size:12px;color:#fbbf24;background:#78350f;padding:8px;border-radius:8px;text-align:center;margin-bottom:10px">
+        ⚠️ Te tienen que devolver <b>${moneyText(dif)}</b>
+      </div>`;
+    } else {
+      html += `<div style="font-size:12px;color:#4ade80;background:#064e3b;padding:8px;border-radius:8px;text-align:center;margin-bottom:10px">
+        ✅ Pago exacto. No te dan cambio.
+      </div>`;
+    }
+
+    html += `<button type="button" onclick="confirmarPagoPeaje()" style="width:100%;background:#b45309;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:900;font-size:15px;cursor:pointer">
+      💸 He pagado
+    </button></div>`;
+    cont.innerHTML = html;
+    return;
+  }
+
+  // ── FASE 3: Introducir el cambio recibido ──
+  if(st.fase === 3){
+    let html = `<div class="card" style="margin:0 0 12px 0;background:#1e293b;border:2px solid #fbbf24">
+      <div style="font-size:12px;color:#fbbf24;font-weight:900;letter-spacing:0.5px;margin-bottom:8px">🪙 ¿QUÉ CAMBIO TE HAN DADO?</div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;text-align:center">Pulsa las piezas que te han devuelto.</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px">`;
+
+    denominations.forEach(d => {
+      const n = st.cambioRecibido[d.c] || 0;
+      const cl = d.type === "bill" ? "bill-graphic " : "coin-graphic ";
+      html += `
+        <div onclick="addCambioPeaje(${d.c})" style="background:${n>0?'#4c1d95':'#283548'};border:2px solid ${n>0?'#8b5cf6':'#475569'};border-radius:10px;padding:8px;text-align:center;cursor:pointer;position:relative">
+          <div class="${cl}${d.class}" style="font-size:12px;margin-bottom:4px">${d.short}</div>
+          <div style="font-size:11px;color:#fff;font-weight:800">${d.n}</div>
+          ${n > 0 ? `<div style="position:absolute;top:-6px;right:-6px;background:#8b5cf6;color:#fff;font-size:11px;font-weight:900;padding:2px 6px;border-radius:10px">x${n}</div>` : ""}
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+
+    let totCambio = 0;
+    Object.keys(st.cambioRecibido).forEach(cStr => {
+      totCambio += parseInt(cStr) * st.cambioRecibido[cStr];
+    });
+
+    const esperado = st.totEntregado - st.importe;
+    const cuadra = (totCambio === esperado);
+
+    html += `<div style="text-align:center;font-size:14px;font-weight:800;color:${cuadra?'#4ade80':'#fbbf24'};padding:10px;background:#0f172a;border-radius:8px;margin-bottom:12px">
+      Cambio marcado: ${moneyText(totCambio)} / ${moneyText(esperado)}
+    </div>`;
+
+    html += `
+      <button type="button" onclick="finalizarPeaje()" style="width:100%;background:#059669;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:900;font-size:15px;cursor:pointer;margin-bottom:8px">
+        ✅ Guardar y cerrar
+      </button>
+      <button type="button" onclick="resetCambioPeaje()" style="width:100%;background:#334155;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:700;font-size:13px;cursor:pointer">
+        🗑️ Limpiar cambio
+      </button>
+    </div>`;
+    cont.innerHTML = html;
+    return;
+  }
+}
+
+function calcPeajeSugerencia(){
+  const inp = document.getElementById("peajeInput");
+  const val = parseFloat(inp.value.replace(',','.')) || 0;
+  if(val <= 0){ mostrarToast("Escribe un importe"); return; }
+  
+  peajeState.importe = Math.round(val * 100);
+  
+  // Calcular pago óptimo respetando la reserva mínima
+  const disp = stock.map((n,i) => Math.max(0, n - (reservaMinima[denominations[i].c] || 0)));
+  let used = null;
+  let totEntregado = 0;
+  let pagado = {};
+
+  // 🧠 LÓGICA INTELIGENTE:
+  // Buscamos combinación exacta
+  used = findSmartChange(peajeState.importe, disp);
+  
+  // Si no hay exacto, pagamos con un billete grande
+  if(!used){
+    const candidatas = denominations.filter(d => d.c > peajeState.importe);
+    for(const d of candidatas){
+      const i = denominations.findIndex(x => x.c === d.c);
+      if(stock[i] > 0) {
+        used = new Array(denominations.length).fill(0);
+        used[i] = 1;
+        break;
+      }
+    }
+  }
+
+  // 🚀 EL TRUCO: Si hay combinación, buscamos la que MÁS piezas acumuladas use.
+  if(used){
+    const pesoUso = stock.map((n, i) => {
+      const ratio = statsOps.received[i] > 0 ? (statsOps.spent[i] / statsOps.received[i]) : 0;
+      return n + (ratio * 2); 
+    });
+
+    let bestCombo = null;
+    let bestScore = -Infinity;
+    
+    function probarCombo(index, restante, actual) {
+      if(restante === 0) {
+        let score = 0;
+        for(let i=0; i<actual.length; i++){
+          if(actual[i] > 0) {
+            score += actual[i] * (pesoUso[i] + 1); 
+          }
+        }
+        if(score > bestScore) {
+          bestScore = score;
+          bestCombo = [...actual];
+        }
+        return;
+      }
+      if(restante < 0 || index >= denominations.length) return;
+      
+      const d = denominations[index];
+      const maxPosible = Math.min(disp[index], Math.floor(restante / d.c));
+      
+      for(let i = maxPosible; i >= 0; i--) {
+        actual[index] = i;
+        probarCombo(index + 1, restante - (i * d.c), actual);
+        actual[index] = 0;
+      }
+    }
+    
+    probarCombo(0, peajeState.importe, new Array(denominations.length).fill(0));
+    
+    if(bestCombo) {
+      used = bestCombo;
+    }
+  }
+
+  if(!used){
+    mostrarToast("⚠️ No tienes piezas para pagar este peaje.");
+    return;
+  }
+
+  used.forEach((n,i) => {
+    if(n > 0){
+      pagado[denominations[i].c] = n;
+      totEntregado += n * denominations[i].c;
+    }
+  });
+
+  peajeState.pagado = pagado;
+  peajeState.totEntregado = totEntregado;
+  peajeState.fase = 2;
+  renderPeajePantalla();
+}
+
+function confirmarPagoPeaje(){
+  // Restar del stock lo pagado
+  Object.keys(peajeState.pagado).forEach(cStr => {
+    const c = parseInt(cStr);
+    const n = peajeState.pagado[c];
+    const i = denominations.findIndex(d => d.c === c);
+    if(i >= 0 && n > 0){
+      stock[i] = Math.max(0, stock[i] - n);
+      statsOps.manualOut[i] += n;
+    }
+  });
+  saveStats();
+  saveStock();
+  renderStockList();
+  updateCashSummary();
+
+  // Si hay cambio, pasamos a la fase 3
+  if(peajeState.totEntregado > peajeState.importe){
+    peajeState.cambioRecibido = {};
+    peajeState.fase = 3;
+    renderPeajePantalla();
+  } else {
+    // Pago exacto, terminamos
+    finalizarPeaje();
+  }
+}
+
+function addCambioPeaje(cents){
+  const st = peajeState;
+  st.cambioRecibido[cents] = (st.cambioRecibido[cents] || 0) + 1;
+  renderPeajePantalla();
+}
+
+function resetCambioPeaje(){
+  peajeState.cambioRecibido = {};
+  renderPeajePantalla();
+}
+
+function finalizarPeaje(){
+  const st = peajeState;
+  
+  // Sumar el cambio al stock (si hay)
+  let totCambio = 0;
+  Object.keys(st.cambioRecibido).forEach(cStr => {
+    const c = parseInt(cStr);
+    const n = st.cambioRecibido[cStr];
+    if(n > 0){
+      const i = denominations.findIndex(d => d.c === c);
+      if(i >= 0){
+        stock[i] += n;
+        statsOps.manualIn[i] += n;
+      }
+      totCambio += c * n;
+    }
+  });
+
+  saveStats();
+  saveStock();
+  renderStockList();
+  updateCashSummary();
+
+  // Guardar en el historial de peajes
+  guardarPeajeHistorial(st.importe, st.totEntregado, totCambio);
+
+  // Actualizar el historial de operaciones general (para el resumen)
+  añadirHistorialOp({
+    fecha: new Date().toISOString(),
+    precio: 0,
+    dado: 0,
+    propina: 0,
+    cambio: 0
+  });
+
+  mostrarToast("✅ Peaje guardado. Caja cuadrada.");
+  cerrarPeajePantalla();
+}
+
+/* Historial de peajes */
+function loadPeajesHistorial(){
+  const s = safeStorage.get("uberCambioPeajesHistorial");
+  if(s){ try { return JSON.parse(s) || []; } catch(e){ return []; } }
+  return [];
+}
+function savePeajesHistorial(h){
+  safeStorage.set("uberCambioPeajesHistorial", JSON.stringify(h));
+}
+function guardarPeajeHistorial(importe, pagado, cambioDevuelto){
+  const h = loadPeajesHistorial();
+  h.push({
+    fecha: new Date().toISOString(),
+    importe: importe,
+    pagado: pagado,
+    cambio: cambioDevuelto
+  });
+  if(h.length > 1000) h.shift(); // Límite
+  savePeajesHistorial(h);
+}
+/* ==================== FIN MODO PEAJE ==================== */
+
 init();

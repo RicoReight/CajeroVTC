@@ -219,7 +219,7 @@
       <span style="font-size:22px">💼</span><span style="flex:1">Días de trabajo</span><span style="color:#38bdf8;font-size:18px">›</span>
     </button>
     
-    <!-- BOTÓN NUEVO: MI HUCHA -->
+    <!-- BOTÓN: MI HUCHA -->
     <button type="button" onclick="toggleMenu();abrirHuchaPantalla()"
       style="width:100%;display:flex;align-items:center;gap:12px;padding:14px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#38bdf8;cursor:pointer;font-size:14px;font-weight:700;text-align:left;margin-bottom:8px">
       <span style="font-size:18px">🐷</span><span style="flex:1">Mi Hucha</span><span style="color:#64748b;font-size:16px">›</span>
@@ -237,6 +237,13 @@
       style="width:100%;display:flex;align-items:center;gap:12px;padding:14px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#86efac;cursor:pointer;font-size:14px;font-weight:700;text-align:left;margin-bottom:8px">
       <span style="font-size:18px">🏦</span><span style="flex:1">Reponer caja</span><span style="color:#64748b;font-size:16px">›</span>
     </button>
+
+    <!-- BOTÓN: PAGAR PEAJE -->
+    <button type="button" onclick="toggleMenu();abrirPeajePantalla()"
+      style="width:100%;display:flex;align-items:center;gap:12px;padding:14px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#fca5a5;cursor:pointer;font-size:14px;font-weight:700;text-align:left;margin-bottom:8px">
+      <span style="font-size:18px">🛣️</span><span style="flex:1">Pagar Peaje</span><span style="color:#64748b;font-size:16px">›</span>
+    </button>
+
     <button type="button" onclick="toggleMenu();abrirLimitePantalla()"
       style="width:100%;display:flex;align-items:center;gap:12px;padding:14px;background:#0f172a;border:1px solid #334155;border-radius:10px;color:#fcd34d;cursor:pointer;font-size:14px;font-weight:700;text-align:left;margin-bottom:8px">
       <span style="font-size:18px">🔒</span><span style="flex:1">Límite y máximos</span><span style="color:#64748b;font-size:16px">›</span>
@@ -263,12 +270,15 @@
         ⏭️ Saltar próximo reset
       </button>
     </div>
+
+    <!-- BOTÓN: DÍAS NO TRABAJADOS -->
     <button type="button" onclick="abrirDiasNoTrabajadosPantalla()"
       style="width:100%;display:flex;align-items:center;gap:12px;padding:14px;background:linear-gradient(135deg,#0f172a,#1e293b);border:1px solid #475569;border-radius:10px;color:#fca5a5;cursor:pointer;font-size:14px;font-weight:700;text-align:left;margin-bottom:8px">
       <span style="font-size:18px">📅</span>
       <span style="flex:1">Días no trabajados</span>
       <span style="color:#64748b;font-size:16px">›</span>
     </button>
+
     <div style="font-size:11px;color:#f87171;font-weight:900;letter-spacing:0.8px;text-align:center;margin-bottom:12px">
       ⚠️ ACCIONES PELIGROSAS
     </div>
@@ -392,6 +402,17 @@
       <h2 style="margin:0;font-size:18px;color:#38bdf8">🐷 Mi Hucha</h2>
     </div>
     <div id="huchaContenido"></div>
+  </div>
+</div>
+
+<!-- ============ PANTALLA MODO PEAJE ============ -->
+<div id="peajePantalla" style="position:fixed;inset:0;background:#0f172a;z-index:500;display:none;overflow-y:auto;padding:14px;">
+  <div style="max-width:600px;margin:0 auto;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <button type="button" onclick="cerrarPeajePantalla()" style="background:#334155;color:#fff;border:none;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px">← Volver</button>
+      <h2 style="margin:0;font-size:18px;color:#fca5a5">🛣️ Pagar Peaje</h2>
+    </div>
+    <div id="peajeContenido"></div>
   </div>
 </div>
 

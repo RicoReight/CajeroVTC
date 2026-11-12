@@ -403,16 +403,17 @@ function renderAvisoHucha(){
   if(box) box.remove();
   if(statsOps.operations < 10) return;
 
-  const ops = statsOps.operations;
   const sobrantes = [];
   denominations.forEach((d, i) => {
-    if(d.type !== "coin") return;
+    if(d.type !== "coin") return; // Solo evaluamos monedas para la Hucha
     const t = topesRecibir[d.c] || 0;
-    const objetivo = Math.floor(t * FACTOR_LLENADO);
-    if(objetivo < 10) return;
+    if(t <= 0) return; 
     const sa = stock[i] || 0;
-    if(sa > objetivo * 1.5){
-      sobrantes.push({ d, index: i, cantidad: sa - objetivo, stock: sa });
+    
+    // 👇 Mismo disparador: Si superas el máximo
+    if(sa > t){
+      const objetivo = Math.max(1, Math.floor(t * FACTOR_LLENADO));
+      sobrantes.push({ d, index: i, cantidad: sa - objetivo, stock: sa, tope: t });
     }
   });
   if(!sobrantes.length) return;
@@ -424,15 +425,17 @@ function renderAvisoHucha(){
   const div = document.createElement("div");
   div.id = "avisoHuchaBox";
   div.style.cssText = "margin-top:12px;padding:12px;background:#2e1065;border:2px solid #7c3aed;border-radius:10px";
-  let html = `<div style="font-size:12px;color:#c4b5fd;font-weight:900;letter-spacing:0.5px;margin-bottom:6px">🐷 MUCHAS MONEDAS EN EL COCHE</div>`;
-  html += `<div style="font-size:12px;color:#e9d5ff;line-height:1.4;margin-bottom:8px">Acumulas <b>${moneyText(total)}</b> en monedas que apenas gastas. Pásalas a la Hucha.</div>`;
+  let html = `<div style="font-size:12px;color:#c4b5fd;font-weight:900;letter-spacing:0.5px;margin-bottom:6px">🐷 MONEDAS SOBRANTES</div>`;
+  html += `<div style="font-size:12px;color:#e9d5ff;line-height:1.4;margin-bottom:8px">Has superado el límite. Te sobran <b>${moneyText(total)}</b>. Pásalas a la Hucha para dejar hueco.</div>`;
+  
   sobrantes.slice(0, 3).forEach(x => {
     html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;font-size:13px;color:#fff">
-      <span>Tienes ${x.stock} × ${x.d.n}</span>
-      <button type="button" onclick="abrirModalMoverHucha(${x.index}, ${x.cantidad})" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:5px 10px;font-weight:800;font-size:12px;cursor:pointer">🐷 Mover</button>
+      <span>Tienes ${x.stock} × ${x.d.n} (tope ${x.tope})</span>
+      <button type="button" onclick="abrirModalMoverHucha(${x.index}, ${x.cantidad})" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:5px 10px;font-weight:800;font-size:12px;cursor:pointer">🐷 Quitar ${x.cantidad}</button>
     </div>`;
   });
-  html += `<button type="button" onclick="moverTodasMonedasAHuchaDesdeCaja()" style="width:100%;margin-top:8px;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:800;font-size:13px;cursor:pointer">🐷 Mover TODAS a la Hucha</button>`;
+  
+  html += `<button type="button" onclick="moverTodasMonedasAHuchaDesdeCaja()" style="width:100%;margin-top:8px;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:800;font-size:13px;cursor:pointer">🐷 Mover TODAS las sobrantes</button>`;
   div.innerHTML = html;
   cont.appendChild(div);
 }
@@ -2045,24 +2048,24 @@ function calcularIntercambiosRecomendados(){
   denominations.forEach((d, i) => {
     const sa = stock[i] || 0;
     const t = topesRecibir[d.c] || 0;
-    const objetivo = Math.floor(t * FACTOR_LLENADO);
-    const aR = statsOps.received[i] / ops;
-    const aS = statsOps.spent[i] / ops;
+    
+    if(t <= 0) return;
 
-    if (d.type === "bill") {
-      if (objetivo < 5) return;
-      if (sa <= objetivo) return;
-      const ratio = aS > 0 ? (aR / aS) : (aR > 0 ? 99 : 0);
-      if (ratio < 1.2 && sa < objetivo * 1.3) return;
+    // 👇 Solo avisamos si SUPERAMOS el tope
+    if(sa > t){
+      // Objetivo: Bajar hasta el 70% del tope para dejar colchón de sobra
+      const objetivo = Math.max(1, Math.floor(t * FACTOR_LLENADO));
       const cantidad = sa - objetivo;
-      sobran.push({ d, index: i, cantidad, stock: sa, objetivo, ratioRecibeGasta: ratio });
-      totalSobra += cantidad * d.c;
-    } else {
-      if (objetivo < 10) return;
-      if (sa < objetivo * 1.5) return;
-      const cantidad = sa - objetivo;
-      monedasSobran.push({ d, index: i, cantidad, stock: sa, objetivo });
-      totalMonedasSobra += cantidad * d.c;
+
+      if(cantidad > 0){
+        if(d.type === "bill"){
+          sobran.push({ d, index: i, cantidad, stock: sa, objetivo });
+          totalSobra += cantidad * d.c;
+        } else {
+          monedasSobran.push({ d, index: i, cantidad, stock: sa, objetivo });
+          totalMonedasSobra += cantidad * d.c;
+        }
+      }
     }
   });
 

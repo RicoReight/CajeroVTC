@@ -6957,11 +6957,8 @@ function obtenerAvisos(){
         if(diaReset !== 0){
           const prox = calcularProximoReset();
           if(prox){
-            fechaLimite = new Date(prox.getTime());
-            const ds = fechaLimite.getDay();
-            if(ds === 6) fechaLimite.setDate(fechaLimite.getDate() - 1);
-            else if(ds === 0) fechaLimite.setDate(fechaLimite.getDate() - 2);
-            else if(ds === 1) fechaLimite.setDate(fechaLimite.getDate() - 3);
+            // Calcula el límite real (saltando vacaciones, días libres y disfrutes)
+            fechaLimite = calcularLimiteDepositoReal(prox);
             fechaLimite.setHours(0,0,0,0);
 
             const ahoraDia = new Date();
@@ -8188,16 +8185,11 @@ async function programarAvisosDeposito(){
     const proximoAviso = calcularProximoAviso(); // Calcula el próximo Viernes (o el día configurado) a la hora configurada
  
     // Calcular cuándo es el límite de entrega (los 7 días antes del reset)
-    let fechaLimite = null;
-    const proxReset = (diaReset !== 0) ? calcularProximoReset() : null;
-    if(proxReset){
-      fechaLimite = new Date(proxReset.getTime());
-      const ds = fechaLimite.getDay();
-      if(ds === 6) fechaLimite.setDate(fechaLimite.getDate() - 1); // Si cae sábado, es el viernes
-      else if(ds === 0) fechaLimite.setDate(fechaLimite.getDate() - 2); // Si cae domingo, es el viernes
-      else if(ds === 1) fechaLimite.setDate(fechaLimite.getDate() - 3); // Si cae lunes, es el viernes
-      fechaLimite.setHours(10, 0, 0, 0);
-    }
+      let fechaLimite = null;
+      const proxReset = (diaReset !== 0) ? calcularProximoReset() : null;
+      if(proxReset){
+        fechaLimite = calcularLimiteDepositoReal(proxReset);
+      }
  
     let cuando = proximoAviso;
     let notif;
@@ -8734,6 +8726,43 @@ function actualizarTextoMargen(){
   const bajada = Math.max(1, Math.floor(topeEjemplo * (n / 100)));
   
   txtE.innerHTML = `Si pones <b>${n}%</b>, y tu tope es <b>${topeEjemplo}</b>, la app te pedirá bajar a <b>${bajada}</b>.`;
+}
+
+function calcularLimiteDepositoReal(proxReset) {
+  let limite = new Date(proxReset.getTime());
+  let seguridad = 15; // Para que no entre en bucle infinito
+
+  // Vamos a ir retrocediendo días desde el propio día del reset
+  while (seguridad > 0) {
+    const fechaStr = fechaLocalStr(limite);
+    
+    // 1. ¿Es día no trabajado (ej. domingo o lunes)?
+    const esLibre = esDiaNoTrabajado(fechaStr);
+    
+    // 2. ¿Está en vacaciones?
+    const enVac = diasPersonales.find(d => d.fecha === fechaStr && d.tipo === "vacacion");
+    
+    // 3. ¿Es día de disfrute de un festivo?
+    const esDisfrute = festivos.find(f => f.fechaDisfrute === fechaStr && f.solicitado);
+    
+    // 4. ¿Es un festivo no trabajado?
+    const esFestivoLibre = festivos.find(f => f.fecha === fechaStr && !f.trabajado);
+
+    // Si NO es libre, NI vacaciones, NI disfrute, NI festivo... entonces es un día apto para depositar
+    if (!esLibre && !enVac && !esDisfrute && !esFestivoLibre) {
+      // Comprobamos que no sea el mismo día del reset, porque el reset es el día 22 a las 00:00.
+      // Si el reset es el 22, el límite real es el 21. Si el 21 es laborable, se queda ahí.
+      // Si el reset cae en domingo, retrocedemos al sábado, si el sábado es libre, al viernes...
+      break; 
+    }
+    
+    // Si no es apto, retrocedemos un día
+    limite.setDate(limite.getDate() - 1);
+    seguridad--;
+  }
+
+  limite.setHours(10, 0, 0, 0); // Ponemos las 10:00 de la mañana para el aviso
+  return limite;
 }
 
 init();

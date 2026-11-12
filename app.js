@@ -11,7 +11,19 @@ const denominations=[
 const RESERVA_DEFAULT={10000:0,5000:0,2000:1,1000:1,500:1,200:2,100:2,50:3,20:5,10:5,5:3,2:3,1:5};
 const TOPES_DEFAULT={1:30,2:30,5:30,10:25,20:25,50:20,100:20,200:20,500:8,1000:8,2000:5,5000:3,10000:2};
 const ARRANQUE={10000:0,5000:0,2000:2,1000:3,500:4,200:5,100:8,50:8,20:15,10:15,5:10,2:10,1:15};
-const FACTOR_LLENADO=0.7;
+let FACTOR_LLENADO = loadFactorLlenado();
+function loadFactorLlenado(){
+  const s = safeStorage.get("uberCambioFactorLlenado");
+  if(s) { 
+    const n = parseInt(s); 
+    if(!isNaN(n) && n >= 10 && n <= 100) return n / 100; 
+  }
+  return 0.7; // Por defecto 70%
+}
+function guardarFactorLlenado(porcentaje){
+  safeStorage.set("uberCambioFactorLlenado", String(porcentaje));
+  FACTOR_LLENADO = porcentaje / 100;
+}
 let stock=loadStock(),totalTips=loadTips(),reservaMinima=loadReserva(),topesRecibir=loadTopes();
 let hucha = loadHucha();
 let diaReset=loadDiaReset(),ultimoResetPropinas=loadUltimoResetPropinas(),statsOps=loadStats();
@@ -8679,5 +8691,15 @@ function guardarPeajeHistorial(importe, pagado, cambioDevuelto){
   savePeajesHistorial(h);
 }
 /* ==================== FIN MODO PEAJE ==================== */
+
+function actualizarFactorLlenadoDesdeUI(){
+  const inp = document.getElementById("factorLlenadoInput");
+  if(!inp) return;
+  let n = parseInt(inp.value) || 70;
+  n = Math.max(10, Math.min(100, n)); // Límite lógico (entre 10% y 100%)
+  guardarFactorLlenado(n);
+  mostrarToast("✅ Margen configurado al " + n + "%");
+  renderTopesList(); 
+}
 
 init();

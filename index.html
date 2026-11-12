@@ -500,7 +500,17 @@
       <button type="button" onclick="cerrarLimitePantalla()" style="background:#334155;color:#fff;border:none;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px">← Volver</button>
       <h2 style="margin:0;font-size:18px;color:#38bdf8">🔒 Límite y Máximos</h2>
     </div>
-
+    <div class="card" style="margin:0 0 12px 0">
+      <div style="background:#0f172a;border:1px solid #475569;border-radius:10px;padding:12px;margin-bottom:12px;font-size:13px;color:#94a3b8;line-height:1.5">
+        📊 <b style="color:#38bdf8">MARGEN DE LLENADO (EL 70%)</b><br>
+        Es el % al que la app baja cuando te pasas del máximo. Si pones 70%, y tu tope es 20, la app te pedirá bajar a 14.
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="number" id="factorLlenadoInput" min="10" max="100" value="70" style="flex:1;font-size:24px;font-weight:900;padding:12px;border-radius:10px;border:2px solid #0891b2;background:#0f172a;color:#22d3ee;text-align:center;outline:none">
+        <span style="font-size:20px;font-weight:900;color:#94a3b8">%</span>
+        <button type="button" onclick="actualizarFactorLlenadoDesdeUI()" style="background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px 18px;font-weight:900;font-size:14px;cursor:pointer">Guardar</button>
+      </div>
+    </div>
     <div class="card" style="margin:0 0 12px 0">
       <div style="background:#0f172a;border:1px solid #475569;border-radius:10px;padding:12px;margin-bottom:12px;font-size:13px;color:#94a3b8;line-height:1.5">
         🔒 <b style="color:#eab308">RESERVA MÍNIMA</b><br>

@@ -6882,7 +6882,7 @@ function obtenerAvisos(){
   const hoyStrAvisos = fechaLocalStr();
   const sinSolicitar = festivos.filter(f => {
     if(!f.trabajado || f.solicitado || f.sacrificado) return false;
-    if(f.fecha >= hoyStrAvisos) return false; // futuro → aún no se puede solicitar
+    if(f.fecha >= hoyStrAvisos) return false; 
     const enVac = diasPersonales.find(x => x.fecha === f.fecha && x.tipo === "vacacion");
     if(enVac) return false;
     const d = diasHastaCaducar(f);
@@ -6941,7 +6941,7 @@ function obtenerAvisos(){
     }
   } catch(e){}
 
-  // 6) Depósito de propinas pendiente (sincronizado con la notificación)
+  // 6) Depósito de propinas pendiente (SINCRONIZADO CON LA CAMPANA Y EL PUSH)
   try {
     const ops = loadHistorialOps();
     const cierres = loadCierres();
@@ -6950,7 +6950,7 @@ function obtenerAvisos(){
     const pendiente = Math.max(0, totalOps - totalCierres);
 
     if(pendiente > 0){
-      // Detectar si estamos en "última semana" (igual que programarAvisosDeposito)
+      // Calcular si estamos en la última semana (≤7 días antes del reset)
       let enUltimaSemana = false;
       let fechaLimite = null;
       try {
@@ -6972,8 +6972,17 @@ function obtenerAvisos(){
         }
       } catch(e){}
 
+      // Comprobar el día de la semana
+      const diaHoy = new Date().getDay();
+      const diasDesdeRecordatorio = (diaHoy - diaRecordatorio + 7) % 7;
+      
+      // Si ya pasó el día del recordatorio esta semana (0=día exacto, 1=al día siguiente...)
+      // Mostramos el aviso hasta 3 días después (jueves -> viernes, sábado, domingo)
+      const esDiaRecordatorio = (diaHoy === diaRecordatorio);
+      const yaPasoRecordatorioEstaSemana = (diasDesdeRecordatorio >= 0 && diasDesdeRecordatorio <= 3);
+
       if(enUltimaSemana && fechaLimite){
-        // ⚠️ Aviso urgente de última semana (sincronizado con la notificación)
+        // ⚠️ Aviso urgente (rojo) - Se queda siempre hasta hacer el depósito
         avisos.push({
           tipo: "urgente",
           icono: "⚠️",
@@ -6981,8 +6990,8 @@ function obtenerAvisos(){
           subtitulo: "Límite: " + formatearFechaBonita(fechaLocalStr(fechaLimite)) + " · " + moneyText(pendiente),
           accion: "cierre"
         });
-      } else {
-        // 💶 Aviso normal de depósito pendiente
+      } else if(esDiaRecordatorio || yaPasoRecordatorioEstaSemana){
+        // 💶 Aviso normal (naranja) - Se enciende el día del recordatorio y SE QUEDA hasta el domingo
         avisos.push({
           tipo: "info",
           icono: "💶",

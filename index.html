@@ -47,12 +47,12 @@
       padding-top: 20px !important;
     }
 
-    /* CONTENEDOR PRINCIPAL: 2 Columnas */
+    /* CONTENEDOR PRINCIPAL: Tu diseño del Paint */
     body.modo-desktop #diasContenido {
-      max-width: 1250px !important;
+      max-width: 1300px !important;
       margin: 0 auto !important;
       display: grid !important;
-      grid-template-columns: 380px 1fr !important; 
+      grid-template-columns: 340px 1fr !important; 
       grid-template-areas:
         "sidebar calendar"
         "holidays holidays" !important;
@@ -81,13 +81,18 @@
       padding: 24px;
     }
     
-    /* Forzar que los días del calendario sean cuadrados perfectos */
+    /* Cuadrícula perfecta para los días */
     body.modo-desktop .dias-calendar-wrapper [style*="aspect-ratio:1"] {
       aspect-ratio: 1 !important; 
       border-radius: 12px !important;
+      transition: all 0.2s;
+    }
+    body.modo-desktop .dias-calendar-wrapper [style*="aspect-ratio:1"]:hover {
+      transform: scale(1.05);
+      z-index: 10;
     }
 
-    /* ==================== FESTIVOS (ABAJO) ==================== */
+    /* ==================== FESTIVOS (ABAJO A LO ANCHO) ==================== */
     body.modo-desktop .dias-holidays-wrapper {
       grid-area: holidays;
       background: #1e293b;
@@ -97,10 +102,10 @@
       margin-top: 10px;
     }
     
-    /* Lista de festivos en 2 columnas */
+    /* Lista de festivos en columnas automáticas */
     body.modo-desktop .dias-holidays-list {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
       gap: 16px;
     }
   }

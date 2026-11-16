@@ -767,7 +767,7 @@ async function toggleModoWeb() {
 
     // 👇 AQUÍ FIJAMOS EL PUERTO 8080 👇
     servidorWeb = await HttpServer.start({
-      port: 80800, 
+      port: 8080, 
       android: {
         notificationTitle: 'CambioVTC - Modo Web',
         notificationText: 'Servidor local activo en el puerto 8080',

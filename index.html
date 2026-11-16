@@ -31,10 +31,15 @@
   button:active{
     filter: brightness(0.9);
   }
-  /* ==================== DISEÑO ESCRITORIO (PC / TABLET) ==================== */
+    /* ==================== DISEÑO ESCRITORIO (PC / TABLET) ==================== */
   @media (min-width: 768px) {
     body.modo-desktop {
       background-color: #0f172a;
+    }
+
+    /* Ocultar la calculadora principal en PC cuando el calendario está abierto */
+    body.modo-desktop:has(#diasPantalla[style*="display: block"]) .app {
+      display: none !important;
     }
 
     /* Ocultar botón volver y modo web en PC */
@@ -42,36 +47,31 @@
     body.modo-desktop .dias-modo-web { display: none !important; }
 
     body.modo-desktop #diasPantalla {
-      background: transparent !important;
+      background: #0f172a !important;
       padding: 20px !important;
       display: flex;
       justify-content: center;
     }
 
-    /* DISEÑO DE 3 COLUMNAS CENTRADO */
+    /* DISEÑO DE REJILLA MAESTRO (3 Columnas) */
     body.modo-desktop #diasContenido {
       width: 100%;
-      max-width: 1500px !important;
+      max-width: 1600px !important;
       margin: 0 auto !important;
       display: grid !important;
-      grid-template-columns: 380px 1fr 380px !important;
-      grid-template-rows: auto auto auto auto !important;
+      grid-template-columns: 340px 1fr 360px !important;
       grid-template-areas:
-        "festivos anios      stats"
-        "festivos calendario vacaciones"
-        "festivos calendario personales"
-        "festivos botones    vacio" !important;
+        "festivos anios       stats"
+        "festivos calendario  vacaciones"
+        "festivos calendario  personales"
+        "festivos botones     botones" !important;
       gap: 24px !important;
       align-items: start !important;
     }
 
-    /* ASIGNACIÓN DE ZONAS */
+    /* ASIGNACIÓN DE ZONAS A CADA CAJA */
     body.modo-desktop .pc-festivos { 
       grid-area: festivos; 
-      background: #1e293b; 
-      border: 1px solid #334155; 
-      border-radius: 16px; 
-      padding: 24px; 
       max-height: calc(100vh - 40px);
       overflow-y: auto;
       position: sticky;
@@ -79,17 +79,19 @@
     }
     body.modo-desktop .pc-anios { grid-area: anios; }
     body.modo-desktop .pc-stats { grid-area: stats; }
+    body.modo-desktop .pc-calendario { grid-area: calendario; }
     body.modo-desktop .pc-vacaciones { grid-area: vacaciones; }
     body.modo-desktop .pc-personales { grid-area: personales; }
     body.modo-desktop .pc-botones { grid-area: botones; }
-    
-    body.modo-desktop .pc-calendario { 
-      grid-area: calendario; 
-      grid-row: span 2;
-      background: #1e293b; 
-      border: 1px solid #334155; 
-      border-radius: 16px; 
-      padding: 24px; 
+
+    /* ESTILO VISUAL DE LAS CAJAS */
+    body.modo-desktop .pc-box {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 20px;
+      margin: 0 !important;
+      box-sizing: border-box;
     }
 
     /* Días del calendario GIGANTES (Cuadrados perfectos) */
@@ -105,10 +107,10 @@
       z-index: 10;
     }
 
-    /* Festivos en 1 sola columna ya que la columna es estrecha */
+    /* Lista de festivos en columna */
     body.modo-desktop .pc-festivos-list {
-      display: grid;
-      grid-template-columns: 1fr;
+      display: flex;
+      flex-direction: column;
       gap: 12px;
     }
   }

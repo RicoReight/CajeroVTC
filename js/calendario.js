@@ -743,41 +743,55 @@ async function toggleModoWeb() {
     const { HttpServer } = Capacitor.Plugins;
     if (!HttpServer) { alert("⚠️ El plugin no está compilado."); return; }
 
-    // 👇 QUITAMOS EL 'ASYNC' PARA QUE RESPONDA AL INSTANTE
     listenerHandle = await HttpServer.addListener('request', (req) => {
-      console.log("📥 Petición recibida:", req.path);
+      // Recibimos los datos del PC y los guardamos en el móvil
+      if (req.path === '/sync' && req.method === 'POST') {
+        try {
+          const data = JSON.parse(req.body);
+          if (data.key && data.value !== undefined) {
+            safeStorage.set(data.key, data.value);
+            if (data.key.includes("Festivos") || data.key.includes("DiasPersonales")) {
+              setTimeout(() => { if(typeof renderDiasTrabajo === 'function') renderDiasTrabajo(); }, 100);
+            }
+          }
+          HttpServer.respond({ requestId: req.requestId, status: 200, body: "OK" });
+        } catch (e) {
+          HttpServer.respond({ requestId: req.requestId, status: 500, body: "Error" });
+        }
+        return;
+      }
       
-      // Respondemos con un HTML válido
-      HttpServer.respond({ 
-        requestId: req.requestId, 
-        status: 200, 
-        body: "<html><head><meta charset='utf-8'></head><body style='background:#0f172a;color:#4ade80;text-align:center;padding-top:50px;font-family:sans-serif;'><h1>¡FUNCIONA! 🎉</h1><p>La conexión es exitosa.</p></body></html>", 
-        headers: { "Content-Type": "text/html; charset=utf-8" }
-      }).then(() => {
-        console.log("✅ Respuesta enviada al PC");
-      }).catch((e) => {
-        console.error("❌ Error al responder:", e);
-      });
+      // Si el PC pide otra cosa, le decimos que ok (para que no de error)
+      HttpServer.respond({ requestId: req.requestId, status: 200, body: "Servidor VTC Activo" });
     });
 
+    // 👇 AQUÍ FIJAMOS EL PUERTO 8080 👇
     servidorWeb = await HttpServer.start({
+      port: 80800, 
       android: {
         notificationTitle: 'CambioVTC - Modo Web',
-        notificationText: 'Servidor local activo',
+        notificationText: 'Servidor local activo en el puerto 8080',
         channelId: 'modo_web',
         channelName: 'Modo Web'
       }
     });
     
     modoWebActivo = true;
-    const url = servidorWeb.url || (servidorWeb.urls && servidorWeb.urls[0]) || "http://IP:8080";
+    // Sacamos la IP (el puerto ya sabemos que es 8080)
+    let ip = "IP_DEL_MOVIL";
+    if (servidorWeb.urls && servidorWeb.urls.length > 0) {
+        ip = servidorWeb.urls[0].split(':')[1].replace('//', '');
+    } else if (servidorWeb.url) {
+        ip = servidorWeb.url.split(':')[1].replace('//', '');
+    }
+    const url = `http://${ip}:8080`;
     
     if(btn) { btn.innerHTML = "🔴 DETENER MODO WEB"; btn.style.background = "#7f1d1d"; }
     if(display) {
       display.style.display = "block";
       display.innerHTML = `<div style="font-size:22px; font-weight:900; color:#4ade80;">${url}</div>`;
     }
-    mostrarToast("🌐 Servidor activo");
+    mostrarToast("🌐 Servidor activo en puerto 8080");
   } catch(e) {
     console.error(e);
     alert("❌ Error general: " + e.message);

@@ -530,7 +530,6 @@ function borrarDiaPersonal(fecha){
 }
 
 /* ==================== MODAL VACACIONES ==================== */
-let vacCalAnio = new Date().getFullYear(), vacCalMes = new Date().getMonth(), vacCalInicio = null, vacCalFin = null;
 
 function abrirModalVacaciones(){
   const prev = document.getElementById("modalVacaciones"); if(prev) prev.remove();

@@ -422,13 +422,24 @@ function renderCalendarioMes(){
     const esHoy = (hoy.getFullYear() === diasAnioVista && hoy.getMonth() === diasMesVista && hoy.getDate() === d);
 
     let bg, border, colorNum, shadow, fontWeight;
+    const esLibre = esDiaNoTrabajado(fechaStr); // 👈 Comprobamos si es Lunes o Domingo
+    
     if(colorEstado){
+      // Tiene prioridad si hay un festivo o vacaciones
       bg = hexToRgba(colorEstado, 0.45);
       border = colorEstado;
       colorNum = "#fff";
       fontWeight = "900";
       shadow = "inset 0 0 0 1px rgba(0,0,0,0.2)";
+    } else if(esLibre) {
+      // 👇 ESTILO NUEVO PARA TUS DÍAS LIBRES
+      bg = "#1e293b";            // Fondo un poco más claro
+      border = "#475569";        // Borde más visible
+      colorNum = "#94a3b8";      // Texto gris azulado
+      fontWeight = "700";
+      shadow = "inset 0 0 0 1px rgba(255,255,255,0.05)";
     } else {
+      // Días de trabajo normales
       bg = "#0f172a"; border = "#334155"; colorNum = "#cbd5e1"; fontWeight = "600"; shadow = "none";
     }
 

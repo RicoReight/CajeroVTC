@@ -39,43 +39,44 @@
 
     /* Contenedor principal en 2 columnas */
     body.modo-desktop #diasContenido {
-      max-width: 1200px !important;
+      max-width: 1100px !important;
       margin: 0 auto !important;
       display: grid !important;
-      grid-template-columns: 400px 1fr !important; 
-      gap: 24px !important;
+      grid-template-columns: 380px 1fr !important; 
+      grid-template-areas:
+        "modoweb   calendario"
+        "stats     calendario"
+        "vac       calendario"
+        "botones   calendario"
+        "festivos  calendario" !important;
+      gap: 20px !important;
       align-items: start !important;
     }
 
-    /* Fila de los botones de año */
-    body.modo-desktop #diasContenido > div:nth-child(1) {
-      grid-column: 1 / -1 !important;
+    /* Ocultar el botón de Modo Web en el PC */
+    body.modo-desktop .dias-modo-web {
+      display: none !important; 
     }
 
-    /* Estadísticas a la izquierda */
-    body.modo-desktop #diasContenido > div:nth-child(2),
-    body.modo-desktop #diasContenido > div:nth-child(3) {
-      grid-column: 1 !important;
-    }
-
-    /* EL CALENDARIO GIGANTE A LA DERECHA */
-    body.modo-desktop #diasContenido > div:nth-child(4) {
-      grid-column: 2 !important;
-      grid-row: 2 / span 4 !important;
+    /* Asignar cada sección a su hueco */
+    body.modo-desktop .dias-anios { grid-area: modoweb; }
+    body.modo-desktop .dias-stats { grid-area: stats; }
+    body.modo-desktop .dias-vacaciones { grid-area: vac; }
+    body.modo-desktop .dias-botones { grid-area: botones; }
+    body.modo-desktop .dias-festivos { grid-area: festivos; }
+    body.modo-desktop .dias-calendario { 
+      grid-area: calendario; 
       margin-bottom: 0 !important;
     }
 
-    /* Lista de festivos y botones abajo a la izquierda */
-    body.modo-desktop #diasContenido > button,
-    body.modo-desktop #diasContenido > div:nth-child(5),
-    body.modo-desktop #diasContenido > div:nth-child(6),
-    body.modo-desktop #diasContenido > div:nth-child(7) {
-      grid-column: 1 !important;
+    /* Hacer el calendario un poco más grande */
+    body.modo-desktop .dias-calendario [style*="aspect-ratio:1"] {
+      max-height: 80px !important;
     }
-
-    /* Evitar que los días del calendario se estiren como rectángulos */
-    body.modo-desktop [style*="aspect-ratio:1"] {
-      max-height: 85px !important;
+    
+    /* Quitar el fondo de la pantalla de días para que se fusione con el dashboard */
+    body.modo-desktop #diasPantalla {
+      background: transparent !important;
     }
   }
 </style>

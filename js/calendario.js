@@ -202,19 +202,11 @@ function renderDiasTrabajo(){
   const acumuladosLibre = festivosAnio.filter(f => estadoFestivo(f) === "acumulado" &&  esDiaNoTrabajado(f.fecha)).length;
   const porCaducar  = festivosAnio.filter(f => estadoFestivo(f) === "porCaducar").length;
 
-  const personalesAnio = diasPersonales.filter(d =>
-    parseInt(d.fecha.slice(0,4)) === diasAnioVista && (!d.tipo || d.tipo === "personal")
-  );
-  const vacacionesAnio = diasPersonales.filter(d =>
-    parseInt(d.fecha.slice(0,4)) === diasAnioVista && d.tipo === "vacacion"
-  );
-  const personalesRestantes = Math.max(0, 2 - personalesAnio.length);
-
   let html = "";
 
-  // 👇 AQUÍ ESTÁ EL NUEVO BOTÓN DEL MODO WEB 👇
+  // 1. Botón Modo Web (con su clase)
   html += `
-    <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:16px; margin-bottom:14px; text-align:center;">
+    <div class="dias-modo-web" style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:16px; margin-bottom:14px; text-align:center;">
       <div style="font-size:12px; color:#38bdf8; font-weight:900; margin-bottom:10px;">💻 GESTIÓN DESDE EL PC O TABLET</div>
       <button type="button" id="btnModoWeb" onclick="toggleModoWeb()" style="width:100%; background:#0891b2; color:#fff; border:none; border-radius:10px; padding:12px; font-weight:800; font-size:14px; cursor:pointer; transition:0.3s;">
         🌐 ACTIVAR MODO WEB (PC)
@@ -222,9 +214,9 @@ function renderDiasTrabajo(){
       <div id="ipWebDisplay" style="display:none; margin-top:14px; padding:12px; background:#0f172a; border:1px dashed #4ade80; border-radius:10px; line-height:1.5;"></div>
     </div>
   `;
-  // 👆 FIN DEL BOTÓN DEL MODO WEB 👆
 
-  html += `<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">`;
+  // 2. Botones de Año
+  html += `<div class="dias-anios" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">`;
   anios.forEach(a => {
     const act = a === diasAnioVista;
     const tienePend = aniosConPendientes.includes(a) && a < anioActual;
@@ -237,8 +229,9 @@ function renderDiasTrabajo(){
   });
   html += `</div>`;
 
+  // 3. Estadísticas (con su clase)
   html += `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+    <div class="dias-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
       <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
         <div style="font-size:10px;color:#f97316;font-weight:900">💼 TRABAJADOS</div>
         <div style="font-size:22px;font-weight:900;color:#f97316;margin-top:4px">${acumuladosTrab}</div>
@@ -268,7 +261,10 @@ function renderDiasTrabajo(){
     </div>
   `;
 
+  // 4. Vacaciones (con su clase)
   {
+    const personalesAnio = diasPersonales.filter(d => parseInt(d.fecha.slice(0,4)) === diasAnioVista && (!d.tipo || d.tipo === "personal"));
+    const vacacionesAnio = diasPersonales.filter(d => parseInt(d.fecha.slice(0,4)) === diasAnioVista && d.tipo === "vacacion");
     const asignadas = parseInt(diasVacacionesAsignados[String(diasAnioVista)]) || 0;
     const usadas = vacacionesAnio.filter(d => !d.noCuenta).length;
     const restantes = Math.max(0, asignadas - usadas);
@@ -276,7 +272,7 @@ function renderDiasTrabajo(){
     const color = pasadas ? "#f87171" : (restantes === 0 && asignadas > 0 ? "#fbbf24" : "#22d3ee");
 
     html += `
-      <div style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">
+      <div class="dias-vacaciones" style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div style="font-size:12px;color:#22d3ee;font-weight:900;letter-spacing:1px">🏖️ VACACIONES ${diasAnioVista}</div>
           <button type="button" onclick="abrirModalDiasAsignados()"
@@ -301,9 +297,10 @@ function renderDiasTrabajo(){
     `;
   }
 
+  // 5. Calendario (con su clase)
   const nombresMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   html += `
-    <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
+    <div class="dias-calendario" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <button type="button" onclick="cambiarMesVista(-1)" style="background:#334155;color:#fff;border:none;width:36px;height:36px;border-radius:10px;font-size:18px;font-weight:900;cursor:pointer">◀</button>
         <div style="font-size:16px;font-weight:900;color:#38bdf8">${nombresMes[diasMesVista]} (${diasMesVista+1}) ${diasAnioVista}</div>
@@ -336,7 +333,8 @@ function renderDiasTrabajo(){
     </div>
   `;
 
-  html += `<div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">`;
+  // 6. Lista de Festivos (con su clase)
+  html += `<div class="dias-festivos" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">`;
   html += `<div style="font-size:12px;color:#94a3b8;font-weight:900;letter-spacing:1px;margin-bottom:10px">📅 FESTIVOS ${diasAnioVista}</div>`;
 
   if(festivosAnio.length === 0){
@@ -382,19 +380,20 @@ function renderDiasTrabajo(){
   }
   html += `</div>`;
 
-  html += `<button type="button" onclick="abrirModalVacaciones()" style="width:100%;margin-bottom:8px;background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:800;font-size:14px;cursor:pointer">🏖️ AÑADIR VACACIONES</button>`;
-
+  // 7. Botones de importación (con su clase)
   html += `
-    <div style="display:flex;gap:8px;margin-bottom:14px">
-      <button type="button" onclick="importarICS()" style="flex:1;background:#0e7490;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">📥 Importar .ics</button>
-      <button type="button" onclick="abrirModalFestivoNuevo()" style="flex:1;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">+ Añadir festivo</button>
+    <div class="dias-botones">
+      <button type="button" onclick="abrirModalVacaciones()" style="width:100%;margin-bottom:8px;background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:800;font-size:14px;cursor:pointer">🏖️ AÑADIR VACACIONES</button>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button type="button" onclick="importarICS()" style="flex:1;background:#0e7490;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">📥 Importar .ics</button>
+        <button type="button" onclick="abrirModalFestivoNuevo()" style="flex:1;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">+ Añadir festivo</button>
+      </div>
     </div>
     <input type="file" id="icsInput" accept=".ics,text/calendar" style="display:none" onchange="onICSSeleccionado(event)">
   `;
 
   cont.innerHTML = html;
 }
-
 function renderCalendarioMes(){
   const primerDia = new Date(diasAnioVista, diasMesVista, 1);
   const totalDias = new Date(diasAnioVista, diasMesVista + 1, 0).getDate();

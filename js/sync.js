@@ -1,5 +1,5 @@
 // js/sync.js
-// Detecta si estamos abriendo la app desde una IP (PC/Tablet) en lugar de localhost
+// Detecta si estamos en el PC (la URL es una IP numérica)
 const esPC = window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/) !== null;
 
 if (esPC) {
@@ -16,7 +16,7 @@ if (esPC) {
   safeStorage.set = function(k, v) {
     guardarOriginal.call(safeStorage, k, v); // Guarda en el PC
     
-    // Enviar al móvil
+    // Enviar al móvil por Wi-Fi
     fetch(apiSyncUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

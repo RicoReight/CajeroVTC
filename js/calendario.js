@@ -744,9 +744,9 @@ async function toggleModoWeb() {
     if (!HttpServer) { alert("⚠️ El plugin no está compilado."); return; }
 
     listenerHandle = await HttpServer.addListener('request', async (req) => {
-      console.log("📥 Petición recibida del PC:", req.path);
+      console.log("📥 Petición recibida:", req.path);
 
-      // Si es una petición de sincronización (POST), la procesamos
+      // 1. Recibir datos del PC y guardarlos en el móvil
       if (req.path === '/sync' && req.method === 'POST') {
         try {
           const data = JSON.parse(req.bodyText || req.body);
@@ -763,15 +763,39 @@ async function toggleModoWeb() {
         return;
       }
 
-      // PRUEBA DE FUEGO: Devolvemos un HTML estático sin leer archivos
-      const htmlPrueba = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Prueba</title></head><body style='background:#0f172a; color:#4ade80; text-align:center; padding-top:50px; font-family:sans-serif;'><h1>¡FUNCIONA! 🎉</h1><p>La conexión con el móvil es correcta.</p></body></html>";
+      // 2. Servir los archivos de tu app al PC
+      let filePath = req.path === '/' ? '/index.html' : req.path;
+      filePath = filePath.split('?')[0]; // Limpiar parámetros de URL
 
-      await HttpServer.respond({ 
-        requestId: req.requestId, 
-        status: 200, 
-        bodyText: htmlPrueba, // Usamos bodyText
-        headers: { "Content-Type": "text/html; charset=utf-8" } 
-      }).catch(e => console.error("Error al responder:", e));
+      try {
+        // Leemos el archivo de forma relativa
+        const resp = await fetch(filePath);
+        if (resp.ok) {
+          const text = await resp.text();
+          
+          // Asignar el Content-Type correcto
+          let mime = 'text/plain';
+          if (filePath.endsWith('.html')) mime = 'text/html';
+          else if (filePath.endsWith('.js')) mime = 'application/javascript';
+          else if (filePath.endsWith('.css')) mime = 'text/css';
+          else if (filePath.endsWith('.json')) mime = 'application/json';
+          else if (filePath.endsWith('.png')) mime = 'image/png';
+          else if (filePath.endsWith('.svg')) mime = 'image/svg+xml';
+          else if (filePath.endsWith('.ico')) mime = 'image/x-icon';
+
+          await HttpServer.respond({ 
+            requestId: req.requestId, 
+            status: 200, 
+            bodyText: text, 
+            headers: { "Content-Type": mime } 
+          });
+        } else {
+          await HttpServer.respond({ requestId: req.requestId, status: 404, bodyText: "Not found" });
+        }
+      } catch (e) {
+        console.error("Error sirviendo archivo:", e);
+        await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "Error" });
+      }
     });
 
     servidorWeb = await HttpServer.start({
@@ -796,11 +820,15 @@ async function toggleModoWeb() {
     if(btn) { btn.innerHTML = "🔴 DETENER MODO WEB"; btn.style.background = "#7f1d1d"; }
     if(display) {
       display.style.display = "block";
-      display.innerHTML = `<div style="font-size:22px; font-weight:900; color:#4ade80;">http://${ip}:8080</div>`;
+      display.innerHTML = `
+        <div style="font-size:13px; color:#fff; margin-bottom:8px;">Abre esta dirección en el navegador de tu PC:</div>
+        <div style="font-size:22px; font-weight:900; color:#4ade80; letter-spacing:1px;">http://${ip}:8080</div>
+        <div style="font-size:11px; color:#94a3b8; margin-top:8px;">Wi-Fi obligatorio.</div>
+      `;
     }
-    mostrarToast("🌐 Servidor activo");
+    mostrarToast("🌐 Servidor Web activo");
   } catch(e) {
     console.error(e);
-    alert("❌ Error general: " + e.message);
+    alert("❌ Error al iniciar el servidor: " + e.message);
   }
 }

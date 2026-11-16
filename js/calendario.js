@@ -202,7 +202,6 @@ function renderDiasTrabajo(){
   const acumuladosLibre = festivosAnio.filter(f => estadoFestivo(f) === "acumulado" &&  esDiaNoTrabajado(f.fecha)).length;
   const porCaducar  = festivosAnio.filter(f => estadoFestivo(f) === "porCaducar").length;
 
-  // Cálculos de Días Personales
   const personalesAnio = diasPersonales.filter(d =>
     parseInt(d.fecha.slice(0,4)) === diasAnioVista && (!d.tipo || d.tipo === "personal")
   );
@@ -277,6 +276,17 @@ function renderDiasTrabajo(){
     const restantes = Math.max(0, asignadas - usadas);
     const pasadas = usadas > asignadas && asignadas > 0;
     const color = pasadas ? "#f87171" : (restantes === 0 && asignadas > 0 ? "#fbbf24" : "#22d3ee");
+    
+    // Lista de fechas agrupadas
+    const fechasVac = vacacionesAnio.filter(d => !d.noCuenta).map(d => d.fecha);
+    const rangosVac = agruparFechasParaMostrar(fechasVac);
+    const htmlFechasVac = rangosVac.length ? `
+      <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #164e63;">
+        <div style="font-size:10px; color:#22d3ee; font-weight:800; margin-bottom:6px; letter-spacing:0.5px;">📅 DÍAS COGIDOS</div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          ${rangosVac.map(r => `<span style="background:#164e63; color:#a5f3fc; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800;">${r}</span>`).join("")}
+        </div>
+      </div>` : "";
 
     html += `
       <div class="pc-vacaciones" style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">
@@ -300,29 +310,43 @@ function renderDiasTrabajo(){
             </div>
           </div>
         </div>
+        ${htmlFechasVac}
       </div>
     `;
   }
 
-  // 5. Días Personales (NUEVA TARJETA RESTAURADA)
-  html += `
-    <div class="pc-personales" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div style="font-size:12px;color:#a78bfa;font-weight:900;letter-spacing:1px">👤 DÍAS PERSONALES ${diasAnioVista}</div>
-        <button type="button" onclick="abrirModalDiaPersonal()" style="background:#0f172a;color:#a78bfa;border:1px solid #7c3aed;border-radius:8px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer">+ Añadir</button>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-        <div>
-          <div style="font-size:11px;color:#94a3b8;font-weight:700">USADOS</div>
-          <div style="font-size:30px;font-weight:900;color:#a78bfa;line-height:1.1">${personalesAnio.length}<span style="font-size:18px;color:#64748b">/2</span></div>
+  // 5. Días Personales
+  {
+    const fechasPer = personalesAnio.map(d => d.fecha);
+    const rangosPer = agruparFechasParaMostrar(fechasPer);
+    const htmlFechasPer = rangosPer.length ? `
+      <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #334155;">
+        <div style="font-size:10px; color:#a78bfa; font-weight:800; margin-bottom:6px; letter-spacing:0.5px;">📅 DÍAS COGIDOS</div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          ${rangosPer.map(r => `<span style="background:#4c1d95; color:#ddd6fe; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800;">${r}</span>`).join("")}
         </div>
-        <div style="text-align:right">
-          <div style="font-size:11px;color:#94a3b8;font-weight:700">TE QUEDAN</div>
-          <div style="font-size:26px;font-weight:900;color:#a78bfa;line-height:1.1">${personalesRestantes}</div>
+      </div>` : "";
+
+    html += `
+      <div class="pc-personales" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="font-size:12px;color:#a78bfa;font-weight:900;letter-spacing:1px">👤 DÍAS PERSONALES ${diasAnioVista}</div>
+          <button type="button" onclick="abrirModalDiaPersonal()" style="background:#0f172a;color:#a78bfa;border:1px solid #7c3aed;border-radius:8px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer">+ Añadir</button>
         </div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+          <div>
+            <div style="font-size:11px;color:#94a3b8;font-weight:700">USADOS</div>
+            <div style="font-size:30px;font-weight:900;color:#a78bfa;line-height:1.1">${personalesAnio.length}<span style="font-size:18px;color:#64748b">/2</span></div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;color:#94a3b8;font-weight:700">TE QUEDAN</div>
+            <div style="font-size:26px;font-weight:900;color:#a78bfa;line-height:1.1">${personalesRestantes}</div>
+          </div>
+        </div>
+        ${htmlFechasPer}
       </div>
-    </div>
-  `;
+    `;
+  }
 
   // 6. Calendario
   const nombresMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -737,4 +761,131 @@ function borrarFestivo(fecha){
   if(!confirm("¿Borrar este festivo?")) return;
   festivos = festivos.filter(f => f.fecha !== fecha);
   saveFestivos(); cerrarModalFestivo(); renderDiasTrabajo();
+}
+
+/* ==================== SERVIDOR WEB LOCAL (MODO PC) ==================== */
+let modoWebActivo = false;
+let servidorWeb = null;
+let listenerHandle = null;
+
+async function toggleModoWeb() {
+  const btn = document.getElementById("btnModoWeb");
+  const display = document.getElementById("ipWebDisplay");
+
+  if (modoWebActivo) {
+    if (listenerHandle) { try { await listenerHandle.remove(); } catch(e){} listenerHandle = null; }
+    if (servidorWeb) { try { await servidorWeb.stop(); } catch(e){} servidorWeb = null; }
+    modoWebActivo = false;
+    if(btn) { btn.innerHTML = "🌐 ACTIVAR MODO WEB (PC)"; btn.style.background = "#0891b2"; }
+    if(display) display.style.display = "none";
+    mostrarToast("Modo Web desactivado");
+    return;
+  }
+
+  try {
+    const { HttpServer } = Capacitor.Plugins;
+    if (!HttpServer) { alert("⚠️ El plugin no está compilado."); return; }
+
+    listenerHandle = await HttpServer.addListener('request', async (req) => {
+      if (req.path === '/sync' && req.method === 'POST') {
+        try {
+          const data = JSON.parse(req.bodyText || req.body);
+          if (data.key && data.value !== undefined) {
+            safeStorage.set(data.key, data.value);
+            if (data.key.includes("Festivos") || data.key.includes("DiasPersonales")) {
+              setTimeout(() => { if(typeof renderDiasTrabajo === 'function') renderDiasTrabajo(); }, 100);
+            }
+          }
+          await HttpServer.respond({ requestId: req.requestId, status: 200, bodyText: "OK" });
+        } catch (e) {
+          await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "Error" });
+        }
+        return;
+      }
+
+      if (req.path === '/get-all-data' && req.method === 'GET') {
+        try {
+          const datos = {};
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith("uberCambio")) datos[key] = localStorage.getItem(key);
+          }
+          await HttpServer.respond({ requestId: req.requestId, status: 200, bodyText: JSON.stringify(datos), headers: { "Content-Type": "application/json" } });
+        } catch (e) {
+          await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "{}" });
+        }
+        return;
+      }
+
+      let filePath = req.path === '/' ? 'index.html' : req.path;
+      filePath = filePath.split('?')[0].replace(/^\//, ''); 
+
+      try {
+        const resp = await fetch(filePath);
+        if (resp.ok) {
+          const text = await resp.text();
+          let mime = 'text/plain';
+          if (filePath.endsWith('.html') || filePath === 'index.html') mime = 'text/html';
+          else if (filePath.endsWith('.js')) mime = 'application/javascript';
+          else if (filePath.endsWith('.css')) mime = 'text/css';
+          else if (filePath.endsWith('.json')) mime = 'application/json';
+          else if (filePath.endsWith('.png')) mime = 'image/png';
+          await HttpServer.respond({ requestId: req.requestId, status: 200, bodyText: text, headers: { "Content-Type": mime } });
+        } else {
+          await HttpServer.respond({ requestId: req.requestId, status: 404, bodyText: "Not found" });
+        }
+      } catch (e) {
+        await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "Error" });
+      }
+    });
+
+    servidorWeb = await HttpServer.start({
+      port: 8080, 
+      android: { notificationTitle: 'CambioVTC - Modo Web', notificationText: 'Servidor activo', channelId: 'modo_web', channelName: 'Modo Web' }
+    });
+    
+    modoWebActivo = true;
+    let ip = "IP";
+    if (servidorWeb.urls && servidorWeb.urls.length > 0) ip = servidorWeb.urls[0].split(':')[1].replace('//', '');
+    else if (servidorWeb.url) ip = servidorWeb.url.split(':')[1].replace('//', '');
+    
+    if(btn) { btn.innerHTML = "🔴 DETENER MODO WEB"; btn.style.background = "#7f1d1d"; }
+    if(display) { display.style.display = "block"; display.innerHTML = `<div style="font-size:22px; font-weight:900; color:#4ade80;">http://${ip}:8080</div>`; }
+    mostrarToast("🌐 Servidor Web activo");
+  } catch(e) {
+    console.error(e); alert("❌ Error: " + e.message);
+  }
+}
+
+/* ==================== AGRUPAR FECHAS PARA LA TARJETA ==================== */
+function agruparFechasParaMostrar(fechas) {
+  if (!fechas || fechas.length === 0) return [];
+  const sorted = [...fechas].sort();
+  const rangos = [];
+  let inicio = sorted[0];
+  let anterior = sorted[0];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const actual = sorted[i];
+    const d1 = new Date(anterior);
+    const d2 = new Date(actual);
+    const diff = (d2 - d1) / (1000 * 60 * 60 * 24);
+    
+    if (diff === 1) {
+      anterior = actual;
+    } else {
+      rangos.push({ inicio, fin: anterior });
+      inicio = actual;
+      anterior = actual;
+    }
+  }
+  rangos.push({ inicio, fin: anterior });
+
+  return rangos.map(r => {
+    const p1 = r.inicio.split("-");
+    const txtIni = `${p1[2]}/${p1[1]}`;
+    if (r.inicio === r.fin) return txtIni;
+    const p2 = r.fin.split("-");
+    return `${txtIni} al ${p2[2]}/${p2[1]}`;
+  });
 }

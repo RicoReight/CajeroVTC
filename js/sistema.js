@@ -989,3 +989,25 @@ setTimeout(async () => {
     console.warn('Error configurando barras:', e);
   }
 }, 500);
+
+/* ==================== FIX: CÁLCULO DEL PRÓXIMO RESET ==================== */
+function calcularProximoReset(){
+  if(diaReset === 0) return null;
+  const now = new Date();
+  const skips = Math.max(0, parseInt(resetSkip) || 0);
+
+  let candidato = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+  const diasEsteMes = new Date(candidato.getFullYear(), candidato.getMonth() + 1, 0).getDate();
+  candidato.setDate(Math.min(diaReset, diasEsteMes));
+
+  let mesesExtra = 0;
+  if(candidato <= now) mesesExtra = 1;
+  mesesExtra += skips;
+
+  candidato.setDate(1);
+  candidato.setMonth(candidato.getMonth() + mesesExtra);
+  const diasMesFinal = new Date(candidato.getFullYear(), candidato.getMonth() + 1, 0).getDate();
+  candidato.setDate(Math.min(diaReset, diasMesFinal));
+
+  return candidato;
+}

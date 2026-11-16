@@ -1326,108 +1326,67 @@ function guardarPeajeHistorial(importe, pagado, cambioDevuelto){
   savePeajesHistorial(h);
 }
 
+/* ==================== CHULETA DE DEPÓSITO (simple: viajes desde el último depósito) ==================== */
 function renderChuletaDeposito(){
   let cont = document.getElementById("chuletaDeposito");
   if(!cont){
     cont = document.createElement("div");
     cont.id = "chuletaDeposito";
     const inp = document.getElementById("cierreInput");
-    if(inp && inp.parentNode){
-      inp.parentNode.insertBefore(cont, inp.nextSibling);
-    } else {
-      const res = document.getElementById("cierreResultado");
-      if(res && res.parentNode) res.parentNode.insertBefore(cont, res);
-      else return;
-    }
+    if(inp && inp.parentNode) inp.parentNode.insertBefore(cont, inp.nextSibling);
+    else return;
   }
 
   const ops     = loadHistorialOps();
   const cierres = loadCierres();
-  const hoy     = fechaLocalStr();
 
-  // ---- Operaciones de HOY ----
-  const opsHoy = ops.filter(o => {
-    try { return fechaLocalStr(new Date(o.fecha)) === hoy; } catch(e) { return false; }
+  // Último depósito hecho
+  const ultimoDeposito = cierres.length ? new Date(cierres[cierres.length - 1].fecha) : null;
+
+  // Sumar SOLO precio de viajes posteriores al último depósito
+  let totalViajes = 0, numOps = 0;
+  ops.forEach(o => {
+    const fechaOp = new Date(o.fecha);
+    if(!ultimoDeposito || fechaOp > ultimoDeposito){
+      totalViajes += (o.precio || 0);
+      numOps++;
+    }
   });
-  let efectivoHoy = 0;
-  opsHoy.forEach(o => { efectivoHoy += (o.precio || 0) + (o.propina || 0); });
-
-  // ---- Depósitos de HOY ----
-  const cierresHoy = cierres.filter(c => {
-    try { return fechaLocalStr(new Date(c.fecha)) === hoy; } catch(e) { return false; }
-  });
-  const depositadoHoy = cierresHoy.reduce((s, c) => s + (c.total || 0), 0);
-  const pendienteHoy  = Math.max(0, efectivoHoy - depositadoHoy);
-
-  // ---- Caja física y reserva ----
-  let cajaFisica = 0;
-  denominations.forEach((d, i) => { cajaFisica += d.c * (stock[i] || 0); });
-  let reservaTotal = 0;
-  denominations.forEach(d => { reservaTotal += d.c * (reservaMinima[d.c] || 0); });
-  const sacable = Math.max(0, cajaFisica - reservaTotal);
-
-  // ---- Recomendación ----
-  const recomendado = Math.min(pendienteHoy, sacable);
-
-  // ---- Patrón histórico ----
-  const ultimos = cierres.slice(-5).reverse().map(c => c.total || 0);
-  const media = ultimos.length
-    ? Math.round(ultimos.reduce((s, x) => s + x, 0) / ultimos.length)
-    : 0;
-
-  // ---- HTML ----
-  const fila = (label, value, color, bold) => {
-    const fw = bold ? "900" : "800";
-    const fs = bold ? "15px" : "13px";
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1e293b;font-size:${fs}"><span style="color:#94a3b8">${label}</span><span style="color:${color};font-weight:${fw}">${value}</span></div>`;
-  };
 
   let html = "";
   html += `<div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin:12px 0">`;
   html += `<div style="font-size:12px;color:#38bdf8;font-weight:900;letter-spacing:0.5px;margin-bottom:10px">📋 CHULETA DE DEPÓSITO</div>`;
 
-  html += fila("💵 Efectivo hoy (" + opsHoy.length + " op)", moneyText(efectivoHoy), "#fff");
-  if(depositadoHoy > 0){
-    html += fila("✅ Ya depositado hoy (" + cierresHoy.length + ")", "−" + moneyText(depositadoHoy), "#f87171");
+  if(ultimoDeposito){
+    const f = ultimoDeposito.toLocaleDateString("es-ES") + " · " +
+              ultimoDeposito.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+    html += `<div style="font-size:12px;color:#94a3b8;margin-bottom:8px">Desde el último depósito: <b style="color:#fff">${f}</b></div>`;
+  } else {
+    html += `<div style="font-size:12px;color:#94a3b8;margin-bottom:8px">Aún no has hecho depósitos · total acumulado</div>`;
   }
-  html += fila("📥 Pendiente de hoy", moneyText(pendienteHoy), "#fbbf24", true);
 
-  html += `<div style="height:1px;background:#334155;margin:8px 0"></div>`;
-
-  html += fila("💼 Efectivo en caja", moneyText(cajaFisica), "#fff");
-  html += fila("🛡️ Reserva para cambio", moneyText(reservaTotal), "#94a3b8");
-  html += fila("💰 Puedes sacar sin romper reserva", moneyText(sacable), "#4ade80");
+  html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px"><span style="color:#94a3b8">🚗 Viajes acumulados (${numOps})</span><span style="color:#fff;font-weight:800">${moneyText(totalViajes)}</span></div>`;
 
   html += `<div style="margin-top:12px;padding:12px;background:linear-gradient(135deg,#064e3b,#065f46);border:1px solid #10b981;border-radius:10px;text-align:center">`;
   html += `<div style="font-size:11px;color:#a7f3d0;font-weight:900;letter-spacing:1px">💡 METE APROXIMADAMENTE</div>`;
-  html += `<div style="font-size:28px;font-weight:900;color:#4ade80;margin-top:4px;line-height:1">${moneyText(recomendado)}</div>`;
-  if(pendienteHoy === 0){
-    html += `<div style="font-size:11px;color:#a7f3d0;margin-top:6px">✅ No hay pendiente de hoy.</div>`;
-  } else if(recomendado < pendienteHoy){
-    html += `<div style="font-size:11px;color:#fca5a5;margin-top:6px;line-height:1.4">⚠️ El historial dice ${moneyText(pendienteHoy)} pero tu caja solo permite ${moneyText(sacable)}.<br>Repón caja antes o deja el resto para otro día.</div>`;
-  } else {
-    html += `<div style="font-size:11px;color:#a7f3d0;margin-top:6px">Coincide con el efectivo neto del día.</div>`;
-  }
+  html += `<div style="font-size:28px;font-weight:900;color:#4ade80;margin-top:4px;line-height:1">${moneyText(totalViajes)}</div>`;
+  html += `<div style="font-size:11px;color:#a7f3d0;margin-top:6px">Solo precio de viajes · sin propinas</div>`;
   html += `</div>`;
 
-  if(ultimos.length > 0){
-    html += `<div style="margin-top:12px;padding-top:10px;border-top:1px solid #334155">`;
-    html += `<div style="font-size:11px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:6px">📊 ÚLTIMOS DEPÓSITOS</div>`;
-    html += `<div style="display:flex;gap:4px;flex-wrap:wrap">`;
-    ultimos.forEach(t => {
-      html += `<span style="font-size:11px;color:#38bdf8;background:#0f172a;padding:4px 8px;border-radius:6px;font-weight:700">${moneyText(t)}</span>`;
-    });
-    html += `</div>`;
-    html += `<div style="font-size:11px;color:#64748b;margin-top:6px">Media: <b style="color:#94a3b8">${moneyText(media)}</b></div>`;
-    html += `</div>`;
-  }
-
-  if(recomendado > 0){
-    html += `<button type="button" onclick="usarChuletaDeposito(${recomendado})" style="width:100%;margin-top:12px;background:#0891b2;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:800;font-size:13px;cursor:pointer">⬇️ USAR ${moneyText(recomendado)} EN EL IMPORTE</button>`;
+  if(totalViajes > 0){
+    html += `<button type="button" onclick="usarChuletaDeposito(${totalViajes})" style="width:100%;margin-top:12px;background:#0891b2;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:800;font-size:13px;cursor:pointer">⬇️ USAR ${moneyText(totalViajes)} EN EL IMPORTE</button>`;
   }
 
   html += `</div>`;
   cont.innerHTML = html;
+}
+
+function usarChuletaDeposito(centavos){
+  const inp = document.getElementById("cierreInput");
+  if(inp){
+    inp.value = (centavos / 100).toFixed(2);
+    if(typeof calcularCierre === "function") calcularCierre();
+  }
 }
 
 function usarChuletaDeposito(centavos){

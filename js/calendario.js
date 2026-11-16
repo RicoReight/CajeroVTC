@@ -723,12 +723,15 @@ function borrarFestivo(fecha){
 /* ==================== SERVIDOR WEB LOCAL (MODO PC) ==================== */
 let modoWebActivo = false;
 let servidorWeb = null;
+let listenerHandle = null; // Guardamos el evento para poder borrarlo bien
 
 async function toggleModoWeb() {
   const btn = document.getElementById("btnModoWeb");
   const display = document.getElementById("ipWebDisplay");
 
   if (modoWebActivo) {
+    // APAGAR
+    if (listenerHandle) { try { await listenerHandle.remove(); } catch(e){} listenerHandle = null; }
     if (servidorWeb) { try { await servidorWeb.stop(); } catch(e){} servidorWeb = null; }
     modoWebActivo = false;
     if(btn) { btn.innerHTML = "🌐 ACTIVAR MODO WEB (PC)"; btn.style.background = "#0891b2"; }
@@ -737,63 +740,35 @@ async function toggleModoWeb() {
     return;
   }
 
+  // ENCENDER
   try {
     const { HttpServer } = Capacitor.Plugins;
     if (!HttpServer) { alert("⚠️ El plugin no está compilado."); return; }
 
-    // Escuchar peticiones del PC
-    await HttpServer.addListener('request', async (req) => {
-      
-      // 1. Recibir datos del PC y guardarlos en el móvil
-      if (req.url === '/sync' && req.method === 'POST') {
-        try {
-          const data = JSON.parse(req.bodyText);
-          if (data.key && data.value !== undefined) {
-            safeStorage.set(data.key, data.value);
-            if (data.key.includes("Festivos") || data.key.includes("DiasPersonales")) {
-              setTimeout(() => { if(typeof renderDiasTrabajo === 'function') renderDiasTrabajo(); }, 100);
-            }
-          }
-          await HttpServer.respond({ requestId: req.requestId, status: 200, bodyText: "OK" });
-        } catch (e) {
-          await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "Error" });
-        }
-        return;
-      }
-
-      // 2. Servir los archivos de la app al PC
-      let filePath = req.url === '/' ? '/index.html' : req.url;
-      filePath = filePath.split('?')[0]; // Quitar parámetros de la URL
-
+    // 1. Registrar el listener
+    listenerHandle = await HttpServer.addListener('request', async (req) => {
+      console.log("📥 Petición recibida del PC:", req);
       try {
-        const resp = await fetch(filePath); 
-        if (resp.ok) {
-          const text = await resp.text();
-          let mime = 'text/html';
-          if (filePath.endsWith('.js')) mime = 'application/javascript';
-          if (filePath.endsWith('.css')) mime = 'text/css';
-          if (filePath.endsWith('.json')) mime = 'application/json';
-          
-          await HttpServer.respond({ 
-            requestId: req.requestId, 
-            status: 200, 
-            bodyText: text, 
-            headers: { 'Content-Type': mime } 
-          });
-        } else {
-          await HttpServer.respond({ requestId: req.requestId, status: 404, bodyText: "Not found" });
-        }
+        // Respondemos de forma súper simple
+        await HttpServer.respond({ 
+          requestId: req.requestId, 
+          status: 200, 
+          body: "<html><body style='background:#0f172a;color:#4ade80;text-align:center;padding-top:50px;font-family:sans-serif'><h1>¡FUNCIONA! 🎉</h1><p>La conexión es exitosa.</p></body></html>", 
+          headers: { "Content-Type": "text/html" }
+        });
+        console.log("✅ Respuesta enviada al PC con éxito");
       } catch (e) {
-        await HttpServer.respond({ requestId: req.requestId, status: 404, bodyText: "Not found" });
+        console.error("❌ Error al responder:", e);
+        // Si falla el HTML, intentamos responder con texto plano
+        await HttpServer.respond({ requestId: req.requestId, status: 500, body: "Error" }).catch(()=>{});
       }
     });
 
-    // Arrancar el servidor
+    // 2. Arrancar servidor
     servidorWeb = await HttpServer.start({
       android: {
         notificationTitle: 'CambioVTC - Modo Web',
-        notificationText: 'Servidor local activo para gestionar desde el PC',
-        smallIconResourceName: 'ic_stat_icon_config_sample', 
+        notificationText: 'Servidor local activo',
         channelId: 'modo_web',
         channelName: 'Modo Web'
       }
@@ -805,15 +780,11 @@ async function toggleModoWeb() {
     if(btn) { btn.innerHTML = "🔴 DETENER MODO WEB"; btn.style.background = "#7f1d1d"; }
     if(display) {
       display.style.display = "block";
-      display.innerHTML = `
-        <div style="font-size:13px; color:#fff; margin-bottom:8px;">Abre esta dirección en el navegador de tu PC:</div>
-        <div style="font-size:22px; font-weight:900; color:#4ade80; letter-spacing:1px;">${url}</div>
-        <div style="font-size:11px; color:#94a3b8; margin-top:8px;">Wi-Fi obligatorio.</div>
-      `;
+      display.innerHTML = `<div style="font-size:22px; font-weight:900; color:#4ade80;">${url}</div>`;
     }
-    mostrarToast("🌐 Servidor Web activo");
+    mostrarToast("🌐 Servidor activo");
   } catch(e) {
     console.error(e);
-    alert("❌ Error al iniciar el servidor: " + e.message);
+    alert("❌ Error general: " + e.message);
   }
 }

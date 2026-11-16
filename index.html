@@ -31,7 +31,7 @@
   button:active{
     filter: brightness(0.9);
   }
-  /* ==================== DISEÑO ESCRITORIO (PC / TABLET) ==================== */
+   /* ==================== DISEÑO ESCRITORIO (PC / TABLET) ==================== */
   @media (min-width: 768px) {
     body.modo-desktop {
       background-color: #0f172a;
@@ -47,9 +47,9 @@
       padding-top: 20px !important;
     }
 
-    /* CONTENEDOR PRINCIPAL: Tu diseño del Paint */
+    /* TU DISEÑO DEL PAINT */
     body.modo-desktop #diasContenido {
-      max-width: 1300px !important;
+      max-width: 1400px !important;
       margin: 0 auto !important;
       display: grid !important;
       grid-template-columns: 340px 1fr !important; 
@@ -60,52 +60,26 @@
       align-items: start !important;
     }
 
-    /* ==================== BARRA LATERAL (IZQUIERDA) ==================== */
-    body.modo-desktop .dias-sidebar-wrapper {
-      grid-area: sidebar;
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 16px;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
+    /* ZONAS DEL GRID */
+    body.modo-desktop .pc-sidebar { grid-area: sidebar; display: flex; flex-direction: column; gap: 14px; }
+    body.modo-desktop .pc-calendar { grid-area: calendar; background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 24px; }
+    body.modo-desktop .pc-holidays { grid-area: holidays; background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 24px; }
 
-    /* ==================== CALENDARIO (DERECHA) ==================== */
-    body.modo-desktop .dias-calendar-wrapper {
-      grid-area: calendar;
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 16px;
-      padding: 24px;
-    }
-    
-    /* Cuadrícula perfecta para los días */
-    body.modo-desktop .dias-calendar-wrapper [style*="aspect-ratio:1"] {
+    /* Forzar que los días del calendario en PC sean cuadrados perfectos */
+    body.modo-desktop .pc-calendar [style*="aspect-ratio:1"] {
       aspect-ratio: 1 !important; 
       border-radius: 12px !important;
       transition: all 0.2s;
     }
-    body.modo-desktop .dias-calendar-wrapper [style*="aspect-ratio:1"]:hover {
+    body.modo-desktop .pc-calendar [style*="aspect-ratio:1"]:hover {
       transform: scale(1.05);
       z-index: 10;
     }
 
-    /* ==================== FESTIVOS (ABAJO A LO ANCHO) ==================== */
-    body.modo-desktop .dias-holidays-wrapper {
-      grid-area: holidays;
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 16px;
-      padding: 24px;
-      margin-top: 10px;
-    }
-    
-    /* Lista de festivos en columnas automáticas */
-    body.modo-desktop .dias-holidays-list {
+    /* Lista de festivos en columnas para que no sea una lista kilométrica */
+    body.modo-desktop .pc-holidays-list {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
       gap: 16px;
     }
   }

@@ -962,6 +962,19 @@ async function toggleModoWeb() {
   }
 }
 
+function abrirDiasPantalla(){ 
+  try{ if(archivarAniosAntiguos()) renderDiasTrabajo(); }catch(e){} 
+  const p = document.getElementById("diasPantalla"); 
+  if(p)p.style.display = "block"; 
+  renderDiasTrabajo(); 
+
+  // 👇 OCULTAR LA CALCULADORA SI ESTAMOS EN EL PC 👇
+  if (document.body.classList.contains('modo-desktop')) {
+    const app = document.querySelector('.app');
+    if (app) app.style.display = 'none';
+  }
+}
+
 /* ==================== AGRUPAR FECHAS PARA LA TARJETA ==================== */
 function agruparFechasParaMostrar(fechas) {
   if (!fechas || fechas.length === 0) return [];

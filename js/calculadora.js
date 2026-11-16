@@ -364,18 +364,66 @@ function añadirHistorialOp(datos){
   saveHistorialOps(h);
 }
 
-/* ==================== TOAST (Notificación emergente) ==================== */
+/* ==================== TOAST (Notificación emergente Premium) ==================== */
 function mostrarToast(msg){
   let t = document.getElementById("toastPrecio");
+  
   if(!t){
     t = document.createElement("div");
     t.id = "toastPrecio";
-    t.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#059669;color:#fff;padding:12px 20px;border-radius:10px;font-weight:700;font-size:14px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:opacity 0.3s;opacity:0;pointer-events:none";
+    // Estilos base: Cristal oscuro, sombra suave y animación de entrada
+    t.style.cssText = `
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translate(-50%, 40px);
+      background: rgba(30, 41, 59, 0.95);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #f8fafc;
+      padding: 14px 22px;
+      border-radius: 16px;
+      font-weight: 800;
+      font-size: 14px;
+      z-index: 999999;
+      box-shadow: 0 10px 30px -5px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.1);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Efecto rebote cuco */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-align: center;
+      max-width: 90%;
+      box-sizing: border-box;
+    `;
     document.body.appendChild(t);
   }
-  t.textContent = msg;
-  t.style.opacity = "1";
-  setTimeout(() => { t.style.opacity = "0"; }, 2200);
+  
+  // Si el mensaje tiene un emoji de alerta o error, le ponemos un borde rojizo sutil
+  if(msg.includes("❌") || msg.includes("⚠️") || msg.includes("Error")) {
+    t.style.border = "1px solid rgba(239, 68, 68, 0.4)";
+    t.style.boxShadow = "0 10px 30px -5px rgba(0,0,0,0.6), 0 0 0 1px rgba(239, 68, 68, 0.2)";
+  } else {
+    t.style.border = "1px solid rgba(74, 222, 128, 0.3)";
+    t.style.boxShadow = "0 10px 30px -5px rgba(0,0,0,0.6), 0 0 0 1px rgba(74, 222, 128, 0.2)";
+  }
+
+  t.innerHTML = msg;
+
+  // Animación de subida
+  requestAnimationFrame(() => {
+    t.style.opacity = "1";
+    t.style.transform = "translate(-50%, 0)";
+  });
+
+  // Temporizador para ocultarlo (y limpiar si se llama varias veces rápido)
+  if(t.timeoutId) clearTimeout(t.timeoutId);
+  t.timeoutId = setTimeout(() => { 
+    t.style.opacity = "0"; 
+    t.style.transform = "translate(-50%, 30px)";
+  }, 2600); // 2.6 segundos en pantalla
 }
 
 /* ==================== OCR (LECTURA DE PRECIO POR IMAGEN) ==================== */

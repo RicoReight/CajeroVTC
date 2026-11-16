@@ -253,27 +253,78 @@ function renderDiasTrabajo(){
 
   let html = "";
 
-  // ==================== COLUMNA CENTRAL (Años + Calendario) ====================
-  html += `<div class="col-center">`;
+  // 1. BOTÓN MODO WEB (Oculto en PC por CSS)
+  const btnTexto = modoWebActivo ? "🔴 DETENER MODO WEB" : "🌐 ACTIVAR MODO WEB (PC)";
+  const btnBg = modoWebActivo ? "#7f1d1d" : "#0891b2";
+  const ipDisplay = modoWebActivo ? "block" : "none";
+  let ipHtml = "";
+  if (modoWebActivo && servidorWeb) {
+    let ipStr = "IP_DEL_MOVIL";
+    if (servidorWeb.urls && servidorWeb.urls.length > 0) ipStr = servidorWeb.urls[0].split(':')[1].replace('//', '');
+    else if (servidorWeb.url) ipStr = servidorWeb.url.split(':')[1].replace('//', '');
+    ipHtml = `<div style="font-size:13px; color:#fff; margin-bottom:8px;">Abre esta dirección en el navegador de tu PC:</div><div style="font-size:22px; font-weight:900; color:#4ade80; letter-spacing:1px;">http://${ipStr}:8080</div>`;
+  }
 
-  // 1. AÑOS (Sin caja de fondo)
-  html += `<div class="pc-anios">`;
+  html += `
+    <div class="dias-modo-web" style="text-align:center; margin-bottom: 14px;">
+      <div style="font-size:12px; color:#38bdf8; font-weight:900; margin-bottom:10px;">💻 GESTIÓN DESDE EL PC O TABLET</div>
+      <button type="button" id="btnModoWeb" onclick="toggleModoWeb()" style="width:100%; background:${btnBg}; color:#fff; border:none; border-radius:10px; padding:12px; font-weight:800; font-size:14px; cursor:pointer;">
+        ${btnTexto}
+      </button>
+      <div id="ipWebDisplay" style="display:${ipDisplay}; margin-top:14px; padding:12px; background:#0f172a; border:1px dashed #4ade80; border-radius:10px; line-height:1.5;">
+        ${ipHtml}
+      </div>
+    </div>
+  `;
+
+  // 2. AÑOS
+  html += `<div class="pc-anios" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">`;
   anios.forEach(a => {
     const act = a === diasAnioVista;
     const tienePend = aniosConPendientes.includes(a) && a < anioActual;
     html += `<button type="button" onclick="cambiarAnioVista(${a})"
-      style="flex:0 0 160px; padding:12px; border-radius:10px; border:2px solid ${act?'#3b82f6':'#334155'};
+      style="flex:1;min-width:70px;padding:10px;border-radius:10px;border:2px solid ${act?'#3b82f6':'#334155'};
              background:${act?'#1e40af':'#0f172a'};color:${act?'#fff':'#94a3b8'};
-             font-weight:900;cursor:pointer;font-size:16px;position:relative">
+             font-weight:800;cursor:pointer;font-size:14px;position:relative">
       ${a}${tienePend ? '<span style="position:absolute;top:2px;right:6px;font-size:10px;color:#fbbf24">⚠</span>' : ''}
     </button>`;
   });
   html += `</div>`;
 
-  // 2. CALENDARIO
+  // 3. ESTADÍSTICAS
+  html += `
+    <div class="pc-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
+        <div style="font-size:10px;color:#f97316;font-weight:900">💼 TRABAJADOS</div>
+        <div style="font-size:22px;font-weight:900;color:#f97316;margin-top:4px">${acumuladosTrab}</div>
+      </div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
+        <div style="font-size:10px;color:#22d3ee;font-weight:900">🏖️ LIBRANZA</div>
+        <div style="font-size:22px;font-weight:900;color:#22d3ee;margin-top:4px">${acumuladosLibre}</div>
+      </div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
+        <div style="font-size:10px;color:#fbbf24;font-weight:900">🟡 CADUCAN</div>
+        <div style="font-size:22px;font-weight:900;color:#fbbf24;margin-top:4px">${porCaducar}</div>
+      </div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
+        <div style="font-size:10px;color:#ec4899;font-weight:900">🟣 SOLICITADOS</div>
+        <div style="font-size:22px;font-weight:900;color:#ec4899;margin-top:4px">${solicitados}</div>
+      </div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
+        <div style="font-size:10px;color:#4ade80;font-weight:900">🟢 APROBADOS</div>
+        <div style="font-size:22px;font-weight:900;color:#4ade80;margin-top:4px">${aprobados}</div>
+      </div>
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
+        <div style="font-size:10px;color:#94a3b8;font-weight:900">⚪ COMPLETADOS</div>
+        <div style="font-size:22px;font-weight:900;color:#94a3b8;margin-top:4px">${completados}</div>
+      </div>
+    </div>
+  `;
+
+  // 4. CALENDARIO
   const nombresMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   html += `
-    <div class="pc-calendario pc-box">
+    <div class="pc-calendario" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <button type="button" onclick="cambiarMesVista(-1)" style="background:#334155;color:#fff;border:none;width:36px;height:36px;border-radius:10px;font-size:18px;font-weight:900;cursor:pointer">◀</button>
         <div style="font-size:16px;font-weight:900;color:#38bdf8">${nombresMes[diasMesVista]} (${diasMesVista+1}) ${diasAnioVista}</div>
@@ -288,55 +339,18 @@ function renderDiasTrabajo(){
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid #334155;font-size:11px;color:#94a3b8;">
         <div style="font-size:10px;color:#64748b;font-weight:900;letter-spacing:0.5px;margin-bottom:6px">📅 LEYENDA</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;">
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(56,189,248,0.45);border:2px solid #38bdf8"></div>Acumulado</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(251,191,36,0.45);border:2px solid #fbbf24"></div>Por caducar</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(239,68,68,0.45);border:2px solid #ef4444"></div>Caducado</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(236,72,153,0.45);border:2px solid #ec4899"></div>Solicitado</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(74,222,128,0.45);border:2px solid #4ade80"></div>Aprobado</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(148,163,184,0.45);border:2px solid #94a3b8"></div>Completado</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(34,211,238,0.45);border:2px solid #22d3ee"></div>Vacaciones</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(167,139,250,0.45);border:2px solid #a78bfa"></div>Día personal</div>
+          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(56,189,248,0.7);border:2px solid #38bdf8"></div>Acumulado</div>
+          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(251,191,36,0.7);border:2px solid #fbbf24"></div>Por caducar</div>
+          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(239,68,68,0.7);border:2px solid #ef4444"></div>Caducado</div>
+          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(236,72,153,0.7);border:2px solid #ec4899"></div>Solicitado</div>
+          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(74,222,128,0.7);border:2px solid #4ade80"></div>Aprobado</div>
+          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(148,163,184,0.7);border:2px solid #94a3b8"></div>Completado</div>
         </div>
       </div>
     </div>
   `;
-  
-  html += `</div>`; // Fin Columna Central
 
-  // ==================== COLUMNA DERECHA (Stats, Vacaciones, Personales) ====================
-  html += `<div class="col-right">`;
-
-  // 3. ESTADÍSTICAS
-  html += `
-    <div class="pc-stats pc-box" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-      <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px">
-        <div style="font-size:9px;color:#f97316;font-weight:900">💼 TRABAJADOS</div>
-        <div style="font-size:18px;font-weight:900;color:#f97316;margin-top:4px">${acumuladosTrab}</div>
-      </div>
-      <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px">
-        <div style="font-size:9px;color:#22d3ee;font-weight:900">🏖️ LIBRANZA</div>
-        <div style="font-size:18px;font-weight:900;color:#22d3ee;margin-top:4px">${acumuladosLibre}</div>
-      </div>
-      <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px">
-        <div style="font-size:9px;color:#fbbf24;font-weight:900">🟡 CADUCAN</div>
-        <div style="font-size:18px;font-weight:900;color:#fbbf24;margin-top:4px">${porCaducar}</div>
-      </div>
-      <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px">
-        <div style="font-size:9px;color:#ec4899;font-weight:900">🟣 SOLICITADOS</div>
-        <div style="font-size:18px;font-weight:900;color:#ec4899;margin-top:4px">${solicitados}</div>
-      </div>
-      <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px">
-        <div style="font-size:9px;color:#4ade80;font-weight:900">🟢 APROBADOS</div>
-        <div style="font-size:18px;font-weight:900;color:#4ade80;margin-top:4px">${aprobados}</div>
-      </div>
-      <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px">
-        <div style="font-size:9px;color:#94a3b8;font-weight:900">⚪ COMPLETADOS</div>
-        <div style="font-size:18px;font-weight:900;color:#94a3b8;margin-top:4px">${completados}</div>
-      </div>
-    </div>
-  `;
-
-  // 4. VACACIONES
+  // 5. VACACIONES
   {
     const asignadas = parseInt(diasVacacionesAsignados[String(diasAnioVista)]) || 0;
     const usadas = vacacionesAnio.filter(d => !d.noCuenta).length;
@@ -363,7 +377,7 @@ function renderDiasTrabajo(){
     const btnDisAttr = (restantes === 0 || asignadas === 0) ? "disabled" : "";
 
     html += `
-      <div class="pc-vacaciones pc-box">
+      <div class="pc-vacaciones" style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div style="font-size:11px;color:#22d3ee;font-weight:900;letter-spacing:1px">🏖️ VACACIONES ${diasAnioVista}</div>
           <div style="display:flex;gap:6px">
@@ -391,7 +405,7 @@ function renderDiasTrabajo(){
     `;
   }
 
-  // 5. DÍAS PERSONALES
+  // 6. DÍAS PERSONALES
   {
     const fechasPer = personalesAnio.map(d => d.fecha);
     const rangosPer = obtenerRangosFechas(fechasPer);
@@ -412,7 +426,7 @@ function renderDiasTrabajo(){
     const btnDisAttrPer = (personalesRestantes === 0) ? "disabled" : "";
 
     html += `
-      <div class="pc-personales pc-box">
+      <div class="pc-personales" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div style="font-size:11px;color:#a78bfa;font-weight:900;letter-spacing:1px">👤 DÍAS PERSONALES ${diasAnioVista}</div>
           <button type="button" onclick="abrirModalDiaPersonal()" style="background:#0f172a;color:#a78bfa;border:1px solid #7c3aed;border-radius:6px;padding:4px 8px;font-weight:800;font-size:11px;cursor:pointer; ${btnDisabledPer}" ${btnDisAttrPer}>+ Añadir</button>
@@ -432,43 +446,9 @@ function renderDiasTrabajo(){
     `;
   }
 
-  // Botones inferiores (Importar / Añadir festivo)
-  html += `
-    <div class="pc-botones" style="display:flex;gap:8px">
-      <button type="button" onclick="importarICS()" style="flex:1;background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:10px;padding:10px;font-weight:800;font-size:12px;cursor:pointer">📥 Importar .ics</button>
-      <button type="button" onclick="abrirModalFestivoNuevo()" style="flex:1;background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:10px;padding:10px;font-weight:800;font-size:12px;cursor:pointer">+ Añadir festivo</button>
-    </div>
-  `;
-
-  // Botón Modo Web (solo móvil)
-  const btnTexto = modoWebActivo ? "🔴 DETENER MODO WEB" : "🌐 ACTIVAR MODO WEB (PC)";
-  const btnBg = modoWebActivo ? "#7f1d1d" : "#0891b2";
-  const ipDisplay = modoWebActivo ? "block" : "none";
-  let ipHtml = "";
-  if (modoWebActivo && servidorWeb) {
-    let ipStr = "IP_DEL_MOVIL";
-    if (servidorWeb.urls && servidorWeb.urls.length > 0) ipStr = servidorWeb.urls[0].split(':')[1].replace('//', '');
-    else if (servidorWeb.url) ipStr = servidorWeb.url.split(':')[1].replace('//', '');
-    ipHtml = `<div style="font-size:13px; color:#fff; margin-bottom:8px;">Abre esta dirección en el navegador de tu PC:</div><div style="font-size:22px; font-weight:900; color:#4ade80; letter-spacing:1px;">http://${ipStr}:8080</div>`;
-  }
-
-  html += `
-    <div class="dias-modo-web" style="text-align:center; margin-top: 10px;">
-      <div style="font-size:12px; color:#38bdf8; font-weight:900; margin-bottom:10px;">💻 GESTIÓN DESDE EL PC O TABLET</div>
-      <button type="button" id="btnModoWeb" onclick="toggleModoWeb()" style="width:100%; background:${btnBg}; color:#fff; border:none; border-radius:10px; padding:12px; font-weight:800; font-size:14px; cursor:pointer;">
-        ${btnTexto}
-      </button>
-      <div id="ipWebDisplay" style="display:${ipDisplay}; margin-top:14px; padding:12px; background:#0f172a; border:1px dashed #4ade80; border-radius:10px; line-height:1.5;">
-        ${ipHtml}
-      </div>
-    </div>
-  `;
-
-  html += `</div>`; // Fin Columna Derecha
-
-  // ==================== COLUMNA IZQUIERDA (Festivos) ====================
-  html += `<div class="col-left">`;
-  html += `<div style="font-size:12px;color:#94a3b8;font-weight:900;letter-spacing:1px;margin-bottom:12px">📅 FESTIVOS ${diasAnioVista}</div>`;
+  // 7. FESTIVOS
+  html += `<div class="pc-festivos" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">`;
+  html += `<div style="font-size:12px;color:#94a3b8;font-weight:900;letter-spacing:1px;margin-bottom:10px">📅 FESTIVOS ${diasAnioVista}</div>`;
 
   if(festivosAnio.length === 0){
     html += `<div style="text-align:center;color:#64748b;font-size:13px;padding:14px">No hay festivos este año.</div>`;
@@ -513,7 +493,15 @@ function renderDiasTrabajo(){
     });
     html += `</div>`;
   }
-  html += `</div>`; // Fin Columna Izquierda
+  html += `</div>`;
+
+  // 8. BOTONES INFERIORES
+  html += `
+    <div class="pc-botones" style="display:flex;gap:8px;margin-bottom:14px">
+      <button type="button" onclick="importarICS()" style="flex:1;background:#0e7490;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">📥 Importar .ics</button>
+      <button type="button" onclick="abrirModalFestivoNuevo()" style="flex:1;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">+ Añadir festivo</button>
+    </div>
+  `;
 
   html += `<input type="file" id="icsInput" accept=".ics,text/calendar" style="display:none" onchange="onICSSeleccionado(event)">`;
 
@@ -562,7 +550,7 @@ function renderCalendarioMes(){
     const esDiaLibre = esDiaNoTrabajado(fechaStr); // 👈 Comprobamos si es Lunes o Domingo
 
     if(colorEstado){
-      bg = hexToRgba(colorEstado, 0.45);
+      bg = hexToRgba(colorEstado, 0.70);
       border = colorEstado;
       colorNum = "#fff";
       fontWeight = "900";

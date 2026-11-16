@@ -31,7 +31,7 @@
   button:active{
     filter: brightness(0.9);
   }
-     /* ==================== DISEÑO ESCRITORIO (PC / TABLET) ==================== */
+    /* ==================== DISEÑO ESCRITORIO (PC / TABLET) ==================== */
   @media (min-width: 768px) {
     body.modo-desktop {
       background-color: #0f172a;
@@ -48,58 +48,44 @@
       justify-content: center;
     }
 
-    /* DISEÑO EN 3 COLUMNAS */
+    /* LA MAGIA DEL GRID: Reordena sin romper el móvil */
     body.modo-desktop #diasContenido {
       width: 100%;
       max-width: 1500px !important;
       margin: 0 auto !important;
-      display: flex !important;
-      gap: 24px !important;
-      align-items: flex-start !important;
+      display: grid !important;
+      grid-template-columns: 340px 1fr 360px !important;
+      grid-template-areas:
+        "festivos anios      stats"
+        "festivos calendario vacaciones"
+        "festivos calendario personales"
+        "festivos botones    botones" !important;
+      gap: 20px !important;
+      align-items: start !important;
     }
 
-    /* IZQUIERDA: Festivos */
-    body.modo-desktop .col-left {
-      flex: 0 0 320px;
+    /* ASIGNACIÓN DE ZONAS */
+    body.modo-desktop .pc-festivos { 
+      grid-area: festivos; 
       max-height: calc(100vh - 40px);
       overflow-y: auto;
       position: sticky;
       top: 20px;
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 16px;
-      padding: 20px;
     }
+    body.modo-desktop .pc-anios { grid-area: anios; }
+    body.modo-desktop .pc-stats { grid-area: stats; }
+    body.modo-desktop .pc-calendario { grid-area: calendario; }
+    body.modo-desktop .pc-vacaciones { grid-area: vacaciones; }
+    body.modo-desktop .pc-personales { grid-area: personales; }
+    body.modo-desktop .pc-botones { grid-area: botones; }
 
-    /* CENTRO: Años + Calendario */
-    body.modo-desktop .col-center {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 16px; /* Separación entre años y calendario */
-    }
-
-    /* DERECHA: Paneles */
-    body.modo-desktop .col-right {
-      flex: 0 0 340px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    /* Estilos de las cajas del centro y derecha */
+    /* ESTILO VISUAL DE LAS CAJAS */
     body.modo-desktop .pc-box {
       background: #1e293b;
       border: 1px solid #334155;
       border-radius: 16px;
       padding: 20px;
-    }
-
-    /* Hacer que los años no tengan fondo de caja, solo los botones */
-    body.modo-desktop .pc-anios {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
+      margin: 0 !important;
     }
 
     /* Días del calendario GIGANTES */
@@ -107,12 +93,6 @@
       aspect-ratio: 1 !important; 
       min-height: 95px;
       border-radius: 12px !important;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    body.modo-desktop .pc-calendario [style*="aspect-ratio:1"]:hover {
-      transform: scale(1.03);
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-      z-index: 10;
     }
 
     /* Lista de festivos en columna */

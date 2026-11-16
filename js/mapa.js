@@ -509,7 +509,7 @@ function renderListaRutasHistorial() {
     const p = f.split("-"), dateObj = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
     const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
     const fechaBonita = `${p[2]}/${p[1]}/${p[0]} <span style="font-size:11px;color:#64748b">(${dias[dateObj.getDay()]})</span>`;
-    html += `<div style="display:flex; justify-content:space-between; align-items:center; background:#0f172a; border:1px solid ${esActual?'#3b82f6':'#334155'}; border-radius:8px; padding:10px;"><div style="font-size:14px; font-weight:800; color:#fff;">${fechaBonita} ${tieneMatched ? '<span title="Ajustada a calles" style="font-size:10px; color:#4ade80; border:1px solid #4ade80; padding:2px 4px; border-radius:4px; margin-left:4px;">CALLE</span>' : ''}</div><div style="display:flex; gap:6px;"><button type="button" onclick="verRutaHistorial('${f}')" style="background:${esActual?'#3b82f6':'#1e293b'}; color:#fff; border:none; border-radius:6px; padding:6px 10px; font-weight:700; font-size:12px; cursor:pointer;">${esActual ? 'Ocultar' : 'Ver'}</button><button type="button" onclick="borrarRutaHistorial('${f}')" style="background:#7f1d1d; color:#fca5a5; border:none; border-radius:6px; padding:6px 10px; font-size:14px; cursor:pointer;">🗑️</button></div></div>`;
+    html += `<div style="display:flex; justify-content:space-between; align-items:center; background:#0f172a; border:1px solid ${esActual?'#3b82f6':'#334155'}; border-radius:8px; padding:10px;"><div style="font-size:14px; font-weight:800; color:#fff;">${fechaBonita} ${tieneMatched ? '<span title="Mapa dibujado" style="font-size:10px; color:#4ade80; border:1px solid #4ade80; padding:2px 4px; border-radius:4px; margin-left:4px;">MAPA</span>' : ''}</div><div style="display:flex; gap:6px;"><button type="button" onclick="verRutaHistorial('${f}')" style="background:${esActual?'#3b82f6':'#1e293b'}; color:#fff; border:none; border-radius:6px; padding:6px 10px; font-weight:700; font-size:12px; cursor:pointer;">${esActual ? 'Ocultar' : 'Ver'}</button><button type="button" onclick="borrarRutaHistorial('${f}')" style="background:#7f1d1d; color:#fca5a5; border:none; border-radius:6px; padding:6px 10px; font-size:14px; cursor:pointer;">🗑️</button></div></div>`;
   });
   cont.innerHTML = html;
 }
@@ -663,12 +663,12 @@ async function ajustarRutaACalles(puntosOriginales) {
 async function procesarRutaFinalDia() {
   const hoy = fechaLocalStr(), puntos = obtenerRecorrido(hoy);
   if (!puntos || puntos.length < 2) return;
-  mostrarToast("🪄 Ajustando ruta a las calles...");
+  mostrarToast("🪄 Dibujando mapa...");
   const puntosAjustados = await ajustarRutaACalles(puntos);
   if (puntosAjustados && puntosAjustados.length > 1) {
     const claveMatched = "uberCambioRecorridoMatched_" + hoy;
     safeStorage.set(claveMatched, JSON.stringify(puntosAjustados));
-    mostrarToast("✅ Ruta ajustada a las calles");
+    mostrarToast("✅ Mapa dibujado");
     if (mapaInstance && document.getElementById("fechaRutaInput")?.value === hoy) { dibujarRecorridoEnMapa(hoy); }
   }
 }

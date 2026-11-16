@@ -169,16 +169,6 @@ function calcularLimiteDepositoReal(proxReset) {
   return limite;
 }
 
-function cerrarDiasPantalla(){ 
-  const p = document.getElementById("diasPantalla"); 
-  if(p) p.style.display = "none"; 
-  
-  // Si estamos en el PC (modo escritorio), recargamos para volver a la app
-  if (document.body.classList.contains('modo-desktop')) {
-    location.reload();
-  }
-}
-
 /* ==================== RENDER PRINCIPAL DEL CALENDARIO ==================== */
 function renderDiasTrabajo(){
   const cont = document.getElementById("diasContenido");
@@ -222,22 +212,7 @@ function renderDiasTrabajo(){
 
   let html = "";
 
-  // ==================== COLUMNA IZQUIERDA (SIDEBAR) ====================
-  html += `<div class="pc-sidebar">`;
-
-  // 1. Botón Modo Web (Solo móvil)
-  html += `
-    <div class="dias-modo-web" style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:16px; text-align:center;">
-      <div style="font-size:12px; color:#38bdf8; font-weight:900; margin-bottom:10px;">💻 GESTIÓN DESDE EL PC O TABLET</div>
-      <button type="button" id="btnModoWeb" onclick="toggleModoWeb()" style="width:100%; background:#0891b2; color:#fff; border:none; border-radius:10px; padding:12px; font-weight:800; font-size:14px; cursor:pointer;">
-        🌐 ACTIVAR MODO WEB (PC)
-      </button>
-      <div id="ipWebDisplay" style="display:none; margin-top:14px; padding:12px; background:#0f172a; border:1px dashed #4ade80; border-radius:10px; line-height:1.5;"></div>
-    </div>
-  `;
-
-  // 2. Header (Años)
-  html += `<div style="display:flex;gap:6px;flex-wrap:wrap">`;
+  html += `<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">`;
   anios.forEach(a => {
     const act = a === diasAnioVista;
     const tienePend = aniosConPendientes.includes(a) && a < anioActual;
@@ -250,9 +225,8 @@ function renderDiasTrabajo(){
   });
   html += `</div>`;
 
-  // 3. Estadísticas
   html += `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
       <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
         <div style="font-size:10px;color:#f97316;font-weight:900">💼 TRABAJADOS</div>
         <div style="font-size:22px;font-weight:900;color:#f97316;margin-top:4px">${acumuladosTrab}</div>
@@ -282,7 +256,6 @@ function renderDiasTrabajo(){
     </div>
   `;
 
-  // 4. Vacaciones
   {
     const asignadas = parseInt(diasVacacionesAsignados[String(diasAnioVista)]) || 0;
     const usadas = vacacionesAnio.filter(d => !d.noCuenta).length;
@@ -291,7 +264,7 @@ function renderDiasTrabajo(){
     const color = pasadas ? "#f87171" : (restantes === 0 && asignadas > 0 ? "#fbbf24" : "#22d3ee");
 
     html += `
-      <div style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px">
+      <div style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div style="font-size:12px;color:#22d3ee;font-weight:900;letter-spacing:1px">🏖️ VACACIONES ${diasAnioVista}</div>
           <button type="button" onclick="abrirModalDiasAsignados()"
@@ -316,43 +289,9 @@ function renderDiasTrabajo(){
     `;
   }
 
-  // 5. Días Personales (Restaurado)
-  html += `
-    <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div style="font-size:12px;color:#a78bfa;font-weight:900;letter-spacing:1px">👤 DÍAS PERSONALES</div>
-        <button type="button" onclick="abrirModalDiaPersonal()" style="background:#0f172a;color:#a78bfa;border:1px solid #7c3aed;border-radius:8px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer">+ Añadir</button>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-        <div>
-          <div style="font-size:11px;color:#94a3b8;font-weight:700">USADOS</div>
-          <div style="font-size:30px;font-weight:900;color:#a78bfa;line-height:1.1">${personalesAnio.length}<span style="font-size:18px;color:#64748b">/2</span></div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:11px;color:#94a3b8;font-weight:700">TE QUEDAN</div>
-          <div style="font-size:26px;font-weight:900;color:#a78bfa;line-height:1.1">${personalesRestantes}</div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  // 6. Botones de acción
-  html += `
-    <div>
-      <button type="button" onclick="abrirModalVacaciones()" style="width:100%;margin-bottom:8px;background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:800;font-size:14px;cursor:pointer">🏖️ AÑADIR VACACIONES</button>
-      <div style="display:flex;gap:8px">
-        <button type="button" onclick="importarICS()" style="flex:1;background:#0e7490;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">📥 Importar .ics</button>
-        <button type="button" onclick="abrirModalFestivoNuevo()" style="flex:1;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">+ Añadir festivo</button>
-      </div>
-    </div>
-  `;
-  
-  html += `</div>`; // Fin Sidebar
-
-  // ==================== COLUMNA DERECHA (CALENDARIO) ====================
   const nombresMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   html += `
-    <div class="pc-calendar" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <button type="button" onclick="cambiarMesVista(-1)" style="background:#334155;color:#fff;border:none;width:36px;height:36px;border-radius:10px;font-size:18px;font-weight:900;cursor:pointer">◀</button>
         <div style="font-size:16px;font-weight:900;color:#38bdf8">${nombresMes[diasMesVista]} (${diasMesVista+1}) ${diasAnioVista}</div>
@@ -385,14 +324,12 @@ function renderDiasTrabajo(){
     </div>
   `;
 
-  // ==================== FESTIVOS (ABAJO) ====================
-  html += `<div class="pc-holidays" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">`;
-  html += `<div style="font-size:12px;color:#94a3b8;font-weight:900;letter-spacing:1px;margin-bottom:10px">📅 FESTIVOS, VACACIONES Y LIBRANZAS ${diasAnioVista}</div>`;
+  html += `<div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">`;
+  html += `<div style="font-size:12px;color:#94a3b8;font-weight:900;letter-spacing:1px;margin-bottom:10px">📅 FESTIVOS ${diasAnioVista}</div>`;
 
   if(festivosAnio.length === 0){
     html += `<div style="text-align:center;color:#64748b;font-size:13px;padding:14px">No hay festivos este año.</div>`;
   } else {
-    html += `<div class="pc-holidays-list">`; // Grid para columnas en PC
     festivosAnio.forEach(f => {
       const estaEnVacaciones = diasPersonales.find(d => d.fecha === f.fecha && d.tipo === "vacacion");
       const est = estadoFestivo(f);
@@ -416,7 +353,7 @@ function renderDiasTrabajo(){
       }
 
       html += `
-        <div onclick="abrirModalFestivo('${f.fecha}')" style="display:flex;align-items:center;gap:10px;padding:12px;background:#0f172a;border-radius:10px;border:1px solid #1e293b;cursor:pointer">
+        <div onclick="abrirModalFestivo('${f.fecha}')" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1e293b;cursor:pointer">
           <div style="width:12px;height:12px;border-radius:50%;background:${col};flex-shrink:0"></div>
           <div style="flex:1;min-width:0">
             <div style="font-size:14px;color:#fff;font-weight:700">${formatearFechaBonita(f.fecha)}</div>
@@ -430,14 +367,22 @@ function renderDiasTrabajo(){
         </div>
       `;
     });
-    html += `</div>`;
   }
   html += `</div>`;
-  
-  html += `<input type="file" id="icsInput" accept=".ics,text/calendar" style="display:none" onchange="onICSSeleccionado(event)">`;
+
+  html += `<button type="button" onclick="abrirModalVacaciones()" style="width:100%;margin-bottom:8px;background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:800;font-size:14px;cursor:pointer">🏖️ AÑADIR VACACIONES</button>`;
+
+  html += `
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button type="button" onclick="importarICS()" style="flex:1;background:#0e7490;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">📥 Importar .ics</button>
+      <button type="button" onclick="abrirModalFestivoNuevo()" style="flex:1;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">+ Añadir festivo</button>
+    </div>
+    <input type="file" id="icsInput" accept=".ics,text/calendar" style="display:none" onchange="onICSSeleccionado(event)">
+  `;
 
   cont.innerHTML = html;
 }
+
 function renderCalendarioMes(){
   const primerDia = new Date(diasAnioVista, diasMesVista, 1);
   const totalDias = new Date(diasAnioVista, diasMesVista + 1, 0).getDate();
@@ -477,24 +422,13 @@ function renderCalendarioMes(){
     const esHoy = (hoy.getFullYear() === diasAnioVista && hoy.getMonth() === diasMesVista && hoy.getDate() === d);
 
     let bg, border, colorNum, shadow, fontWeight;
-    const esLibre = esDiaNoTrabajado(fechaStr); // 👈 Comprobamos si es Lunes o Domingo
-    
     if(colorEstado){
-      // Tiene prioridad si hay un festivo o vacaciones
       bg = hexToRgba(colorEstado, 0.45);
       border = colorEstado;
       colorNum = "#fff";
       fontWeight = "900";
       shadow = "inset 0 0 0 1px rgba(0,0,0,0.2)";
-    } else if(esLibre) {
-      // 👇 ESTILO NUEVO PARA TUS DÍAS LIBRES
-      bg = "#1e293b";            // Fondo un poco más claro
-      border = "#475569";        // Borde más visible
-      colorNum = "#94a3b8";      // Texto gris azulado
-      fontWeight = "700";
-      shadow = "inset 0 0 0 1px rgba(255,255,255,0.05)";
     } else {
-      // Días de trabajo normales
       bg = "#0f172a"; border = "#334155"; colorNum = "#cbd5e1"; fontWeight = "600"; shadow = "none";
     }
 
@@ -761,144 +695,4 @@ function borrarFestivo(fecha){
   if(!confirm("¿Borrar este festivo?")) return;
   festivos = festivos.filter(f => f.fecha !== fecha);
   saveFestivos(); cerrarModalFestivo(); renderDiasTrabajo();
-}
-
-/* ==================== SERVIDOR WEB LOCAL (MODO PC) ==================== */
-let modoWebActivo = false;
-let servidorWeb = null;
-let listenerHandle = null;
-
-async function toggleModoWeb() {
-  const btn = document.getElementById("btnModoWeb");
-  const display = document.getElementById("ipWebDisplay");
-
-  if (modoWebActivo) {
-    if (listenerHandle) { try { await listenerHandle.remove(); } catch(e){} listenerHandle = null; }
-    if (servidorWeb) { try { await servidorWeb.stop(); } catch(e){} servidorWeb = null; }
-    modoWebActivo = false;
-    if(btn) { btn.innerHTML = "🌐 ACTIVAR MODO WEB (PC)"; btn.style.background = "#0891b2"; }
-    if(display) display.style.display = "none";
-    mostrarToast("Modo Web desactivado");
-    return;
-  }
-
-  try {
-    const { HttpServer } = Capacitor.Plugins;
-    if (!HttpServer) { alert("⚠️ El plugin no está compilado."); return; }
-
-    listenerHandle = await HttpServer.addListener('request', async (req) => {
-      console.log("📥 Petición recibida:", req.path);
-
-      // 1. Sincronización (Recibir datos del PC y guardarlos en el móvil)
-      if (req.path === '/sync' && req.method === 'POST') {
-        try {
-          const data = JSON.parse(req.bodyText || req.body);
-          if (data.key && data.value !== undefined) {
-            safeStorage.set(data.key, data.value);
-            if (data.key.includes("Festivos") || data.key.includes("DiasPersonales")) {
-              setTimeout(() => { if(typeof renderDiasTrabajo === 'function') renderDiasTrabajo(); }, 100);
-            }
-          }
-          await HttpServer.respond({ requestId: req.requestId, status: 200, bodyText: "OK" });
-        } catch (e) {
-          await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "Error" });
-        }
-        return;
-      }
-
-      // 2. Enviar TODOS los datos al PC (para que el PC se sincronice al entrar)
-      if (req.path === '/get-all-data' && req.method === 'GET') {
-        try {
-          const datos = {};
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key.startsWith("uberCambio")) {
-              datos[key] = localStorage.getItem(key);
-            }
-          }
-          await HttpServer.respond({ 
-            requestId: req.requestId, 
-            status: 200, 
-            bodyText: JSON.stringify(datos), 
-            headers: { "Content-Type": "application/json" } 
-          });
-        } catch (e) {
-          await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "{}" });
-        }
-        return;
-      }
-
-      // 3. Servir los archivos al PC (HTML, JS, CSS, etc.)
-      let filePath = req.path === '/' ? 'index.html' : req.path;
-      filePath = filePath.split('?')[0]; 
-      filePath = filePath.replace(/^\//, ''); // Quitar la barra inicial
-
-      try {
-        // Límite de 3 segundos para evitar que el PC se quede en blanco
-        const fetchPromise = fetch(filePath);
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout de red")), 3000));
-        const resp = await Promise.race([fetchPromise, timeoutPromise]);
-
-        if (resp && resp.ok) {
-          const text = await resp.text();
-          
-          let mime = 'text/plain';
-          if (filePath.endsWith('.html') || filePath === 'index.html') mime = 'text/html';
-          else if (filePath.endsWith('.js')) mime = 'application/javascript';
-          else if (filePath.endsWith('.css')) mime = 'text/css';
-          else if (filePath.endsWith('.json')) mime = 'application/json';
-          else if (filePath.endsWith('.png')) mime = 'image/png';
-          else if (filePath.endsWith('.svg')) mime = 'image/svg+xml';
-          else if (filePath.endsWith('.ico')) mime = 'image/x-icon';
-
-          await HttpServer.respond({ 
-            requestId: req.requestId, 
-            status: 200, 
-            bodyText: text, 
-            headers: { "Content-Type": mime } 
-          });
-        } else {
-          await HttpServer.respond({ requestId: req.requestId, status: 404, bodyText: "Not found" });
-        }
-      } catch (e) {
-        console.error("Error sirviendo archivo:", e);
-        await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "Error cargando archivo" }).catch(()=>{});
-      }
-    });
-
-    // Arrancar servidor en el puerto 8080
-    servidorWeb = await HttpServer.start({
-      port: 8080, 
-      android: {
-        notificationTitle: 'CambioVTC - Modo Web',
-        notificationText: 'Servidor local activo en el puerto 8080',
-        channelId: 'modo_web',
-        channelName: 'Modo Web'
-      }
-    });
-    
-    modoWebActivo = true;
-    
-    // Extraer IP
-    let ip = "IP_DEL_MOVIL";
-    if (servidorWeb.urls && servidorWeb.urls.length > 0) {
-        ip = servidorWeb.urls[0].split(':')[1].replace('//', '');
-    } else if (servidorWeb.url) {
-        ip = servidorWeb.url.split(':')[1].replace('//', '');
-    }
-    
-    if(btn) { btn.innerHTML = "🔴 DETENER MODO WEB"; btn.style.background = "#7f1d1d"; }
-    if(display) {
-      display.style.display = "block";
-      display.innerHTML = `
-        <div style="font-size:13px; color:#fff; margin-bottom:8px;">Abre esta dirección en el navegador de tu PC:</div>
-        <div style="font-size:22px; font-weight:900; color:#4ade80; letter-spacing:1px;">http://${ip}:8080</div>
-        <div style="font-size:11px; color:#94a3b8; margin-top:8px;">Wi-Fi obligatorio. El móvil debe tener internet.</div>
-      `;
-    }
-    mostrarToast("🌐 Servidor Web activo");
-  } catch(e) {
-    console.error(e);
-    alert("❌ Error al iniciar el servidor: " + e.message);
-  }
 }

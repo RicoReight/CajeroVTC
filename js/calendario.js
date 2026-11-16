@@ -746,58 +746,34 @@ async function toggleModoWeb() {
     listenerHandle = await HttpServer.addListener('request', async (req) => {
       console.log("📥 Petición recibida del PC:", req.path);
 
-      // 1. Sincronización de datos (PC -> Móvil)
+      // Si es una petición de sincronización (POST), la procesamos
       if (req.path === '/sync' && req.method === 'POST') {
         try {
-          const data = JSON.parse(req.body);
+          const data = JSON.parse(req.bodyText || req.body);
           if (data.key && data.value !== undefined) {
             safeStorage.set(data.key, data.value);
             if (data.key.includes("Festivos") || data.key.includes("DiasPersonales")) {
               setTimeout(() => { if(typeof renderDiasTrabajo === 'function') renderDiasTrabajo(); }, 100);
             }
           }
-          await HttpServer.respond({ requestId: req.requestId, status: 200, body: "OK", headers: { "Access-Control-Allow-Origin": "*" } });
+          await HttpServer.respond({ requestId: req.requestId, status: 200, bodyText: "OK" });
         } catch (e) {
-          await HttpServer.respond({ requestId: req.requestId, status: 500, body: "Error" });
+          await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "Error" });
         }
         return;
       }
 
-      // 2. Servir la app al PC (Móvil -> PC)
-      let filePath = req.path === '/' ? '/index.html' : req.path;
-      filePath = filePath.split('?')[0]; // Limpiar parámetros
+      // PRUEBA DE FUEGO: Devolvemos un HTML estático sin leer archivos
+      const htmlPrueba = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Prueba</title></head><body style='background:#0f172a; color:#4ade80; text-align:center; padding-top:50px; font-family:sans-serif;'><h1>¡FUNCIONA! 🎉</h1><p>La conexión con el móvil es correcta.</p></body></html>";
 
-      try {
-        // Leemos el archivo desde el propio WebView del móvil (rapidísimo)
-        const baseUrl = window.location.origin; 
-        const resp = await fetch(baseUrl + filePath);
-        
-        if (resp.ok) {
-          const text = await resp.text();
-          let mime = 'text/html';
-          if (filePath.endsWith('.js')) mime = 'application/javascript';
-          if (filePath.endsWith('.css')) mime = 'text/css';
-          if (filePath.endsWith('.json')) mime = 'application/json';
-          if (filePath.endsWith('.png')) mime = 'image/png';
-          if (filePath.endsWith('.svg')) mime = 'image/svg+xml';
-          if (filePath.endsWith('.ico')) mime = 'image/x-icon';
-
-          await HttpServer.respond({ 
-            requestId: req.requestId, 
-            status: 200, 
-            body: text, 
-            headers: { 'Content-Type': mime, 'Access-Control-Allow-Origin': '*' } 
-          });
-        } else {
-          await HttpServer.respond({ requestId: req.requestId, status: 404, body: "Not found" });
-        }
-      } catch (e) {
-        console.error("Error sirviendo archivo:", e);
-        await HttpServer.respond({ requestId: req.requestId, status: 500, body: "Error" });
-      }
+      await HttpServer.respond({ 
+        requestId: req.requestId, 
+        status: 200, 
+        bodyText: htmlPrueba, // Usamos bodyText
+        headers: { "Content-Type": "text/html; charset=utf-8" } 
+      }).catch(e => console.error("Error al responder:", e));
     });
 
-    // FIJAMOS EL PUERTO 8080
     servidorWeb = await HttpServer.start({
       port: 8080, 
       android: {
@@ -810,7 +786,6 @@ async function toggleModoWeb() {
     
     modoWebActivo = true;
     
-    // Extraer la IP limpiamente
     let ip = "IP_DEL_MOVIL";
     if (servidorWeb.urls && servidorWeb.urls.length > 0) {
         ip = servidorWeb.urls[0].split(':')[1].replace('//', '');
@@ -821,15 +796,11 @@ async function toggleModoWeb() {
     if(btn) { btn.innerHTML = "🔴 DETENER MODO WEB"; btn.style.background = "#7f1d1d"; }
     if(display) {
       display.style.display = "block";
-      display.innerHTML = `
-        <div style="font-size:13px; color:#fff; margin-bottom:8px;">Abre esta dirección en el navegador de tu PC:</div>
-        <div style="font-size:22px; font-weight:900; color:#4ade80; letter-spacing:1px;">http://${ip}:8080</div>
-        <div style="font-size:11px; color:#94a3b8; margin-top:8px;">Wi-Fi obligatorio.</div>
-      `;
+      display.innerHTML = `<div style="font-size:22px; font-weight:900; color:#4ade80;">http://${ip}:8080</div>`;
     }
-    mostrarToast("🌐 Servidor Web activo");
+    mostrarToast("🌐 Servidor activo");
   } catch(e) {
     console.error(e);
-    alert("❌ Error al iniciar el servidor: " + e.message);
+    alert("❌ Error general: " + e.message);
   }
 }

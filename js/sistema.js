@@ -413,18 +413,33 @@ async function programarAvisosDeposito(){
     const perm = await LN.checkPermissions(); if(perm.display !== 'granted') return;
     await crearCanalRecordatorios();
     const pending = await LN.getPending(); const aBorrar = pending.notifications.filter(n => n.id >= 500000 && n.id < 600000); if(aBorrar.length > 0) await LN.cancel({ notifications: aBorrar });
+    
+    // 👇 ARREGLO: Sumamos solo lo que hay en el historial actual
     const ops = loadHistorialOps(); 
     const pendiente = ops.reduce((s, op) => s + (op.precio || 0), 0); 
     if(pendiente <= 0) return;
+    
     const ahora = new Date(); const proximoAviso = calcularProximoAviso();
     let fechaLimite = null;
     const proxReset = (diaReset !== 0) ? calcularProximoReset() : null;
     if(proxReset){ fechaLimite = calcularLimiteDepositoReal(proxReset); }
     let cuando = proximoAviso; let notif;
     const unaSemana = 7 * 24 * 3600 * 1000;
-    if(fechaLimite && proximoAviso.getTime() > fechaLimite.getTime()){ cuando = fechaLimite; notif = { id: 500001, title: '⚠️ ¡Última semana antes de nómina!', body: `Último día para ingresar. Aún tienes ${moneyText(pendiente)} pendientes de entregar.` }; }
-    else if(fechaLimite && (fechaLimite.getTime() - proximoAviso.getTime()) < unaSemana){ notif = { id: 500001, title: '⚠️ ¡Última semana antes de nómina!', body: `Última semana para ingresar antes de cerrar nómina. Aún tienes ${moneyText(pendiente)} pendientes de entregar.` }; }
-    else { notif = { id: 500002, title: '💶 Recordatorio de depósito', body: `Tienes ${moneyText(pendiente)} acumulados de viajes. Recuerda ingresarlos antes del viernes para estar al día.` }; }
+    
+    if(fechaLimite && proximoAviso.getTime() > fechaLimite.getTime()){ 
+        cuando = fechaLimite; 
+        // Texto corto para que no se corte
+        notif = { id: 500001, title: '⚠️ Último día de entrega', body: `Te quedan ${moneyText(pendiente)} por ingresar antes de nómina.` }; 
+    }
+    else if(fechaLimite && (fechaLimite.getTime() - proximoAviso.getTime()) < unaSemana){ 
+        // Texto corto para que no se corte
+        notif = { id: 500001, title: '⚠️ Última semana antes de nómina', body: `Aún tienes ${moneyText(pendiente)} pendientes de entregar.` }; 
+    }
+    else { 
+        // Texto corto para que no se corte
+        notif = { id: 500002, title: '💶 Recordatorio de depósito', body: `Tienes ${moneyText(pendiente)} acumulados. Recuerda ingresarlos.` }; 
+    }
+    
     if(cuando.getTime() <= ahora.getTime()) return;
     await LN.schedule({ notifications: [{ id: notif.id, title: notif.title, body: notif.body, channelId: 'recordatorios-alta', schedule: { at: cuando, allowWhileIdle: true } }] });
   } catch(e){}

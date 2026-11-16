@@ -37,77 +37,92 @@
       background-color: #0f172a;
     }
 
-    /* Ocultar botones que no sirven en PC */
-    body.modo-desktop .dias-modo-web,
-    body.modo-desktop #diasPantalla > div > div:first-child {
+    /* Ocultar botón modo web en PC */
+    body.modo-desktop .dias-modo-web {
       display: none !important;
     }
 
-    /* Hacer la pantalla del calendario transparente para que fluya con el fondo */
     body.modo-desktop #diasPantalla {
       background: transparent !important;
       padding-top: 20px !important;
     }
 
-    /* CONTENEDOR PRINCIPAL (GRID) */
+    /* CONTENEDOR PRINCIPAL */
     body.modo-desktop #diasContenido {
-      max-width: 1250px !important;
+      max-width: 1350px !important;
       margin: 0 auto !important;
       display: grid !important;
       grid-template-columns: 360px 1fr !important; 
       grid-template-areas:
-        "header header"
         "sidebar calendar"
-        "sidebar holidays" !important;
+        "holidays holidays" !important;
       gap: 24px !important;
       align-items: start !important;
     }
 
-    /* ZONAS DEL GRID */
-    body.modo-desktop .dias-header { grid-area: header; }
-    body.modo-desktop .dias-sidebar { grid-area: sidebar; display: flex; flex-direction: column; gap: 20px; }
-    body.modo-desktop .dias-calendar { grid-area: calendar; }
-    body.modo-desktop .dias-holidays { grid-area: holidays; }
+    /* ==================== BARRA LATERAL (IZQUIERDA) ==================== */
+    body.modo-desktop .dias-sidebar {
+      grid-area: sidebar;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      background: #1e293b;
+      padding: 24px;
+      border-radius: 16px;
+      border: 1px solid #334155;
+    }
 
-    /* ESTILOS DEL CALENDARIO EN PC */
+    /* Estadísticas compactas dentro de la barra */
+    body.modo-desktop .dias-stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    body.modo-desktop .dias-stats-grid > div {
+      background: transparent !important;
+      border: none !important;
+      border-bottom: 1px solid #334155;
+      border-radius: 0 !important;
+      padding: 8px 0 !important;
+    }
+
+    /* ==================== CALENDARIO (DERECHA) ==================== */
     body.modo-desktop .dias-calendar {
+      grid-area: calendar;
       background: #1e293b;
       border: 1px solid #334155;
       border-radius: 16px;
       padding: 24px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     }
     
-    /* Celdas del calendario más cuadradas y grandes */
+    /* Días del calendario grandes */
     body.modo-desktop .dias-calendar [style*="aspect-ratio:1"] {
       aspect-ratio: auto !important;
-      height: 85px !important;
+      height: 100px !important;
       border-radius: 12px !important;
       transition: all 0.2s;
     }
     body.modo-desktop .dias-calendar [style*="aspect-ratio:1"]:hover {
-      transform: scale(1.05);
+      transform: scale(1.03);
       z-index: 10;
       box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     }
 
-    /* ESTILOS DE LA LISTA DE FESTIVOS */
+    /* ==================== FESTIVOS (ABAJO) ==================== */
     body.modo-desktop .dias-holidays {
+      grid-area: holidays;
       background: #1e293b;
       border: 1px solid #334155;
       border-radius: 16px;
       padding: 24px;
-      max-height: 600px;
-      overflow-y: auto;
+      margin-top: 10px;
     }
     
-    /* Tarjetas laterales con sombra */
-    body.modo-desktop .sidebar-card {
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 16px;
-      padding: 20px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    /* Lista de festivos en 2 columnas */
+    body.modo-desktop .dias-holidays-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
     }
   }
 </style>

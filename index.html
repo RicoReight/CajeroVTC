@@ -31,52 +31,83 @@
   button:active{
     filter: brightness(0.9);
   }
-    /* ==================== DISEÑO ESCRITORIO (PC / TABLET) ==================== */
+  /* ==================== DISEÑO ESCRITORIO (PC / TABLET) ==================== */
   @media (min-width: 768px) {
     body.modo-desktop {
       background-color: #0f172a;
     }
 
-    /* Contenedor principal en 2 columnas */
+    /* Ocultar botones que no sirven en PC */
+    body.modo-desktop .dias-modo-web,
+    body.modo-desktop #diasPantalla > div > div:first-child {
+      display: none !important;
+    }
+
+    /* Hacer la pantalla del calendario transparente para que fluya con el fondo */
+    body.modo-desktop #diasPantalla {
+      background: transparent !important;
+      padding-top: 20px !important;
+    }
+
+    /* CONTENEDOR PRINCIPAL (GRID) */
     body.modo-desktop #diasContenido {
-      max-width: 1100px !important;
+      max-width: 1250px !important;
       margin: 0 auto !important;
       display: grid !important;
-      grid-template-columns: 380px 1fr !important; 
+      grid-template-columns: 360px 1fr !important; 
       grid-template-areas:
-        "modoweb   calendario"
-        "stats     calendario"
-        "vac       calendario"
-        "botones   calendario"
-        "festivos  calendario" !important;
-      gap: 20px !important;
+        "header header"
+        "sidebar calendar"
+        "sidebar holidays" !important;
+      gap: 24px !important;
       align-items: start !important;
     }
 
-    /* Ocultar el botón de Modo Web en el PC */
-    body.modo-desktop .dias-modo-web {
-      display: none !important; 
-    }
+    /* ZONAS DEL GRID */
+    body.modo-desktop .dias-header { grid-area: header; }
+    body.modo-desktop .dias-sidebar { grid-area: sidebar; display: flex; flex-direction: column; gap: 20px; }
+    body.modo-desktop .dias-calendar { grid-area: calendar; }
+    body.modo-desktop .dias-holidays { grid-area: holidays; }
 
-    /* Asignar cada sección a su hueco */
-    body.modo-desktop .dias-anios { grid-area: modoweb; }
-    body.modo-desktop .dias-stats { grid-area: stats; }
-    body.modo-desktop .dias-vacaciones { grid-area: vac; }
-    body.modo-desktop .dias-botones { grid-area: botones; }
-    body.modo-desktop .dias-festivos { grid-area: festivos; }
-    body.modo-desktop .dias-calendario { 
-      grid-area: calendario; 
-      margin-bottom: 0 !important;
-    }
-
-    /* Hacer el calendario un poco más grande */
-    body.modo-desktop .dias-calendario [style*="aspect-ratio:1"] {
-      max-height: 80px !important;
+    /* ESTILOS DEL CALENDARIO EN PC */
+    body.modo-desktop .dias-calendar {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     }
     
-    /* Quitar el fondo de la pantalla de días para que se fusione con el dashboard */
-    body.modo-desktop #diasPantalla {
-      background: transparent !important;
+    /* Celdas del calendario más cuadradas y grandes */
+    body.modo-desktop .dias-calendar [style*="aspect-ratio:1"] {
+      aspect-ratio: auto !important;
+      height: 85px !important;
+      border-radius: 12px !important;
+      transition: all 0.2s;
+    }
+    body.modo-desktop .dias-calendar [style*="aspect-ratio:1"]:hover {
+      transform: scale(1.05);
+      z-index: 10;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+
+    /* ESTILOS DE LA LISTA DE FESTIVOS */
+    body.modo-desktop .dias-holidays {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 24px;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    
+    /* Tarjetas laterales con sombra */
+    body.modo-desktop .sidebar-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
   }
 </style>

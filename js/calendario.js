@@ -169,6 +169,16 @@ function calcularLimiteDepositoReal(proxReset) {
   return limite;
 }
 
+function cerrarDiasPantalla(){ 
+  const p = document.getElementById("diasPantalla"); 
+  if(p) p.style.display = "none"; 
+  
+  // Si estamos en el PC (modo escritorio), recargamos para volver a la app
+  if (document.body.classList.contains('modo-desktop')) {
+    location.reload();
+  }
+}
+
 /* ==================== RENDER PRINCIPAL DEL CALENDARIO ==================== */
 function renderDiasTrabajo(){
   const cont = document.getElementById("diasContenido");
@@ -204,141 +214,131 @@ function renderDiasTrabajo(){
 
   let html = "";
 
-  // 1. Botón Modo Web (con su clase)
+  // 1. HEADER (Años)
+  html += `<div class="dias-header" style="display:flex;gap:10px;margin-bottom:10px">`;
+  anios.forEach(a => {
+    const act = a === diasAnioVista;
+    const tienePend = aniosConPendientes.includes(a) && a < anioActual;
+    html += `<button type="button" onclick="cambiarAnioVista(${a})"
+      style="flex:1;padding:12px;border-radius:12px;border:2px solid ${act?'#3b82f6':'#334155'};
+             background:${act?'linear-gradient(135deg,#1e40af,#1e3a8a)':'#0f172a'};color:${act?'#fff':'#94a3b8'};
+             font-weight:900;font-size:16px;cursor:pointer;position:relative;transition:0.2s">
+      ${a}${tienePend ? '<span style="position:absolute;top:6px;right:10px;font-size:12px;color:#fbbf24">⚠</span>' : ''}
+    </button>`;
+  });
+  html += `</div>`;
+
+  // 2. SIDEBAR (Izquierda)
+  html += `<div class="dias-sidebar">`;
+
+  // 2.1 Botón Modo Web (Solo visible en móvil)
   html += `
-    <div class="dias-modo-web" style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:16px; margin-bottom:14px; text-align:center;">
+    <div class="dias-modo-web sidebar-card" style="text-align:center;">
       <div style="font-size:12px; color:#38bdf8; font-weight:900; margin-bottom:10px;">💻 GESTIÓN DESDE EL PC O TABLET</div>
-      <button type="button" id="btnModoWeb" onclick="toggleModoWeb()" style="width:100%; background:#0891b2; color:#fff; border:none; border-radius:10px; padding:12px; font-weight:800; font-size:14px; cursor:pointer; transition:0.3s;">
+      <button type="button" id="btnModoWeb" onclick="toggleModoWeb()" style="width:100%; background:#0891b2; color:#fff; border:none; border-radius:10px; padding:12px; font-weight:800; font-size:14px; cursor:pointer;">
         🌐 ACTIVAR MODO WEB (PC)
       </button>
       <div id="ipWebDisplay" style="display:none; margin-top:14px; padding:12px; background:#0f172a; border:1px dashed #4ade80; border-radius:10px; line-height:1.5;"></div>
     </div>
   `;
 
-  // 2. Botones de Año
-  html += `<div class="dias-anios" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">`;
-  anios.forEach(a => {
-    const act = a === diasAnioVista;
-    const tienePend = aniosConPendientes.includes(a) && a < anioActual;
-    html += `<button type="button" onclick="cambiarAnioVista(${a})"
-      style="flex:1;min-width:70px;padding:10px;border-radius:10px;border:2px solid ${act?'#3b82f6':'#334155'};
-             background:${act?'#1e40af':'#0f172a'};color:${act?'#fff':'#94a3b8'};
-             font-weight:800;cursor:pointer;font-size:14px;position:relative">
-      ${a}${tienePend ? '<span style="position:absolute;top:2px;right:6px;font-size:10px;color:#fbbf24">⚠</span>' : ''}
-    </button>`;
-  });
-  html += `</div>`;
-
-  // 3. Estadísticas (con su clase)
+  // 2.2 Estadísticas
   html += `
-    <div class="dias-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
-      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
-        <div style="font-size:10px;color:#f97316;font-weight:900">💼 TRABAJADOS</div>
-        <div style="font-size:22px;font-weight:900;color:#f97316;margin-top:4px">${acumuladosTrab}</div>
-        <div style="font-size:9px;color:#94a3b8;margin-top:4px;font-weight:600">Caducan +2 meses</div>
-      </div>
-      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
-        <div style="font-size:10px;color:#22d3ee;font-weight:900">🏖️ LIBRANZA</div>
-        <div style="font-size:22px;font-weight:900;color:#22d3ee;margin-top:4px">${acumuladosLibre}</div>
-        <div style="font-size:9px;color:#94a3b8;margin-top:4px;font-weight:600">Caducan 31 dic</div>
-      </div>
-      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
-        <div style="font-size:10px;color:#94a3b8;font-weight:700">🟡 POR CADUCAR</div>
-        <div style="font-size:22px;font-weight:900;color:#fbbf24;margin-top:4px">${porCaducar}</div>
-      </div>
-      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
-        <div style="font-size:10px;color:#94a3b8;font-weight:700">🟣 SOLICITADOS</div>
-        <div style="font-size:22px;font-weight:900;color:#ec4899;margin-top:4px">${solicitados}</div>
-      </div>
-      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
-        <div style="font-size:10px;color:#94a3b8;font-weight:700">🟢 APROBADOS</div>
-        <div style="font-size:22px;font-weight:900;color:#4ade80;margin-top:4px">${aprobados}</div>
-      </div>
-      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
-        <div style="font-size:10px;color:#94a3b8;font-weight:700">⚪ COMPLETADOS</div>
-        <div style="font-size:22px;font-weight:900;color:#94a3b8;margin-top:4px">${completados}</div>
+    <div class="sidebar-card">
+      <div style="font-size:12px;color:#94a3b8;font-weight:900;letter-spacing:1px;margin-bottom:12px">📊 ESTADÍSTICAS ${diasAnioVista}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px">
+          <div style="font-size:10px;color:#f97316;font-weight:900">💼 TRABAJADOS</div>
+          <div style="font-size:24px;font-weight:900;color:#f97316;margin-top:4px">${acumuladosTrab}</div>
+        </div>
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px">
+          <div style="font-size:10px;color:#22d3ee;font-weight:900">🏖️ LIBRANZA</div>
+          <div style="font-size:24px;font-weight:900;color:#22d3ee;margin-top:4px">${acumuladosLibre}</div>
+        </div>
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px">
+          <div style="font-size:10px;color:#fbbf24;font-weight:900">🟡 POR CADUCAR</div>
+          <div style="font-size:24px;font-weight:900;color:#fbbf24;margin-top:4px">${porCaducar}</div>
+        </div>
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px">
+          <div style="font-size:10px;color:#ec4899;font-weight:900">🟣 SOLICITADOS</div>
+          <div style="font-size:24px;font-weight:900;color:#ec4899;margin-top:4px">${solicitados}</div>
+        </div>
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px">
+          <div style="font-size:10px;color:#4ade80;font-weight:900">🟢 APROBADOS</div>
+          <div style="font-size:24px;font-weight:900;color:#4ade80;margin-top:4px">${aprobados}</div>
+        </div>
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px">
+          <div style="font-size:10px;color:#94a3b8;font-weight:900">⚪ COMPLETADOS</div>
+          <div style="font-size:24px;font-weight:900;color:#94a3b8;margin-top:4px">${completados}</div>
+        </div>
       </div>
     </div>
   `;
 
-  // 4. Vacaciones (con su clase)
-  {
-    const personalesAnio = diasPersonales.filter(d => parseInt(d.fecha.slice(0,4)) === diasAnioVista && (!d.tipo || d.tipo === "personal"));
-    const vacacionesAnio = diasPersonales.filter(d => parseInt(d.fecha.slice(0,4)) === diasAnioVista && d.tipo === "vacacion");
-    const asignadas = parseInt(diasVacacionesAsignados[String(diasAnioVista)]) || 0;
-    const usadas = vacacionesAnio.filter(d => !d.noCuenta).length;
-    const restantes = Math.max(0, asignadas - usadas);
-    const pasadas = usadas > asignadas && asignadas > 0;
-    const color = pasadas ? "#f87171" : (restantes === 0 && asignadas > 0 ? "#fbbf24" : "#22d3ee");
+  // 2.3 Vacaciones
+  const vacacionesAnio = diasPersonales.filter(d => parseInt(d.fecha.slice(0,4)) === diasAnioVista && d.tipo === "vacacion");
+  const asignadas = parseInt(diasVacacionesAsignados[String(diasAnioVista)]) || 0;
+  const usadas = vacacionesAnio.filter(d => !d.noCuenta).length;
+  const restantes = Math.max(0, asignadas - usadas);
+  const pasadas = usadas > asignadas && asignadas > 0;
+  const color = pasadas ? "#f87171" : (restantes === 0 && asignadas > 0 ? "#fbbf24" : "#22d3ee");
 
-    html += `
-      <div class="dias-vacaciones" style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div style="font-size:12px;color:#22d3ee;font-weight:900;letter-spacing:1px">🏖️ VACACIONES ${diasAnioVista}</div>
-          <button type="button" onclick="abrirModalDiasAsignados()"
-            style="background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;
-                   padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer">
-            ✏️ Asignados: ${asignadas}
-          </button>
+  html += `
+    <div class="sidebar-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:12px;color:#22d3ee;font-weight:900;letter-spacing:1px">🏖️ VACACIONES</div>
+        <button type="button" onclick="abrirModalDiasAsignados()" style="background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:4px 10px;font-weight:800;font-size:11px;cursor:pointer">✏️ Asignados: ${asignadas}</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+        <div>
+          <div style="font-size:10px;color:#94a3b8;font-weight:700">USADAS</div>
+          <div style="font-size:28px;font-weight:900;color:${color};line-height:1.1">${usadas}<span style="font-size:16px;color:#64748b">/${asignadas || "—"}</span></div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-          <div>
-            <div style="font-size:11px;color:#94a3b8;font-weight:700">USADAS</div>
-            <div style="font-size:30px;font-weight:900;color:${color};line-height:1.1">${usadas}<span style="font-size:18px;color:#64748b">/${asignadas || "—"}</span></div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:11px;color:#94a3b8;font-weight:700">${pasadas ? "TE PASASTE" : "TE QUEDAN"}</div>
-            <div style="font-size:26px;font-weight:900;color:${pasadas ? "#f87171" : "#4ade80"};line-height:1.1">
-              ${pasadas ? "−" + (usadas - asignadas) : restantes}
-            </div>
-          </div>
+        <div style="text-align:right">
+          <div style="font-size:10px;color:#94a3b8;font-weight:700">${pasadas ? "TE PASASTE" : "TE QUEDAN"}</div>
+          <div style="font-size:24px;font-weight:900;color:${pasadas ? "#f87171" : "#4ade80"};line-height:1.1">${pasadas ? "−" + (usadas - asignadas) : restantes}</div>
         </div>
       </div>
-    `;
-  }
+    </div>
+  `;
 
-  // 5. Calendario (con su clase)
+  // 2.4 Acciones (Botones)
+  html += `
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button type="button" onclick="abrirModalVacaciones()" style="width:100%;background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;border:none;border-radius:12px;padding:14px;font-weight:900;font-size:14px;cursor:pointer;box-shadow:0 4px 15px rgba(8,145,178,0.3)">🏖️ AÑADIR VACACIONES</button>
+      <div style="display:flex;gap:10px">
+        <button type="button" onclick="importarICS()" style="flex:1;background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:12px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;transition:0.2s">📥 Importar .ics</button>
+        <button type="button" onclick="abrirModalFestivoNuevo()" style="flex:1;background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:12px;padding:12px;font-weight:800;font-size:13px;cursor:pointer;transition:0.2s">+ Añadir festivo</button>
+      </div>
+    </div>
+  `;
+  
+  html += `</div>`; // Fin Sidebar
+
+  // 3. CALENDARIO (Centro/Derecha)
   const nombresMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   html += `
-    <div class="dias-calendario" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <button type="button" onclick="cambiarMesVista(-1)" style="background:#334155;color:#fff;border:none;width:36px;height:36px;border-radius:10px;font-size:18px;font-weight:900;cursor:pointer">◀</button>
-        <div style="font-size:16px;font-weight:900;color:#38bdf8">${nombresMes[diasMesVista]} (${diasMesVista+1}) ${diasAnioVista}</div>
-        <button type="button" onclick="cambiarMesVista(1)" style="background:#334155;color:#fff;border:none;width:36px;height:36px;border-radius:10px;font-size:18px;font-weight:900;cursor:pointer">▶</button>
+    <div class="dias-calendar">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <button type="button" onclick="cambiarMesVista(-1)" style="background:#0f172a;color:#fff;border:1px solid #334155;width:44px;height:44px;border-radius:12px;font-size:20px;font-weight:900;cursor:pointer">◀</button>
+        <div style="font-size:20px;font-weight:900;color:#38bdf8;letter-spacing:1px">${nombresMes[diasMesVista]} ${diasAnioVista}</div>
+        <button type="button" onclick="cambiarMesVista(1)" style="background:#0f172a;color:#fff;border:1px solid #334155;width:44px;height:44px;border-radius:12px;font-size:20px;font-weight:900;cursor:pointer">▶</button>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px">
-        ${["L","M","X","J","V","S","D"].map(d => `<div style="text-align:center;font-size:11px;color:#64748b;font-weight:900">${d}</div>`).join("")}
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:12px">
+        ${["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"].map(d => `<div style="text-align:center;font-size:11px;color:#64748b;font-weight:900;text-transform:uppercase">${d}</div>`).join("")}
       </div>
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px">
         ${renderCalendarioMes()}
-      </div>
-      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #334155;font-size:11px;color:#94a3b8;">
-        <div style="font-size:10px;color:#64748b;font-weight:900;letter-spacing:0.5px;margin-bottom:6px">📅 FESTIVOS</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-bottom:12px">
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(56,189,248,0.45);border:2px solid #38bdf8"></div>Acumulado</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(251,191,36,0.45);border:2px solid #fbbf24"></div>Por caducar</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(239,68,68,0.45);border:2px solid #ef4444"></div>Caducado</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(236,72,153,0.45);border:2px solid #ec4899"></div>Solicitado</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(74,222,128,0.45);border:2px solid #4ade80"></div>Aprobado</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(148,163,184,0.45);border:2px solid #94a3b8"></div>Completado</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(120,53,15,0.65);border:2px solid #78350f"></div>Sacrificado</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(251,146,60,0.45);border:2px solid #fb923c"></div>No trabajado</div>
-        </div>
-        <div style="font-size:10px;color:#64748b;font-weight:900;letter-spacing:0.5px;margin-bottom:6px">🏖️ DÍAS LIBRES</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px">
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(34,211,238,0.45);border:2px solid #22d3ee"></div>Vacaciones</div>
-          <div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(167,139,250,0.45);border:2px solid #a78bfa"></div>Día personal</div>
-        </div>
       </div>
     </div>
   `;
 
-  // 6. Lista de Festivos (con su clase)
-  html += `<div class="dias-festivos" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">`;
-  html += `<div style="font-size:12px;color:#94a3b8;font-weight:900;letter-spacing:1px;margin-bottom:10px">📅 FESTIVOS ${diasAnioVista}</div>`;
+  // 4. LISTA DE FESTIVOS (Debajo del calendario)
+  html += `<div class="dias-holidays">`;
+  html += `<div style="font-size:14px;color:#fff;font-weight:900;letter-spacing:1px;margin-bottom:16px;border-bottom:1px solid #334155;padding-bottom:10px">📅 LISTA DE FESTIVOS ${diasAnioVista}</div>`;
 
   if(festivosAnio.length === 0){
-    html += `<div style="text-align:center;color:#64748b;font-size:13px;padding:14px">No hay festivos este año.</div>`;
+    html += `<div style="text-align:center;color:#64748b;font-size:14px;padding:20px">No hay festivos registrados este año.</div>`;
   } else {
     festivosAnio.forEach(f => {
       const estaEnVacaciones = diasPersonales.find(d => d.fecha === f.fecha && d.tipo === "vacacion");
@@ -348,49 +348,38 @@ function renderDiasTrabajo(){
       let txtDias = "";
       let txtDisfrute = "";
 
-      if(est === "porCaducar") txtDias = `<span style="color:#fbbf24;font-weight:900;font-size:11px">${dl}d</span>`;
-      else if(est === "caducado") txtDias = `<span style="color:#ef4444;font-weight:900;font-size:11px">caducado</span>`;
-      else if(est === "acumulado") txtDias = `<span style="color:#64748b;font-weight:700;font-size:11px">${dl}d</span>`;
+      if(est === "porCaducar") txtDias = `<span style="color:#fbbf24;font-weight:900;font-size:12px;background:rgba(251,191,36,0.1);padding:4px 8px;border-radius:6px">Quedan ${dl}d</span>`;
+      else if(est === "caducado") txtDias = `<span style="color:#ef4444;font-weight:900;font-size:12px">Caducado</span>`;
+      else if(est === "acumulado") txtDias = `<span style="color:#64748b;font-weight:700;font-size:12px">${dl}d restantes</span>`;
 
       if(f.solicitado && f.fechaDisfrute && !f.sacrificado){
         const disfrutado = f.fechaDisfrute < hoyStr;
         const icono = disfrutado ? '✓' : (f.aprobado ? '✅' : '⏳');
         const colorTxt = disfrutado ? '#64748b' : (f.aprobado ? '#4ade80' : '#ec4899');
-        txtDisfrute = `<div style="font-size:10px;color:${colorTxt};margin-top:2px">${icono} Disfrute: ${formatearFechaBonita(f.fechaDisfrute)}</div>`;
+        txtDisfrute = `<div style="font-size:12px;color:${colorTxt};margin-top:4px;font-weight:600">${icono} Disfrutado: ${formatearFechaBonita(f.fechaDisfrute)}</div>`;
       }
       if(f.sacrificado){
-        txtDisfrute = `<div style="font-size:10px;color:#fde68a;margin-top:2px">🔥 Sacrificado por la empresa</div>`;
+        txtDisfrute = `<div style="font-size:12px;color:#fde68a;margin-top:4px;font-weight:600">🔥 Sacrificado por la empresa</div>`;
       }
 
       html += `
-        <div onclick="abrirModalFestivo('${f.fecha}')" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1e293b;cursor:pointer">
-          <div style="width:12px;height:12px;border-radius:50%;background:${col};flex-shrink:0"></div>
+        <div onclick="abrirModalFestivo('${f.fecha}')" style="display:flex;align-items:center;gap:16px;padding:16px 0;border-bottom:1px solid #1e293b;cursor:pointer;transition:background 0.2s">
+          <div style="width:14px;height:14px;border-radius:50%;background:${col};flex-shrink:0;box-shadow:0 0 10px ${col}"></div>
           <div style="flex:1;min-width:0">
-            <div style="font-size:14px;color:#fff;font-weight:700">${formatearFechaBonita(f.fecha)}</div>
-            <div style="font-size:12px;color:#94a3b8;margin-top:2px">${f.nombre}</div>
+            <div style="font-size:15px;color:#fff;font-weight:800">${formatearFechaBonita(f.fecha)}</div>
+            <div style="font-size:13px;color:#94a3b8;margin-top:2px">${f.nombre}</div>
             ${txtDisfrute}
           </div>
           <div style="text-align:right;flex-shrink:0">
-            <div style="font-size:11px;color:${col};font-weight:800;text-transform:uppercase">${estaEnVacaciones ? "🏖️ Vacaciones" : nombreEstado(est)}</div>
-            ${txtDias}
+            <div style="font-size:12px;color:${col};font-weight:900;text-transform:uppercase;letter-spacing:0.5px">${estaEnVacaciones ? "🏖️ Vacaciones" : nombreEstado(est)}</div>
+            <div style="margin-top:4px">${txtDias}</div>
           </div>
         </div>
       `;
     });
   }
   html += `</div>`;
-
-  // 7. Botones de importación (con su clase)
-  html += `
-    <div class="dias-botones">
-      <button type="button" onclick="abrirModalVacaciones()" style="width:100%;margin-bottom:8px;background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:800;font-size:14px;cursor:pointer">🏖️ AÑADIR VACACIONES</button>
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <button type="button" onclick="importarICS()" style="flex:1;background:#0e7490;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">📥 Importar .ics</button>
-        <button type="button" onclick="abrirModalFestivoNuevo()" style="flex:1;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">+ Añadir festivo</button>
-      </div>
-    </div>
-    <input type="file" id="icsInput" accept=".ics,text/calendar" style="display:none" onchange="onICSSeleccionado(event)">
-  `;
+  html += `<input type="file" id="icsInput" accept=".ics,text/calendar" style="display:none" onchange="onICSSeleccionado(event)">`;
 
   cont.innerHTML = html;
 }

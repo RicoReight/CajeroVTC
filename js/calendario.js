@@ -250,18 +250,7 @@ function renderDiasTrabajo(){
 
   let html = "";
 
-  // 1. Botón Modo Web (Oculto en PC)
-  html += `
-    <div class="dias-modo-web" style="text-align:center; margin-bottom: 14px;">
-      <div style="font-size:12px; color:#38bdf8; font-weight:900; margin-bottom:10px;">💻 GESTIÓN DESDE EL PC O TABLET</div>
-      <button type="button" id="btnModoWeb" onclick="toggleModoWeb()" style="width:100%; background:#0891b2; color:#fff; border:none; border-radius:10px; padding:12px; font-weight:800; font-size:14px; cursor:pointer;">
-        🌐 ACTIVAR MODO WEB (PC)
-      </button>
-      <div id="ipWebDisplay" style="display:none; margin-top:14px; padding:12px; background:#0f172a; border:1px dashed #4ade80; border-radius:10px; line-height:1.5;"></div>
-    </div>
-  `;
-
-  // 2. Header (Años)
+  // 1. Header (Años)
   html += `<div class="pc-anios" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">`;
   anios.forEach(a => {
     const act = a === diasAnioVista;
@@ -275,7 +264,7 @@ function renderDiasTrabajo(){
   });
   html += `</div>`;
 
-  // 3. Estadísticas
+  // 2. Estadísticas
   html += `
     <div class="pc-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
       <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
@@ -307,7 +296,7 @@ function renderDiasTrabajo(){
     </div>
   `;
 
-  // 4. CALENDARIO (Ahora va justo después de las stats en el móvil)
+  // 3. CALENDARIO
   const nombresMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   html += `
     <div class="pc-calendario" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
@@ -343,7 +332,7 @@ function renderDiasTrabajo(){
     </div>
   `;
 
-  // 5. Vacaciones (Ahora van debajo del calendario en el móvil)
+  // 4. VACACIONES (Con botón de añadir bloqueado si restantes=0)
   {
     const asignadas = parseInt(diasVacacionesAsignados[String(diasAnioVista)]) || 0;
     const usadas = vacacionesAnio.filter(d => !d.noCuenta).length;
@@ -366,15 +355,20 @@ function renderDiasTrabajo(){
       htmlFechasVac += `</div>`;
     }
 
+    const btnDisabled = (restantes === 0 || asignadas === 0) ? "opacity:0.5; pointer-events:none;" : "";
+    const btnDisAttr = (restantes === 0 || asignadas === 0) ? "disabled" : "";
+
     html += `
       <div class="pc-vacaciones" style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div style="font-size:12px;color:#22d3ee;font-weight:900;letter-spacing:1px">🏖️ VACACIONES ${diasAnioVista}</div>
-          <button type="button" onclick="abrirModalDiasAsignados()"
-            style="background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;
-                   padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer">
-            ✏️ Asignados: ${asignadas}
-          </button>
+          <div style="display:flex;gap:6px">
+            <button type="button" onclick="abrirModalDiasAsignados()"
+              style="background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer">
+              ✏️ Asignados: ${asignadas}
+            </button>
+            <button type="button" onclick="abrirModalVacaciones()" style="background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer; ${btnDisabled}" ${btnDisAttr}>+ Añadir</button>
+          </div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
           <div>
@@ -393,7 +387,7 @@ function renderDiasTrabajo(){
     `;
   }
 
-  // 6. Días Personales (Debajo de vacaciones en el móvil)
+  // 5. DÍAS PERSONALES (Con botón bloqueado si 2/2)
   {
     const fechasPer = personalesAnio.map(d => d.fecha);
     const rangosPer = obtenerRangosFechas(fechasPer);
@@ -410,11 +404,14 @@ function renderDiasTrabajo(){
       htmlFechasPer += `</div>`;
     }
 
+    const btnDisabledPer = (personalesRestantes === 0) ? "opacity:0.5; pointer-events:none;" : "";
+    const btnDisAttrPer = (personalesRestantes === 0) ? "disabled" : "";
+
     html += `
       <div class="pc-personales" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div style="font-size:12px;color:#a78bfa;font-weight:900;letter-spacing:1px">👤 DÍAS PERSONALES ${diasAnioVista}</div>
-          <button type="button" onclick="abrirModalDiaPersonal()" style="background:#0f172a;color:#a78bfa;border:1px solid #7c3aed;border-radius:8px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer">+ Añadir</button>
+          <button type="button" onclick="abrirModalDiaPersonal()" style="background:#0f172a;color:#a78bfa;border:1px solid #7c3aed;border-radius:8px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer; ${btnDisabledPer}" ${btnDisAttrPer}>+ Añadir</button>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
           <div>
@@ -431,7 +428,7 @@ function renderDiasTrabajo(){
     `;
   }
 
-  // 7. Festivos
+  // 6. FESTIVOS
   html += `<div class="pc-festivos" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">`;
   html += `<div style="font-size:12px;color:#94a3b8;font-weight:900;letter-spacing:1px;margin-bottom:10px">📅 FESTIVOS ${diasAnioVista}</div>`;
 
@@ -480,14 +477,24 @@ function renderDiasTrabajo(){
   }
   html += `</div>`;
 
-  // 8. Botones
+  // 7. BOTONES (Importar / Añadir Festivo)
   html += `
     <div class="pc-botones" style="margin-bottom:14px">
-      <button type="button" onclick="abrirModalVacaciones()" style="width:100%;margin-bottom:8px;background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:800;font-size:14px;cursor:pointer">🏖️ AÑADIR VACACIONES</button>
       <div style="display:flex;gap:8px">
         <button type="button" onclick="importarICS()" style="flex:1;background:#0e7490;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">📥 Importar .ics</button>
         <button type="button" onclick="abrirModalFestivoNuevo()" style="flex:1;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">+ Añadir festivo</button>
       </div>
+    </div>
+  `;
+
+  // 8. BOTÓN MODO WEB (Al final del todo)
+  html += `
+    <div class="dias-modo-web" style="text-align:center; margin-bottom: 14px;">
+      <div style="font-size:12px; color:#38bdf8; font-weight:900; margin-bottom:10px;">💻 GESTIÓN DESDE EL PC O TABLET</div>
+      <button type="button" id="btnModoWeb" onclick="toggleModoWeb()" style="width:100%; background:#0891b2; color:#fff; border:none; border-radius:10px; padding:12px; font-weight:800; font-size:14px; cursor:pointer;">
+        🌐 ACTIVAR MODO WEB (PC)
+      </button>
+      <div id="ipWebDisplay" style="display:none; margin-top:14px; padding:12px; background:#0f172a; border:1px dashed #4ade80; border-radius:10px; line-height:1.5;"></div>
     </div>
   `;
 

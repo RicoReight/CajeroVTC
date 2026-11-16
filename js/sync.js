@@ -1,4 +1,4 @@
-// www/sync.js
+// js/sync.js
 // Detecta si estamos abriendo la app desde la IP del móvil (PC o Tablet)
 const esPC = window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/) !== null;
 
@@ -6,8 +6,32 @@ if (esPC) {
   console.log("💻 Modo PC detectado.");
   document.body.classList.add('modo-desktop');
 
+  // 👇 AQUÍ INYECTAMOS EL CSS MÁGICAMENTE (No hace falta tocar el index.html) 👇
+  const style = document.createElement('style');
+  style.innerHTML = `
+    /* Ocultar la calculadora principal en PC cuando el calendario está abierto */
+    body.modo-desktop:has(#diasPantalla[style*="display: block"]) .app {
+      display: none !important;
+    }
+    /* Evitar que el fondo del calendario sea transparente y se solape */
+    body.modo-desktop #diasPantalla {
+      background: #0f172a !important; 
+    }
+  `;
+  document.head.appendChild(style);
+  // 👆 FIN DEL CSS INYECTADO 👆
+
   const apiSyncUrl = `http://${window.location.hostname}:${window.location.port || 8080}/sync`;
   const apiGetDataUrl = `http://${window.location.hostname}:${window.location.port || 8080}/get-all-data`;
+
+  // Función para forzar la apertura del calendario y quitar la calculadora
+  function abrirCalendarioPC() {
+    const app = document.querySelector('.app');
+    if (app) app.style.display = 'none';
+    if (typeof abrirDiasPantalla === 'function') {
+      abrirDiasPantalla();
+    }
+  }
 
   // 1. PANTALLA DE CARGA: Descargar datos del móvil cada vez que entras
   const loader = document.createElement('div');
@@ -27,11 +51,10 @@ if (esPC) {
       }
       
       if (cambios) {
-        // Si había datos nuevos, recargamos para que la app los lea desde el principio
-        location.reload();
+        location.reload(); // Si había datos nuevos, recargamos
       } else {
-        // Si ya estábamos actualizados, quitamos el cartel de carga
         loader.remove();
+        abrirCalendarioPC(); // 👈 ABRIR EL CALENDARIO DIRECTAMENTE AL ENTRAR
       }
     })
     .catch(e => {
@@ -64,8 +87,8 @@ if (esPC) {
         }
         if (cambios) {
           console.log("🔄 Cambios detectados en el móvil. Actualizando PC...");
-          location.reload(); // Recarga la pantalla para mostrar lo nuevo
+          location.reload(); 
         }
-      }).catch(e => {}); // Silencioso si el móvil se desconecta
+      }).catch(e => {}); 
   }, 3000);
 }

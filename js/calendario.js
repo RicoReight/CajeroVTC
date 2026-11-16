@@ -855,25 +855,28 @@ async function toggleModoWeb() {
     listenerHandle = await HttpServer.addListener('request', async (req) => {
       console.log("📥 Petición recibida:", req.path);
 
-      // 1. RECIBIR DATOS DEL PC (Cuando guardas algo en el PC)
+      // 1. RECIBIR DATOS DEL PC Y GUARDARLOS EN EL MÓVIL
       if (req.path === '/sync' && req.method === 'POST') {
         try {
           const data = JSON.parse(req.bodyText || req.body);
+          console.log("✅ Cambio recibido del PC:", data.key);
+          
           if (data.key && data.value !== undefined) {
             safeStorage.set(data.key, data.value);
-            // Si cambian festivos o días, refrescar la pantalla del móvil
+            // Si el PC cambia el calendario, refrescamos la pantalla del móvil
             if (data.key.includes("Festivos") || data.key.includes("DiasPersonales")) {
               setTimeout(() => { if(typeof renderDiasTrabajo === 'function') renderDiasTrabajo(); }, 100);
             }
           }
           await HttpServer.respond({ requestId: req.requestId, status: 200, bodyText: "OK" });
         } catch (e) {
+          console.error("Error procesando sync:", e);
           await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "Error" });
         }
         return;
       }
 
-      // 2. ENVIAR TODOS LOS DATOS AL PC (Cuando el PC entra o hace una comprobación)
+      // 2. ENVIAR TODOS LOS DATOS AL PC (Para que el PC se actualice)
       if (req.path === '/get-all-data' && req.method === 'GET') {
         try {
           const datos = {};
@@ -895,7 +898,7 @@ async function toggleModoWeb() {
         return;
       }
 
-      // 3. SERVIR LOS ARCHIVOS DE LA APP AL PC (Para que cargue tu web)
+      // 3. SERVIR LOS ARCHIVOS DE LA APP AL PC (Para que cargue la web)
       let filePath = req.path === '/' ? 'index.html' : req.path;
       filePath = filePath.split('?')[0].replace(/^\//, ''); 
 
@@ -927,6 +930,7 @@ async function toggleModoWeb() {
       }
     });
 
+    // Arrancar servidor en el puerto 8080
     servidorWeb = await HttpServer.start({
       port: 8080, 
       android: {
@@ -939,6 +943,7 @@ async function toggleModoWeb() {
     
     modoWebActivo = true;
     
+    // Extraer la IP
     let ip = "IP_DEL_MOVIL";
     if (servidorWeb.urls && servidorWeb.urls.length > 0) {
         ip = servidorWeb.urls[0].split(':')[1].replace('//', '');
@@ -955,7 +960,7 @@ async function toggleModoWeb() {
         <div style="font-size:11px; color:#94a3b8; margin-top:8px;">Wi-Fi obligatorio.</div>
       `;
     }
-    mostrarToast("🌐 Servidor Web activo");
+    mostrarToast("🌐 Servidor Web activo en puerto 8080");
   } catch(e) {
     console.error(e);
     alert("❌ Error al iniciar el servidor: " + e.message);

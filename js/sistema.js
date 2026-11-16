@@ -296,9 +296,9 @@ function obtenerAvisos(){
   } catch(e){}
 
   try {
-    const ops = loadHistorialOps(); const cierres = loadCierres();
-    const totalOps = ops.reduce((s, op) => s + (op.precio || 0), 0); const totalCierres = cierres.reduce((s, c) => s + (c.total || 0), 0);
-    const pendiente = Math.max(0, totalOps - totalCierres);
+    const ops = loadHistorialOps(); 
+    // Como el historial se limpia al depositar, lo que hay aquí ya es el "pendiente" exacto
+    const pendiente = ops.reduce((s, op) => s + (op.precio || 0), 0);
     if(pendiente > 0){
       let enUltimaSemana = false, fechaLimite = null;
       try { if(diaReset !== 0){ const prox = calcularProximoReset(); if(prox){ fechaLimite = calcularLimiteDepositoReal(prox); fechaLimite.setHours(0,0,0,0); const ahoraDia = new Date(); ahoraDia.setHours(0,0,0,0); const diasHastaLimite = Math.ceil((fechaLimite - ahoraDia) / (1000*60*60*24)); if(diasHastaLimite >= 0 && diasHastaLimite <= 7) enUltimaSemana = true; } } } catch(e){}
@@ -413,9 +413,9 @@ async function programarAvisosDeposito(){
     const perm = await LN.checkPermissions(); if(perm.display !== 'granted') return;
     await crearCanalRecordatorios();
     const pending = await LN.getPending(); const aBorrar = pending.notifications.filter(n => n.id >= 500000 && n.id < 600000); if(aBorrar.length > 0) await LN.cancel({ notifications: aBorrar });
-    const ops = loadHistorialOps(); const cierres = loadCierres();
-    const totalOps = ops.reduce((s, op) => s + (op.precio || 0), 0); const totalCierres = cierres.reduce((s, c) => s + (c.total || 0), 0);
-    const pendiente = Math.max(0, totalOps - totalCierres); if(pendiente <= 0) return;
+    const ops = loadHistorialOps(); 
+    const pendiente = ops.reduce((s, op) => s + (op.precio || 0), 0); 
+    if(pendiente <= 0) return;
     const ahora = new Date(); const proximoAviso = calcularProximoAviso();
     let fechaLimite = null;
     const proxReset = (diaReset !== 0) ? calcularProximoReset() : null;

@@ -737,3 +737,7 @@ function limpiarRutasAntiguas(diasAConservar = 3) {
     console.warn("Error limpiando rutas antiguas:", e);
   }
 }
+
+function limpiarTodasLasRutas(dias) {
+  limpiarRutasAntiguas(dias);
+}

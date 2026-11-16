@@ -491,13 +491,31 @@ function renderDiasTrabajo(){
   `;
 
   // 8. BOTÓN MODO WEB (Al final del todo)
+  const btnTexto = modoWebActivo ? "🔴 DETENER MODO WEB" : "🌐 ACTIVAR MODO WEB (PC)";
+  const btnBg = modoWebActivo ? "#7f1d1d" : "#0891b2";
+  const ipDisplay = modoWebActivo ? "block" : "none";
+  
+  let ipHtml = "";
+  if (modoWebActivo && servidorWeb) {
+    let ipStr = "IP_DEL_MOVIL";
+    if (servidorWeb.urls && servidorWeb.urls.length > 0) ipStr = servidorWeb.urls[0].split(':')[1].replace('//', '');
+    else if (servidorWeb.url) ipStr = servidorWeb.url.split(':')[1].replace('//', '');
+    ipHtml = `
+      <div style="font-size:13px; color:#fff; margin-bottom:8px;">Abre esta dirección en el navegador de tu PC:</div>
+      <div style="font-size:22px; font-weight:900; color:#4ade80; letter-spacing:1px;">http://${ipStr}:8080</div>
+      <div style="font-size:11px; color:#94a3b8; margin-top:8px;">Wi-Fi obligatorio.</div>
+    `;
+  }
+
   html += `
-    <div class="dias-modo-web" style="text-align:center; margin-bottom: 14px;">
+    <div class="dias-modo-web" style="text-align:center; margin-top: 10px;">
       <div style="font-size:12px; color:#38bdf8; font-weight:900; margin-bottom:10px;">💻 GESTIÓN DESDE EL PC O TABLET</div>
-      <button type="button" id="btnModoWeb" onclick="toggleModoWeb()" style="width:100%; background:#0891b2; color:#fff; border:none; border-radius:10px; padding:12px; font-weight:800; font-size:14px; cursor:pointer;">
-        🌐 ACTIVAR MODO WEB (PC)
+      <button type="button" id="btnModoWeb" onclick="toggleModoWeb()" style="width:100%; background:${btnBg}; color:#fff; border:none; border-radius:10px; padding:12px; font-weight:800; font-size:14px; cursor:pointer;">
+        ${btnTexto}
       </button>
-      <div id="ipWebDisplay" style="display:none; margin-top:14px; padding:12px; background:#0f172a; border:1px dashed #4ade80; border-radius:10px; line-height:1.5;"></div>
+      <div id="ipWebDisplay" style="display:${ipDisplay}; margin-top:14px; padding:12px; background:#0f172a; border:1px dashed #4ade80; border-radius:10px; line-height:1.5;">
+        ${ipHtml}
+      </div>
     </div>
   `;
 
@@ -863,7 +881,13 @@ async function toggleModoWeb() {
           
           if (data.key && data.value !== undefined) {
             safeStorage.set(data.key, data.value);
-            // Si el PC cambia el calendario, refrescamos la pantalla del móvil
+            
+            // 👇 AQUÍ ACTUALIZAMOS LAS VARIABLES PARA QUE SE VEA EN DIRECTO 👇
+            if (data.key === "uberCambioFestivos") festivos = loadFestivos();
+            if (data.key === "uberCambioDiasPersonales") diasPersonales = loadDiasPersonales();
+            if (data.key === "uberCambioVacacionesAsignadas") diasVacacionesAsignados = loadVacacionesAsignados();
+            
+            // Si estamos en el calendario, lo redibujamos
             if (data.key.includes("Festivos") || data.key.includes("DiasPersonales")) {
               setTimeout(() => { if(typeof renderDiasTrabajo === 'function') renderDiasTrabajo(); }, 100);
             }

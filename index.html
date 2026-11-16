@@ -47,12 +47,12 @@
       padding-top: 20px !important;
     }
 
-    /* CONTENEDOR PRINCIPAL */
+    /* CONTENEDOR PRINCIPAL: 2 Columnas */
     body.modo-desktop #diasContenido {
-      max-width: 1350px !important;
+      max-width: 1250px !important;
       margin: 0 auto !important;
       display: grid !important;
-      grid-template-columns: 360px 1fr !important; 
+      grid-template-columns: 380px 1fr !important; 
       grid-template-areas:
         "sidebar calendar"
         "holidays holidays" !important;
@@ -61,33 +61,19 @@
     }
 
     /* ==================== BARRA LATERAL (IZQUIERDA) ==================== */
-    body.modo-desktop .dias-sidebar {
+    body.modo-desktop .dias-sidebar-wrapper {
       grid-area: sidebar;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 20px;
       display: flex;
       flex-direction: column;
-      gap: 24px;
-      background: #1e293b;
-      padding: 24px;
-      border-radius: 16px;
-      border: 1px solid #334155;
-    }
-
-    /* Estadísticas compactas dentro de la barra */
-    body.modo-desktop .dias-stats-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-    body.modo-desktop .dias-stats-grid > div {
-      background: transparent !important;
-      border: none !important;
-      border-bottom: 1px solid #334155;
-      border-radius: 0 !important;
-      padding: 8px 0 !important;
+      gap: 16px;
     }
 
     /* ==================== CALENDARIO (DERECHA) ==================== */
-    body.modo-desktop .dias-calendar {
+    body.modo-desktop .dias-calendar-wrapper {
       grid-area: calendar;
       background: #1e293b;
       border: 1px solid #334155;
@@ -95,21 +81,14 @@
       padding: 24px;
     }
     
-    /* Días del calendario grandes */
-    body.modo-desktop .dias-calendar [style*="aspect-ratio:1"] {
-      aspect-ratio: auto !important;
-      height: 100px !important;
+    /* Forzar que los días del calendario sean cuadrados perfectos */
+    body.modo-desktop .dias-calendar-wrapper [style*="aspect-ratio:1"] {
+      aspect-ratio: 1 !important; 
       border-radius: 12px !important;
-      transition: all 0.2s;
-    }
-    body.modo-desktop .dias-calendar [style*="aspect-ratio:1"]:hover {
-      transform: scale(1.03);
-      z-index: 10;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     }
 
     /* ==================== FESTIVOS (ABAJO) ==================== */
-    body.modo-desktop .dias-holidays {
+    body.modo-desktop .dias-holidays-wrapper {
       grid-area: holidays;
       background: #1e293b;
       border: 1px solid #334155;

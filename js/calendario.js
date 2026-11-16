@@ -202,17 +202,30 @@ function renderDiasTrabajo(){
   const acumuladosLibre = festivosAnio.filter(f => estadoFestivo(f) === "acumulado" &&  esDiaNoTrabajado(f.fecha)).length;
   const porCaducar  = festivosAnio.filter(f => estadoFestivo(f) === "porCaducar").length;
 
+  // Cálculos de Días Personales
   const personalesAnio = diasPersonales.filter(d =>
     parseInt(d.fecha.slice(0,4)) === diasAnioVista && (!d.tipo || d.tipo === "personal")
   );
+  const personalesRestantes = Math.max(0, 2 - personalesAnio.length);
   const vacacionesAnio = diasPersonales.filter(d =>
     parseInt(d.fecha.slice(0,4)) === diasAnioVista && d.tipo === "vacacion"
   );
-  const personalesRestantes = Math.max(0, 2 - personalesAnio.length);
 
   let html = "";
 
-  html += `<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">`;
+  // 1. Botón Modo Web (Oculto en PC por CSS)
+  html += `
+    <div class="dias-modo-web" style="text-align:center; margin-bottom: 14px;">
+      <div style="font-size:12px; color:#38bdf8; font-weight:900; margin-bottom:10px;">💻 GESTIÓN DESDE EL PC O TABLET</div>
+      <button type="button" id="btnModoWeb" onclick="toggleModoWeb()" style="width:100%; background:#0891b2; color:#fff; border:none; border-radius:10px; padding:12px; font-weight:800; font-size:14px; cursor:pointer;">
+        🌐 ACTIVAR MODO WEB (PC)
+      </button>
+      <div id="ipWebDisplay" style="display:none; margin-top:14px; padding:12px; background:#0f172a; border:1px dashed #4ade80; border-radius:10px; line-height:1.5;"></div>
+    </div>
+  `;
+
+  // 2. Header (Años)
+  html += `<div class="pc-anios" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">`;
   anios.forEach(a => {
     const act = a === diasAnioVista;
     const tienePend = aniosConPendientes.includes(a) && a < anioActual;
@@ -225,8 +238,9 @@ function renderDiasTrabajo(){
   });
   html += `</div>`;
 
+  // 3. Estadísticas
   html += `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+    <div class="pc-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
       <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
         <div style="font-size:10px;color:#f97316;font-weight:900">💼 TRABAJADOS</div>
         <div style="font-size:22px;font-weight:900;color:#f97316;margin-top:4px">${acumuladosTrab}</div>
@@ -256,6 +270,7 @@ function renderDiasTrabajo(){
     </div>
   `;
 
+  // 4. Vacaciones
   {
     const asignadas = parseInt(diasVacacionesAsignados[String(diasAnioVista)]) || 0;
     const usadas = vacacionesAnio.filter(d => !d.noCuenta).length;
@@ -264,7 +279,7 @@ function renderDiasTrabajo(){
     const color = pasadas ? "#f87171" : (restantes === 0 && asignadas > 0 ? "#fbbf24" : "#22d3ee");
 
     html += `
-      <div style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">
+      <div class="pc-vacaciones" style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div style="font-size:12px;color:#22d3ee;font-weight:900;letter-spacing:1px">🏖️ VACACIONES ${diasAnioVista}</div>
           <button type="button" onclick="abrirModalDiasAsignados()"
@@ -289,9 +304,30 @@ function renderDiasTrabajo(){
     `;
   }
 
+  // 5. Días Personales (NUEVA TARJETA RESTAURADA)
+  html += `
+    <div class="pc-personales" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:12px;color:#a78bfa;font-weight:900;letter-spacing:1px">👤 DÍAS PERSONALES ${diasAnioVista}</div>
+        <button type="button" onclick="abrirModalDiaPersonal()" style="background:#0f172a;color:#a78bfa;border:1px solid #7c3aed;border-radius:8px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer">+ Añadir</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+        <div>
+          <div style="font-size:11px;color:#94a3b8;font-weight:700">USADOS</div>
+          <div style="font-size:30px;font-weight:900;color:#a78bfa;line-height:1.1">${personalesAnio.length}<span style="font-size:18px;color:#64748b">/2</span></div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:#94a3b8;font-weight:700">TE QUEDAN</div>
+          <div style="font-size:26px;font-weight:900;color:#a78bfa;line-height:1.1">${personalesRestantes}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // 6. Calendario
   const nombresMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   html += `
-    <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
+    <div class="pc-calendario" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <button type="button" onclick="cambiarMesVista(-1)" style="background:#334155;color:#fff;border:none;width:36px;height:36px;border-radius:10px;font-size:18px;font-weight:900;cursor:pointer">◀</button>
         <div style="font-size:16px;font-weight:900;color:#38bdf8">${nombresMes[diasMesVista]} (${diasMesVista+1}) ${diasAnioVista}</div>
@@ -324,12 +360,14 @@ function renderDiasTrabajo(){
     </div>
   `;
 
-  html += `<div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">`;
+  // 7. Festivos
+  html += `<div class="pc-festivos" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">`;
   html += `<div style="font-size:12px;color:#94a3b8;font-weight:900;letter-spacing:1px;margin-bottom:10px">📅 FESTIVOS ${diasAnioVista}</div>`;
 
   if(festivosAnio.length === 0){
     html += `<div style="text-align:center;color:#64748b;font-size:13px;padding:14px">No hay festivos este año.</div>`;
   } else {
+    html += `<div class="pc-festivos-list">`;
     festivosAnio.forEach(f => {
       const estaEnVacaciones = diasPersonales.find(d => d.fecha === f.fecha && d.tipo === "vacacion");
       const est = estadoFestivo(f);
@@ -353,7 +391,7 @@ function renderDiasTrabajo(){
       }
 
       html += `
-        <div onclick="abrirModalFestivo('${f.fecha}')" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1e293b;cursor:pointer">
+        <div onclick="abrirModalFestivo('${f.fecha}')" style="display:flex;align-items:center;gap:10px;padding:12px;background:#0f172a;border-radius:10px;border:1px solid #1e293b;cursor:pointer">
           <div style="width:12px;height:12px;border-radius:50%;background:${col};flex-shrink:0"></div>
           <div style="flex:1;min-width:0">
             <div style="font-size:14px;color:#fff;font-weight:700">${formatearFechaBonita(f.fecha)}</div>
@@ -367,18 +405,22 @@ function renderDiasTrabajo(){
         </div>
       `;
     });
+    html += `</div>`;
   }
   html += `</div>`;
 
-  html += `<button type="button" onclick="abrirModalVacaciones()" style="width:100%;margin-bottom:8px;background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:800;font-size:14px;cursor:pointer">🏖️ AÑADIR VACACIONES</button>`;
-
+  // 8. Botones de acción (Al final del todo como en el original)
   html += `
-    <div style="display:flex;gap:8px;margin-bottom:14px">
-      <button type="button" onclick="importarICS()" style="flex:1;background:#0e7490;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">📥 Importar .ics</button>
-      <button type="button" onclick="abrirModalFestivoNuevo()" style="flex:1;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">+ Añadir festivo</button>
+    <div class="pc-botones" style="margin-bottom:14px">
+      <button type="button" onclick="abrirModalVacaciones()" style="width:100%;margin-bottom:8px;background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:800;font-size:14px;cursor:pointer">🏖️ AÑADIR VACACIONES</button>
+      <div style="display:flex;gap:8px">
+        <button type="button" onclick="importarICS()" style="flex:1;background:#0e7490;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">📥 Importar .ics</button>
+        <button type="button" onclick="abrirModalFestivoNuevo()" style="flex:1;background:#334155;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;cursor:pointer">+ Añadir festivo</button>
+      </div>
     </div>
-    <input type="file" id="icsInput" accept=".ics,text/calendar" style="display:none" onchange="onICSSeleccionado(event)">
   `;
+
+  html += `<input type="file" id="icsInput" accept=".ics,text/calendar" style="display:none" onchange="onICSSeleccionado(event)">`;
 
   cont.innerHTML = html;
 }

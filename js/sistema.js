@@ -213,6 +213,7 @@ function resetPropinas(){
   if(!confirm("¿Poner las PROPINAS a CERO?\nEl inventario NO se toca.")) return;
   totalTips=0; saveTips();
   safeStorage.remove("uberCambioPeajesHistorial");
+  limpiarTodasLasRutas(3);
   renderStockList(); renderResetPanel(); mostrarToast("✅ Propinas y peajes reseteados");
 }
 function resetHistorialDepositos(){
@@ -446,6 +447,7 @@ function checkAutoResetPropinas(){
     const h = loadHistoricoResets(); h.push({ fecha: now.toISOString(), propinas: totalTips }); saveHistoricoResets(h);
     totalTips = 0; saveTips(); saveHistorialOps([]);
     safeStorage.remove("uberCambioPeajesHistorial");
+    limpiarTodasLasRutas(3);
     ultimoResetPropinas = now.toISOString(); saveUltimoResetPropinas();
     resetSkip = 0; saveResetSkip();
     renderStockList(); renderResetPanel(); programarAvisosDeposito();

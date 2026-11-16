@@ -353,20 +353,44 @@ function detectarZona(lat, lon){
 }
 
 async function actualizarNotificacionZona(nuevaZona){
-  if(procesandoZona){ zonaPendiente = nuevaZona; return; }
-  if(zonaActual === nuevaZona.codigo){ zonaCandidata = null; zonaCandidataCount = 0; return; }
-  if(zonaCandidata === nuevaZona.codigo){ zonaCandidataCount++; }
-  else { zonaCandidata = nuevaZona.codigo; zonaCandidataCount = 1; }
+  if(procesandoZona){
+    zonaPendiente = nuevaZona;
+    return;
+  }
+ 
+  if(zonaActual === nuevaZona.codigo){
+    zonaCandidata = null;
+    zonaCandidataCount = 0;
+    return;
+  }
+ 
+  if(zonaCandidata === nuevaZona.codigo){
+    zonaCandidataCount++;
+  } else {
+    zonaCandidata = nuevaZona.codigo;
+    zonaCandidataCount = 1;
+  }
+ 
   if(zonaCandidataCount < ZONA_CONFIRMACION_MUESTRAS) return;
+ 
   procesandoZona = true;
   try {
-    zonaActual = nuevaZona.codigo; zonaCandidata = null; zonaCandidataCount = 0; ultimoCambioZonaMs = Date.now();
-    await lanzarNotificacionZona("Estás en: " + nuevaZona.nombre);
+    zonaActual = nuevaZona.codigo;
+    zonaCandidata = null;
+    zonaCandidataCount = 0;
+    ultimoCambioZonaMs = Date.now();
+
+    // 👇 CAMBIO: En vez de una notificación aparte, actualizamos el texto del watcher
+    await reiniciarWatcherConTexto(nuevaZona.nombre);
+
   } finally {
     procesandoZona = false;
     if(zonaPendiente){
-      const zp = zonaPendiente; zonaPendiente = null;
-      if(zp.codigo !== zonaActual){ actualizarNotificacionZona(zp); }
+      const zp = zonaPendiente;
+      zonaPendiente = null;
+      if(zp.codigo !== zonaActual){
+        actualizarNotificacionZona(zp);
+      }
     }
   }
 }
@@ -396,22 +420,36 @@ async function reiniciarWatcherConTexto(texto){
 function obtenerClaveRecorrido(fechaStr) { return "uberCambioRecorrido_" + fechaStr; }
 
 function guardarPuntoRecorrido(lat, lon, acc) {
-  if (acc && acc > 50) return;
+  // Filtro de precisión: aceptamos hasta 80m para no perder puntos en calles o túneles
+  if (acc && acc > 80) return;
+
   const hoy = fechaLocalStr();
   if (cacheFechaHoy !== hoy) {
     cacheFechaHoy = hoy;
     try { cacheRecorridoHoy = JSON.parse(safeStorage.get(obtenerClaveRecorrido(hoy)) || "[]"); } catch(e) { cacheRecorridoHoy = []; }
   }
+
   if (cacheRecorridoHoy.length > 0) {
     const ultimo = cacheRecorridoHoy[cacheRecorridoHoy.length - 1];
     const dist = Math.sqrt(Math.pow(ultimo.lat - lat, 2) + Math.pow(ultimo.lon - lon, 2)) * 111000;
-    if (dist < 10 || dist > 500) return;
+    // Distancia mínima de 5m y máxima de 1000m (por si pega un salto el GPS)
+    if (dist < 5 || dist > 1000) return;
   }
+
   cacheRecorridoHoy.push({ lat: lat, lon: lon, time: Date.now() });
-  if (cacheRecorridoHoy.length > 5000) { cacheRecorridoHoy.splice(0, 500); }
+
+  // 👇 SUBIMOS EL LÍMITE A 35.000 PUNTOS (suficiente para 350km)
+  if (cacheRecorridoHoy.length > 35000) {
+    cacheRecorridoHoy.splice(0, 2000); 
+  }
+
+  // Guardado automático cada 20 segundos
   const ahora = Date.now();
-  if (ahora - ultimoGuardadoRecorridoMs > 30000) {
-    try { safeStorage.set(obtenerClaveRecorrido(hoy), JSON.stringify(cacheRecorridoHoy)); ultimoGuardadoRecorridoMs = ahora; } catch(e) {}
+  if (ahora - ultimoGuardadoRecorridoMs > 20000) {
+    try {
+      safeStorage.set(obtenerClaveRecorrido(hoy), JSON.stringify(cacheRecorridoHoy));
+      ultimoGuardadoRecorridoMs = ahora;
+    } catch(e) {}
   }
 }
 
@@ -640,12 +678,62 @@ async function detenerGeolocalizacion(){
     const Cap = window.Capacitor;
     if(!Cap || !Cap.Plugins || !Cap.Plugins.BackgroundGeolocation) return;
     const BG = Cap.Plugins.BackgroundGeolocation;
-    if(geoWatcherId){ await BG.removeWatcher({ id: geoWatcherId }); geoWatcherId = null; mostrarToast('⏹️ Rastreo detenido'); }
-    geoActivo = false; safeStorage.set("uberCambioGeoActivo", "0"); actualizarEstadoGeo();
+
+    // 👇 FORZAR GUARDADO FINAL antes de apagar el GPS
+    if(cacheRecorridoHoy && cacheFechaHoy){
+      try {
+        safeStorage.set(obtenerClaveRecorrido(cacheFechaHoy), JSON.stringify(cacheRecorridoHoy));
+        console.log("💾 Guardado final de " + cacheRecorridoHoy.length + " puntos");
+      } catch(e){ console.warn("Error en guardado forzado:", e); }
+    }
+
+    if(geoWatcherId){
+      await BG.removeWatcher({ id: geoWatcherId });
+      geoWatcherId = null;
+      mostrarToast('⏹️ Rastreo detenido');
+    }
+    geoActivo = false;
+    safeStorage.set("uberCambioGeoActivo", "0");
+    actualizarEstadoGeo();
+
     procesarRutaFinalDia();
+
   } catch(e){
     console.warn('Error deteniendo:', e);
-    geoActivo = false; safeStorage.set("uberCambioGeoActivo", "0"); actualizarEstadoGeo();
+    geoActivo = false;
+    safeStorage.set("uberCambioGeoActivo", "0");
+    actualizarEstadoGeo();
     procesarRutaFinalDia();
+  }
+}
+
+function limpiarRutasAntiguas(diasAConservar = 3) {
+  try {
+    const hoy = new Date();
+    hoy.setHours(0,0,0,0);
+    const limite = new Date(hoy.getTime());
+    limite.setDate(limite.getDate() - diasAConservar);
+
+    const clavesABorrar = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("uberCambioRecorrido_")) {
+        const fechaStr = k.replace("uberCambioRecorrido_", "").replace("Matched_", "");
+        const p = fechaStr.split("-");
+        if (p.length === 3) {
+          const fecha = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+          if (!isNaN(fecha.getTime()) && fecha < limite) {
+            clavesABorrar.push(k);
+          }
+        }
+      }
+    }
+
+    clavesABorrar.forEach(k => safeStorage.remove(k));
+    if (clavesABorrar.length > 0) {
+      console.log("🧹 Borradas " + clavesABorrar.length + " rutas (> " + diasAConservar + " días)");
+    }
+  } catch(e) {
+    console.warn("Error limpiando rutas antiguas:", e);
   }
 }

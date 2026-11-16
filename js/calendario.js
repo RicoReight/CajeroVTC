@@ -853,11 +853,15 @@ async function toggleModoWeb() {
     if (!HttpServer) { alert("⚠️ El plugin no está compilado."); return; }
 
     listenerHandle = await HttpServer.addListener('request', async (req) => {
+      console.log("📥 Petición recibida:", req.path);
+
+      // 1. RECIBIR DATOS DEL PC (Cuando guardas algo en el PC)
       if (req.path === '/sync' && req.method === 'POST') {
         try {
           const data = JSON.parse(req.bodyText || req.body);
           if (data.key && data.value !== undefined) {
             safeStorage.set(data.key, data.value);
+            // Si cambian festivos o días, refrescar la pantalla del móvil
             if (data.key.includes("Festivos") || data.key.includes("DiasPersonales")) {
               setTimeout(() => { if(typeof renderDiasTrabajo === 'function') renderDiasTrabajo(); }, 100);
             }
@@ -869,20 +873,29 @@ async function toggleModoWeb() {
         return;
       }
 
+      // 2. ENVIAR TODOS LOS DATOS AL PC (Cuando el PC entra o hace una comprobación)
       if (req.path === '/get-all-data' && req.method === 'GET') {
         try {
           const datos = {};
           for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key.startsWith("uberCambio")) datos[key] = localStorage.getItem(key);
+            if (key.startsWith("uberCambio")) {
+              datos[key] = localStorage.getItem(key);
+            }
           }
-          await HttpServer.respond({ requestId: req.requestId, status: 200, bodyText: JSON.stringify(datos), headers: { "Content-Type": "application/json" } });
+          await HttpServer.respond({ 
+            requestId: req.requestId, 
+            status: 200, 
+            bodyText: JSON.stringify(datos), 
+            headers: { "Content-Type": "application/json" } 
+          });
         } catch (e) {
           await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "{}" });
         }
         return;
       }
 
+      // 3. SERVIR LOS ARCHIVOS DE LA APP AL PC (Para que cargue tu web)
       let filePath = req.path === '/' ? 'index.html' : req.path;
       filePath = filePath.split('?')[0].replace(/^\//, ''); 
 
@@ -896,30 +909,56 @@ async function toggleModoWeb() {
           else if (filePath.endsWith('.css')) mime = 'text/css';
           else if (filePath.endsWith('.json')) mime = 'application/json';
           else if (filePath.endsWith('.png')) mime = 'image/png';
-          await HttpServer.respond({ requestId: req.requestId, status: 200, bodyText: text, headers: { "Content-Type": mime } });
+          else if (filePath.endsWith('.svg')) mime = 'image/svg+xml';
+          else if (filePath.endsWith('.ico')) mime = 'image/x-icon';
+
+          await HttpServer.respond({ 
+            requestId: req.requestId, 
+            status: 200, 
+            bodyText: text, 
+            headers: { "Content-Type": mime } 
+          });
         } else {
           await HttpServer.respond({ requestId: req.requestId, status: 404, bodyText: "Not found" });
         }
       } catch (e) {
+        console.error("Error sirviendo archivo:", e);
         await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "Error" });
       }
     });
 
     servidorWeb = await HttpServer.start({
       port: 8080, 
-      android: { notificationTitle: 'CambioVTC - Modo Web', notificationText: 'Servidor activo', channelId: 'modo_web', channelName: 'Modo Web' }
+      android: {
+        notificationTitle: 'CambioVTC - Modo Web',
+        notificationText: 'Servidor local activo en el puerto 8080',
+        channelId: 'modo_web',
+        channelName: 'Modo Web'
+      }
     });
     
     modoWebActivo = true;
-    let ip = "IP";
-    if (servidorWeb.urls && servidorWeb.urls.length > 0) ip = servidorWeb.urls[0].split(':')[1].replace('//', '');
-    else if (servidorWeb.url) ip = servidorWeb.url.split(':')[1].replace('//', '');
+    
+    let ip = "IP_DEL_MOVIL";
+    if (servidorWeb.urls && servidorWeb.urls.length > 0) {
+        ip = servidorWeb.urls[0].split(':')[1].replace('//', '');
+    } else if (servidorWeb.url) {
+        ip = servidorWeb.url.split(':')[1].replace('//', '');
+    }
     
     if(btn) { btn.innerHTML = "🔴 DETENER MODO WEB"; btn.style.background = "#7f1d1d"; }
-    if(display) { display.style.display = "block"; display.innerHTML = `<div style="font-size:22px; font-weight:900; color:#4ade80;">http://${ip}:8080</div>`; }
+    if(display) {
+      display.style.display = "block";
+      display.innerHTML = `
+        <div style="font-size:13px; color:#fff; margin-bottom:8px;">Abre esta dirección en el navegador de tu PC:</div>
+        <div style="font-size:22px; font-weight:900; color:#4ade80; letter-spacing:1px;">http://${ip}:8080</div>
+        <div style="font-size:11px; color:#94a3b8; margin-top:8px;">Wi-Fi obligatorio.</div>
+      `;
+    }
     mostrarToast("🌐 Servidor Web activo");
   } catch(e) {
-    console.error(e); alert("❌ Error: " + e.message);
+    console.error(e);
+    alert("❌ Error al iniciar el servidor: " + e.message);
   }
 }
 

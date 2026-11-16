@@ -723,14 +723,13 @@ function borrarFestivo(fecha){
 /* ==================== SERVIDOR WEB LOCAL (MODO PC) ==================== */
 let modoWebActivo = false;
 let servidorWeb = null;
-let listenerHandle = null; // Guardamos el evento para poder borrarlo bien
+let listenerHandle = null;
 
 async function toggleModoWeb() {
   const btn = document.getElementById("btnModoWeb");
   const display = document.getElementById("ipWebDisplay");
 
   if (modoWebActivo) {
-    // APAGAR
     if (listenerHandle) { try { await listenerHandle.remove(); } catch(e){} listenerHandle = null; }
     if (servidorWeb) { try { await servidorWeb.stop(); } catch(e){} servidorWeb = null; }
     modoWebActivo = false;
@@ -740,31 +739,27 @@ async function toggleModoWeb() {
     return;
   }
 
-  // ENCENDER
   try {
     const { HttpServer } = Capacitor.Plugins;
     if (!HttpServer) { alert("⚠️ El plugin no está compilado."); return; }
 
-    // 1. Registrar el listener
-    listenerHandle = await HttpServer.addListener('request', async (req) => {
-      console.log("📥 Petición recibida del PC:", req);
-      try {
-        // Respondemos de forma súper simple
-        await HttpServer.respond({ 
-          requestId: req.requestId, 
-          status: 200, 
-          body: "<html><body style='background:#0f172a;color:#4ade80;text-align:center;padding-top:50px;font-family:sans-serif'><h1>¡FUNCIONA! 🎉</h1><p>La conexión es exitosa.</p></body></html>", 
-          headers: { "Content-Type": "text/html" }
-        });
-        console.log("✅ Respuesta enviada al PC con éxito");
-      } catch (e) {
+    // 👇 QUITAMOS EL 'ASYNC' PARA QUE RESPONDA AL INSTANTE
+    listenerHandle = await HttpServer.addListener('request', (req) => {
+      console.log("📥 Petición recibida:", req.path);
+      
+      // Respondemos con un HTML válido
+      HttpServer.respond({ 
+        requestId: req.requestId, 
+        status: 200, 
+        body: "<html><head><meta charset='utf-8'></head><body style='background:#0f172a;color:#4ade80;text-align:center;padding-top:50px;font-family:sans-serif;'><h1>¡FUNCIONA! 🎉</h1><p>La conexión es exitosa.</p></body></html>", 
+        headers: { "Content-Type": "text/html; charset=utf-8" }
+      }).then(() => {
+        console.log("✅ Respuesta enviada al PC");
+      }).catch((e) => {
         console.error("❌ Error al responder:", e);
-        // Si falla el HTML, intentamos responder con texto plano
-        await HttpServer.respond({ requestId: req.requestId, status: 500, body: "Error" }).catch(()=>{});
-      }
+      });
     });
 
-    // 2. Arrancar servidor
     servidorWeb = await HttpServer.start({
       android: {
         notificationTitle: 'CambioVTC - Modo Web',

@@ -39,6 +39,9 @@ function fechaMinimaSolicitud(fechaFestivo){
 }
 
 function puedeSolicitarseHoy(festivo){
+  // 👇 SI ES UN DÍA DE LIBRANZA (NO TRABAJADO), SE PUEDE PEDIR YA MISMO
+  if(!festivo.trabajado) return true;
+
   const minima = fechaMinimaSolicitud(festivo.fecha);
   const hoy = new Date();
   hoy.setHours(0,0,0,0);
@@ -815,6 +818,15 @@ function borrarFestivo(fecha){
   if(!confirm("¿Borrar este festivo?")) return;
   festivos = festivos.filter(f => f.fecha !== fecha);
   saveFestivos(); cerrarModalFestivo(); renderDiasTrabajo();
+}
+
+function cerrarDiasPantalla(){ 
+  const p = document.getElementById("diasPantalla"); 
+  if(p) p.style.display = "none"; 
+  
+  if (document.body.classList.contains('modo-desktop')) {
+    location.reload();
+  }
 }
 
 /* ==================== SERVIDOR WEB LOCAL (MODO PC) ==================== */

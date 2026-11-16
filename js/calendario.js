@@ -746,7 +746,7 @@ async function toggleModoWeb() {
     listenerHandle = await HttpServer.addListener('request', async (req) => {
       console.log("📥 Petición recibida:", req.path);
 
-      // 1. Recibir datos del PC y guardarlos en el móvil
+      // 1. Sincronización (Recibir datos del PC)
       if (req.path === '/sync' && req.method === 'POST') {
         try {
           const data = JSON.parse(req.bodyText || req.body);
@@ -763,19 +763,22 @@ async function toggleModoWeb() {
         return;
       }
 
-      // 2. Servir los archivos de tu app al PC
-      let filePath = req.path === '/' ? '/index.html' : req.path;
-      filePath = filePath.split('?')[0]; // Limpiar parámetros de URL
+      // 2. Servir los archivos al PC (HTML, JS, CSS)
+      let filePath = req.path === '/' ? 'index.html' : req.path;
+      filePath = filePath.split('?')[0]; 
+      filePath = filePath.replace(/^\//, ''); // 👈 QUITAMOS LA BARRA INICIAL AQUÍ
 
       try {
-        // Leemos el archivo de forma relativa
-        const resp = await fetch(filePath);
-        if (resp.ok) {
+        // Añadimos un límite de 3 segundos para que no se quede colgado buscando el archivo
+        const fetchPromise = fetch(filePath);
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout de red")), 3000));
+        const resp = await Promise.race([fetchPromise, timeoutPromise]);
+
+        if (resp && resp.ok) {
           const text = await resp.text();
           
-          // Asignar el Content-Type correcto
           let mime = 'text/plain';
-          if (filePath.endsWith('.html')) mime = 'text/html';
+          if (filePath.endsWith('.html') || filePath === 'index.html') mime = 'text/html';
           else if (filePath.endsWith('.js')) mime = 'application/javascript';
           else if (filePath.endsWith('.css')) mime = 'text/css';
           else if (filePath.endsWith('.json')) mime = 'application/json';
@@ -794,7 +797,8 @@ async function toggleModoWeb() {
         }
       } catch (e) {
         console.error("Error sirviendo archivo:", e);
-        await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "Error" });
+        // Si falla (o tarda demasiado), respondemos algo para que el PC no se quede en blanco
+        await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "Error cargando archivo" }).catch(()=>{});
       }
     });
 
@@ -823,7 +827,7 @@ async function toggleModoWeb() {
       display.innerHTML = `
         <div style="font-size:13px; color:#fff; margin-bottom:8px;">Abre esta dirección en el navegador de tu PC:</div>
         <div style="font-size:22px; font-weight:900; color:#4ade80; letter-spacing:1px;">http://${ip}:8080</div>
-        <div style="font-size:11px; color:#94a3b8; margin-top:8px;">Wi-Fi obligatorio.</div>
+        <div style="font-size:11px; color:#94a3b8; margin-top:8px;">Wi-Fi obligatorio. El móvil debe tener internet.</div>
       `;
     }
     mostrarToast("🌐 Servidor Web activo");

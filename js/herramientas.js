@@ -172,17 +172,25 @@ function confirmarCierre(){
   const usados=JSON.parse(btn.dataset.usados||"[]");
   if(total<=0)return;
   if(!confirm("¿Confirmar depósito? Se entregarán "+moneyText(total)+" en billetes.\n\nLas propinas NO se tocan."))return;
+  
   for(let i=0;i<usados.length;i++)stock[i]=Math.max(0,stock[i]-usados[i]);
   for(let i=0;i<usados.length;i++)statsOps.deposited[i]+=usados[i]||0;
+  
   saveStats(); saveStock(); renderStockList(); updateCashSummary();
+  
   const cierres=loadCierres();
   cierres.push({fecha:new Date().toISOString(),total,usados:usados.slice()});
   saveCierres(cierres); renderCierreHistorico();
+  
   document.getElementById("cierreInput").value="";
   const cont=document.getElementById("cierreResultado"); if(cont){cont.style.display="none";cont.innerHTML=""}
   btn.style.display="none"; alert("✅ Depósito realizado.\nEntregados: "+moneyText(total));
+  
   try{ programarAvisosDeposito(); }catch(e){}
-  renderChuletaDeposito();
+  
+  // 👇 Estas dos líneas son las nuevas y están perfectas 👇
+  if(typeof saveHistorialOps === "function") saveHistorialOps([]); 
+  renderChuletaDeposito(); 
 }
 
 function renderCierreHistorico(){
@@ -1326,7 +1334,7 @@ function guardarPeajeHistorial(importe, pagado, cambioDevuelto){
   savePeajesHistorial(h);
 }
 
-/* ==================== CHULETA DE DEPÓSITO (simple: viajes desde el último depósito) ==================== */
+/* ==================== CHULETA DE DEPÓSITO (Simplificada) ==================== */
 function renderChuletaDeposito(){
   let cont = document.getElementById("chuletaDeposito");
   if(!cont){
@@ -1337,44 +1345,35 @@ function renderChuletaDeposito(){
     else return;
   }
 
-  const ops     = loadHistorialOps();
-  const cierres = loadCierres();
-
-  // Último depósito hecho
-  const ultimoDeposito = cierres.length ? new Date(cierres[cierres.length - 1].fecha) : null;
-
-  // Sumar SOLO precio de viajes posteriores al último depósito
-  let totalViajes = 0, numOps = 0;
+  const ops = loadHistorialOps();
+  
+  let totalViajes = 0, numOps = 0, propinasAcumuladas = 0;
   ops.forEach(o => {
-    const fechaOp = new Date(o.fecha);
-    if(!ultimoDeposito || fechaOp > ultimoDeposito){
-      totalViajes += (o.precio || 0);
-      numOps++;
-    }
+    totalViajes += (o.precio || 0);
+    propinasAcumuladas += (o.propina || 0);
+    numOps++;
   });
 
   let html = "";
   html += `<div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin:12px 0">`;
   html += `<div style="font-size:12px;color:#38bdf8;font-weight:900;letter-spacing:0.5px;margin-bottom:10px">📋 CHULETA DE DEPÓSITO</div>`;
 
-  if(ultimoDeposito){
-    const f = ultimoDeposito.toLocaleDateString("es-ES") + " · " +
-              ultimoDeposito.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
-    html += `<div style="font-size:12px;color:#94a3b8;margin-bottom:8px">Desde el último depósito: <b style="color:#fff">${f}</b></div>`;
-  } else {
-    html += `<div style="font-size:12px;color:#94a3b8;margin-bottom:8px">Aún no has hecho depósitos · total acumulado</div>`;
+  html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px"><span style="color:#94a3b8">🚗 Viajes pendientes (${numOps})</span><span style="color:#fff;font-weight:800">${moneyText(totalViajes)}</span></div>`;
+  
+  if(propinasAcumuladas > 0) {
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;border-top:1px dashed #475569;margin-top:4px"><span style="color:#fbbf24">💶 Propinas (se quedan)</span><span style="color:#fbbf24;font-weight:800">${moneyText(propinasAcumuladas)}</span></div>`;
   }
-
-  html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px"><span style="color:#94a3b8">🚗 Viajes acumulados (${numOps})</span><span style="color:#fff;font-weight:800">${moneyText(totalViajes)}</span></div>`;
 
   html += `<div style="margin-top:12px;padding:12px;background:linear-gradient(135deg,#064e3b,#065f46);border:1px solid #10b981;border-radius:10px;text-align:center">`;
   html += `<div style="font-size:11px;color:#a7f3d0;font-weight:900;letter-spacing:1px">💡 METE APROXIMADAMENTE</div>`;
   html += `<div style="font-size:28px;font-weight:900;color:#4ade80;margin-top:4px;line-height:1">${moneyText(totalViajes)}</div>`;
-  html += `<div style="font-size:11px;color:#a7f3d0;margin-top:6px">Solo precio de viajes · sin propinas</div>`;
+  html += `<div style="font-size:11px;color:#a7f3d0;margin-top:6px">Solo el precio de los viajes</div>`;
   html += `</div>`;
 
   if(totalViajes > 0){
     html += `<button type="button" onclick="usarChuletaDeposito(${totalViajes})" style="width:100%;margin-top:12px;background:#0891b2;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:800;font-size:13px;cursor:pointer">⬇️ USAR ${moneyText(totalViajes)} EN EL IMPORTE</button>`;
+  } else {
+    html += `<div style="text-align:center;font-size:12px;color:#64748b;margin-top:10px;font-style:italic">No hay viajes pendientes de depositar</div>`;
   }
 
   html += `</div>`;

@@ -746,7 +746,7 @@ async function toggleModoWeb() {
     listenerHandle = await HttpServer.addListener('request', async (req) => {
       console.log("📥 Petición recibida:", req.path);
 
-      // 1. Sincronización (Recibir datos del PC)
+      // 1. Sincronización (Recibir datos del PC y guardarlos en el móvil)
       if (req.path === '/sync' && req.method === 'POST') {
         try {
           const data = JSON.parse(req.bodyText || req.body);
@@ -763,13 +763,35 @@ async function toggleModoWeb() {
         return;
       }
 
-      // 2. Servir los archivos al PC (HTML, JS, CSS)
+      // 2. Enviar TODOS los datos al PC (para que el PC se sincronice al entrar)
+      if (req.path === '/get-all-data' && req.method === 'GET') {
+        try {
+          const datos = {};
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith("uberCambio")) {
+              datos[key] = localStorage.getItem(key);
+            }
+          }
+          await HttpServer.respond({ 
+            requestId: req.requestId, 
+            status: 200, 
+            bodyText: JSON.stringify(datos), 
+            headers: { "Content-Type": "application/json" } 
+          });
+        } catch (e) {
+          await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "{}" });
+        }
+        return;
+      }
+
+      // 3. Servir los archivos al PC (HTML, JS, CSS, etc.)
       let filePath = req.path === '/' ? 'index.html' : req.path;
       filePath = filePath.split('?')[0]; 
-      filePath = filePath.replace(/^\//, ''); // 👈 QUITAMOS LA BARRA INICIAL AQUÍ
+      filePath = filePath.replace(/^\//, ''); // Quitar la barra inicial
 
       try {
-        // Añadimos un límite de 3 segundos para que no se quede colgado buscando el archivo
+        // Límite de 3 segundos para evitar que el PC se quede en blanco
         const fetchPromise = fetch(filePath);
         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout de red")), 3000));
         const resp = await Promise.race([fetchPromise, timeoutPromise]);
@@ -797,11 +819,11 @@ async function toggleModoWeb() {
         }
       } catch (e) {
         console.error("Error sirviendo archivo:", e);
-        // Si falla (o tarda demasiado), respondemos algo para que el PC no se quede en blanco
         await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "Error cargando archivo" }).catch(()=>{});
       }
     });
 
+    // Arrancar servidor en el puerto 8080
     servidorWeb = await HttpServer.start({
       port: 8080, 
       android: {
@@ -814,6 +836,7 @@ async function toggleModoWeb() {
     
     modoWebActivo = true;
     
+    // Extraer IP
     let ip = "IP_DEL_MOVIL";
     if (servidorWeb.urls && servidorWeb.urls.length > 0) {
         ip = servidorWeb.urls[0].split(':')[1].replace('//', '');

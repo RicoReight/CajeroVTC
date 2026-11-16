@@ -31,7 +31,7 @@
   button:active{
     filter: brightness(0.9);
   }
-   /* ==================== DISEÑO ESCRITORIO (PC / TABLET) ==================== */
+  /* ==================== DISEÑO ESCRITORIO (PC / TABLET) ==================== */
   @media (min-width: 768px) {
     body.modo-desktop {
       background-color: #0f172a;
@@ -45,12 +45,14 @@
     body.modo-desktop #diasPantalla {
       background: transparent !important;
       padding-top: 20px !important;
+      display: flex;
+      justify-content: center; /* 👈 Centra todo el contenido horizontalmente */
     }
 
-    /* DISEÑO DEL PAINT: Panel izq, Calendario der, Festivos abajo */
+    /* DISEÑO DEL PAINT */
     body.modo-desktop #diasContenido {
-      max-width: 1500px !important;
-      margin: 0 auto !important;
+      width: 100%;
+      max-width: 1350px !important;
       display: grid !important;
       grid-template-columns: 380px 1fr !important; 
       grid-template-areas:

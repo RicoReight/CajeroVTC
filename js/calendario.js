@@ -169,7 +169,45 @@ function calcularLimiteDepositoReal(proxReset) {
   return limite;
 }
 
-/* ==================== RENDER PRINCIPAL DEL CALENDARIO ==================== */
+/* ==================== AGRUPAR FECHAS (Para el nuevo diseño) ==================== */
+function obtenerRangosFechas(fechas) {
+  if (!fechas || fechas.length === 0) return [];
+  const sorted = [...fechas].sort();
+  const rangos = [];
+  let inicio = sorted[0];
+  let anterior = sorted[0];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const actual = sorted[i];
+    const d1 = new Date(anterior);
+    const d2 = new Date(actual);
+    // Diferencia en días (añadimos 1 hora de margen por cambios de zona horaria)
+    const diff = (d2 - d1) / (1000 * 60 * 60 * 24);
+    
+    if (diff > 0.9 && diff < 1.1) { // Son días consecutivos
+      anterior = actual;
+    } else {
+      rangos.push({ inicio, fin: anterior });
+      inicio = actual;
+      anterior = actual;
+    }
+  }
+  rangos.push({ inicio, fin: anterior });
+
+  return rangos.map(r => {
+    const p1 = r.inicio.split("-");
+    const p2 = r.fin.split("-");
+    let texto = "";
+    if (r.inicio === r.fin) texto = `El ${p1[2]}/${p1[1]}`;
+    else texto = `Del ${p1[2]}/${p1[1]} al ${p2[2]}/${p2[1]}`;
+    
+    const date1 = new Date(r.inicio);
+    const date2 = new Date(r.fin);
+    const dias = Math.round((date2 - date1) / (1000 * 60 * 60 * 24)) + 1;
+    return { texto, dias };
+  });
+}
+
 function renderDiasTrabajo(){
   const cont = document.getElementById("diasContenido");
   if(!cont) return;
@@ -212,7 +250,7 @@ function renderDiasTrabajo(){
 
   let html = "";
 
-  // 1. Botón Modo Web (Oculto en PC por CSS)
+  // 1. Botón Modo Web (Oculto en PC)
   html += `
     <div class="dias-modo-web" style="text-align:center; margin-bottom: 14px;">
       <div style="font-size:12px; color:#38bdf8; font-weight:900; margin-bottom:10px;">💻 GESTIÓN DESDE EL PC O TABLET</div>
@@ -239,7 +277,7 @@ function renderDiasTrabajo(){
 
   // 3. Estadísticas
   html += `
-    <div class="pc-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+    <div class="pc-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
       <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:10px">
         <div style="font-size:10px;color:#f97316;font-weight:900">💼 TRABAJADOS</div>
         <div style="font-size:22px;font-weight:900;color:#f97316;margin-top:4px">${acumuladosTrab}</div>
@@ -269,86 +307,7 @@ function renderDiasTrabajo(){
     </div>
   `;
 
-  // 4. Vacaciones
-  {
-    const asignadas = parseInt(diasVacacionesAsignados[String(diasAnioVista)]) || 0;
-    const usadas = vacacionesAnio.filter(d => !d.noCuenta).length;
-    const restantes = Math.max(0, asignadas - usadas);
-    const pasadas = usadas > asignadas && asignadas > 0;
-    const color = pasadas ? "#f87171" : (restantes === 0 && asignadas > 0 ? "#fbbf24" : "#22d3ee");
-    
-    // Lista de fechas agrupadas
-    const fechasVac = vacacionesAnio.filter(d => !d.noCuenta).map(d => d.fecha);
-    const rangosVac = agruparFechasParaMostrar(fechasVac);
-    const htmlFechasVac = rangosVac.length ? `
-      <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #164e63;">
-        <div style="font-size:10px; color:#22d3ee; font-weight:800; margin-bottom:6px; letter-spacing:0.5px;">📅 DÍAS COGIDOS</div>
-        <div style="display:flex; flex-wrap:wrap; gap:6px;">
-          ${rangosVac.map(r => `<span style="background:#164e63; color:#a5f3fc; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800;">${r}</span>`).join("")}
-        </div>
-      </div>` : "";
-
-    html += `
-      <div class="pc-vacaciones" style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div style="font-size:12px;color:#22d3ee;font-weight:900;letter-spacing:1px">🏖️ VACACIONES ${diasAnioVista}</div>
-          <button type="button" onclick="abrirModalDiasAsignados()"
-            style="background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;
-                   padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer">
-            ✏️ Asignados: ${asignadas}
-          </button>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-          <div>
-            <div style="font-size:11px;color:#94a3b8;font-weight:700">USADAS</div>
-            <div style="font-size:30px;font-weight:900;color:${color};line-height:1.1">${usadas}<span style="font-size:18px;color:#64748b">/${asignadas || "—"}</span></div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:11px;color:#94a3b8;font-weight:700">${pasadas ? "TE PASASTE" : "TE QUEDAN"}</div>
-            <div style="font-size:26px;font-weight:900;color:${pasadas ? "#f87171" : "#4ade80"};line-height:1.1">
-              ${pasadas ? "−" + (usadas - asignadas) : restantes}
-            </div>
-          </div>
-        </div>
-        ${htmlFechasVac}
-      </div>
-    `;
-  }
-
-  // 5. Días Personales
-  {
-    const fechasPer = personalesAnio.map(d => d.fecha);
-    const rangosPer = agruparFechasParaMostrar(fechasPer);
-    const htmlFechasPer = rangosPer.length ? `
-      <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #334155;">
-        <div style="font-size:10px; color:#a78bfa; font-weight:800; margin-bottom:6px; letter-spacing:0.5px;">📅 DÍAS COGIDOS</div>
-        <div style="display:flex; flex-wrap:wrap; gap:6px;">
-          ${rangosPer.map(r => `<span style="background:#4c1d95; color:#ddd6fe; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:800;">${r}</span>`).join("")}
-        </div>
-      </div>` : "";
-
-    html += `
-      <div class="pc-personales" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div style="font-size:12px;color:#a78bfa;font-weight:900;letter-spacing:1px">👤 DÍAS PERSONALES ${diasAnioVista}</div>
-          <button type="button" onclick="abrirModalDiaPersonal()" style="background:#0f172a;color:#a78bfa;border:1px solid #7c3aed;border-radius:8px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer">+ Añadir</button>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-          <div>
-            <div style="font-size:11px;color:#94a3b8;font-weight:700">USADOS</div>
-            <div style="font-size:30px;font-weight:900;color:#a78bfa;line-height:1.1">${personalesAnio.length}<span style="font-size:18px;color:#64748b">/2</span></div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:11px;color:#94a3b8;font-weight:700">TE QUEDAN</div>
-            <div style="font-size:26px;font-weight:900;color:#a78bfa;line-height:1.1">${personalesRestantes}</div>
-          </div>
-        </div>
-        ${htmlFechasPer}
-      </div>
-    `;
-  }
-
-  // 6. Calendario
+  // 4. CALENDARIO (Ahora va justo después de las stats en el móvil)
   const nombresMes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   html += `
     <div class="pc-calendario" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
@@ -383,6 +342,94 @@ function renderDiasTrabajo(){
       </div>
     </div>
   `;
+
+  // 5. Vacaciones (Ahora van debajo del calendario en el móvil)
+  {
+    const asignadas = parseInt(diasVacacionesAsignados[String(diasAnioVista)]) || 0;
+    const usadas = vacacionesAnio.filter(d => !d.noCuenta).length;
+    const restantes = Math.max(0, asignadas - usadas);
+    const pasadas = usadas > asignadas && asignadas > 0;
+    const color = pasadas ? "#f87171" : (restantes === 0 && asignadas > 0 ? "#fbbf24" : "#22d3ee");
+    
+    const fechasVac = vacacionesAnio.filter(d => !d.noCuenta).map(d => d.fecha);
+    const rangosVac = obtenerRangosFechas(fechasVac);
+    let htmlFechasVac = "";
+    if (rangosVac.length > 0) {
+      htmlFechasVac = `<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #164e63; display:flex; flex-direction:column; gap:6px;">`;
+      htmlFechasVac += `<div style="font-size:10px; color:#22d3ee; font-weight:800; letter-spacing:0.5px;">📅 DÍAS COGIDOS</div>`;
+      rangosVac.forEach(r => {
+        htmlFechasVac += `<div style="display:flex; justify-content:space-between; background:#0f172a; padding:8px 10px; border-radius:8px;">
+          <span style="font-size:13px; color:#fff; font-weight:700;">${r.texto}</span>
+          <span style="font-size:13px; color:#22d3ee; font-weight:900;">${r.dias} ${r.dias===1?'día':'días'}</span>
+        </div>`;
+      });
+      htmlFechasVac += `</div>`;
+    }
+
+    html += `
+      <div class="pc-vacaciones" style="background:#1e293b;border:1px solid #164e63;border-radius:12px;padding:14px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="font-size:12px;color:#22d3ee;font-weight:900;letter-spacing:1px">🏖️ VACACIONES ${diasAnioVista}</div>
+          <button type="button" onclick="abrirModalDiasAsignados()"
+            style="background:#0f172a;color:#22d3ee;border:1px solid #0891b2;border-radius:8px;
+                   padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer">
+            ✏️ Asignados: ${asignadas}
+          </button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+          <div>
+            <div style="font-size:11px;color:#94a3b8;font-weight:700">USADAS</div>
+            <div style="font-size:30px;font-weight:900;color:${color};line-height:1.1">${usadas}<span style="font-size:18px;color:#64748b">/${asignadas || "—"}</span></div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;color:#94a3b8;font-weight:700">${pasadas ? "TE PASASTE" : "TE QUEDAN"}</div>
+            <div style="font-size:26px;font-weight:900;color:${pasadas ? "#f87171" : "#4ade80"};line-height:1.1">
+              ${pasadas ? "−" + (usadas - asignadas) : restantes}
+            </div>
+          </div>
+        </div>
+        ${htmlFechasVac}
+      </div>
+    `;
+  }
+
+  // 6. Días Personales (Debajo de vacaciones en el móvil)
+  {
+    const fechasPer = personalesAnio.map(d => d.fecha);
+    const rangosPer = obtenerRangosFechas(fechasPer);
+    let htmlFechasPer = "";
+    if (rangosPer.length > 0) {
+      htmlFechasPer = `<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #334155; display:flex; flex-direction:column; gap:6px;">`;
+      htmlFechasPer += `<div style="font-size:10px; color:#a78bfa; font-weight:800; letter-spacing:0.5px;">📅 DÍAS COGIDOS</div>`;
+      rangosPer.forEach(r => {
+        htmlFechasPer += `<div style="display:flex; justify-content:space-between; background:#0f172a; padding:8px 10px; border-radius:8px;">
+          <span style="font-size:13px; color:#fff; font-weight:700;">${r.texto}</span>
+          <span style="font-size:13px; color:#a78bfa; font-weight:900;">${r.dias} ${r.dias===1?'día':'días'}</span>
+        </div>`;
+      });
+      htmlFechasPer += `</div>`;
+    }
+
+    html += `
+      <div class="pc-personales" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="font-size:12px;color:#a78bfa;font-weight:900;letter-spacing:1px">👤 DÍAS PERSONALES ${diasAnioVista}</div>
+          <button type="button" onclick="abrirModalDiaPersonal()" style="background:#0f172a;color:#a78bfa;border:1px solid #7c3aed;border-radius:8px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer">+ Añadir</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+          <div>
+            <div style="font-size:11px;color:#94a3b8;font-weight:700">USADOS</div>
+            <div style="font-size:30px;font-weight:900;color:#a78bfa;line-height:1.1">${personalesAnio.length}<span style="font-size:18px;color:#64748b">/2</span></div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;color:#94a3b8;font-weight:700">TE QUEDAN</div>
+            <div style="font-size:26px;font-weight:900;color:#a78bfa;line-height:1.1">${personalesRestantes}</div>
+          </div>
+        </div>
+        ${htmlFechasPer}
+      </div>
+    `;
+  }
 
   // 7. Festivos
   html += `<div class="pc-festivos" style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">`;
@@ -433,7 +480,7 @@ function renderDiasTrabajo(){
   }
   html += `</div>`;
 
-  // 8. Botones de acción (Al final del todo como en el original)
+  // 8. Botones
   html += `
     <div class="pc-botones" style="margin-bottom:14px">
       <button type="button" onclick="abrirModalVacaciones()" style="width:100%;margin-bottom:8px;background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px;font-weight:800;font-size:14px;cursor:pointer">🏖️ AÑADIR VACACIONES</button>

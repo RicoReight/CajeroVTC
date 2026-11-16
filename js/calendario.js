@@ -212,6 +212,18 @@ function renderDiasTrabajo(){
 
   let html = "";
 
+  // 👇 AQUÍ ESTÁ EL NUEVO BOTÓN DEL MODO WEB 👇
+  html += `
+    <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:16px; margin-bottom:14px; text-align:center;">
+      <div style="font-size:12px; color:#38bdf8; font-weight:900; margin-bottom:10px;">💻 GESTIÓN DESDE EL PC O TABLET</div>
+      <button type="button" id="btnModoWeb" onclick="toggleModoWeb()" style="width:100%; background:#0891b2; color:#fff; border:none; border-radius:10px; padding:12px; font-weight:800; font-size:14px; cursor:pointer; transition:0.3s;">
+        🌐 ACTIVAR MODO WEB (PC)
+      </button>
+      <div id="ipWebDisplay" style="display:none; margin-top:14px; padding:12px; background:#0f172a; border:1px dashed #4ade80; border-radius:10px; line-height:1.5;"></div>
+    </div>
+  `;
+  // 👆 FIN DEL BOTÓN DEL MODO WEB 👆
+
   html += `<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">`;
   anios.forEach(a => {
     const act = a === diasAnioVista;
@@ -706,4 +718,102 @@ function borrarFestivo(fecha){
   if(!confirm("¿Borrar este festivo?")) return;
   festivos = festivos.filter(f => f.fecha !== fecha);
   saveFestivos(); cerrarModalFestivo(); renderDiasTrabajo();
+}
+
+/* ==================== SERVIDOR WEB LOCAL (MODO PC) ==================== */
+let modoWebActivo = false;
+let servidorWeb = null;
+
+async function toggleModoWeb() {
+  const btn = document.getElementById("btnModoWeb");
+  const display = document.getElementById("ipWebDisplay");
+
+  if (modoWebActivo) {
+    if (servidorWeb) { try { await servidorWeb.stop(); } catch(e){} servidorWeb = null; }
+    modoWebActivo = false;
+    if(btn) { btn.innerHTML = "🌐 ACTIVAR MODO WEB (PC)"; btn.style.background = "#0891b2"; }
+    if(display) display.style.display = "none";
+    mostrarToast("Modo Web desactivado");
+    return;
+  }
+
+  try {
+    const { HttpServer } = Capacitor.Plugins;
+    if (!HttpServer) { alert("⚠️ El plugin no está compilado."); return; }
+
+    // Escuchar peticiones del PC
+    await HttpServer.addListener('request', async (req) => {
+      
+      // 1. Recibir datos del PC y guardarlos en el móvil
+      if (req.url === '/sync' && req.method === 'POST') {
+        try {
+          const data = JSON.parse(req.bodyText);
+          if (data.key && data.value !== undefined) {
+            safeStorage.set(data.key, data.value);
+            if (data.key.includes("Festivos") || data.key.includes("DiasPersonales")) {
+              setTimeout(() => { if(typeof renderDiasTrabajo === 'function') renderDiasTrabajo(); }, 100);
+            }
+          }
+          await HttpServer.respond({ requestId: req.requestId, status: 200, bodyText: "OK" });
+        } catch (e) {
+          await HttpServer.respond({ requestId: req.requestId, status: 500, bodyText: "Error" });
+        }
+        return;
+      }
+
+      // 2. Servir los archivos de la app al PC
+      let filePath = req.url === '/' ? '/index.html' : req.url;
+      filePath = filePath.split('?')[0]; // Quitar parámetros de la URL
+
+      try {
+        const resp = await fetch(filePath); 
+        if (resp.ok) {
+          const text = await resp.text();
+          let mime = 'text/html';
+          if (filePath.endsWith('.js')) mime = 'application/javascript';
+          if (filePath.endsWith('.css')) mime = 'text/css';
+          if (filePath.endsWith('.json')) mime = 'application/json';
+          
+          await HttpServer.respond({ 
+            requestId: req.requestId, 
+            status: 200, 
+            bodyText: text, 
+            headers: { 'Content-Type': mime } 
+          });
+        } else {
+          await HttpServer.respond({ requestId: req.requestId, status: 404, bodyText: "Not found" });
+        }
+      } catch (e) {
+        await HttpServer.respond({ requestId: req.requestId, status: 404, bodyText: "Not found" });
+      }
+    });
+
+    // Arrancar el servidor
+    servidorWeb = await HttpServer.start({
+      android: {
+        notificationTitle: 'CambioVTC - Modo Web',
+        notificationText: 'Servidor local activo para gestionar desde el PC',
+        smallIconResourceName: 'ic_stat_icon_config_sample', 
+        channelId: 'modo_web',
+        channelName: 'Modo Web'
+      }
+    });
+    
+    modoWebActivo = true;
+    const url = servidorWeb.url || (servidorWeb.urls && servidorWeb.urls[0]) || "http://IP:8080";
+    
+    if(btn) { btn.innerHTML = "🔴 DETENER MODO WEB"; btn.style.background = "#7f1d1d"; }
+    if(display) {
+      display.style.display = "block";
+      display.innerHTML = `
+        <div style="font-size:13px; color:#fff; margin-bottom:8px;">Abre esta dirección en el navegador de tu PC:</div>
+        <div style="font-size:22px; font-weight:900; color:#4ade80; letter-spacing:1px;">${url}</div>
+        <div style="font-size:11px; color:#94a3b8; margin-top:8px;">Wi-Fi obligatorio.</div>
+      `;
+    }
+    mostrarToast("🌐 Servidor Web activo");
+  } catch(e) {
+    console.error(e);
+    alert("❌ Error al iniciar el servidor: " + e.message);
+  }
 }

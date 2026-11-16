@@ -958,3 +958,32 @@ function init(){
 
 /* ==================== ARRANQUE ==================== */
 init();
+
+/* ==================== BARRAS DEL SISTEMA (ANDROID) ==================== */
+setTimeout(async () => {
+  try {
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AndroidSystemBars) {
+      const ASB = window.Capacitor.Plugins.AndroidSystemBars;
+      const info = await ASB.initialize();
+
+      await ASB.setSystemBarsStyle({
+        style: 'DARK',
+        color: '#0f172a'
+      });
+
+      if (typeof ASB.setNavigationBarColor === 'function') {
+        await ASB.setNavigationBarColor({ color: '#00000000' });
+      } else if (typeof ASB.setNavigationBar === 'function') {
+        await ASB.setNavigationBar({ color: '#00000000' });
+      } else if (typeof ASB.setSystemBarsColor === 'function') {
+        await ASB.setSystemBarsColor({ statusBarColor: '#0f172a', navigationBarColor: '#00000000' });
+      }
+
+      if (info.isAndroid35Plus) {
+        await ASB.setOverlay({ overlay: true });
+      }
+    }
+  } catch(e) {
+    console.warn('Error configurando barras:', e);
+  }
+}, 500);

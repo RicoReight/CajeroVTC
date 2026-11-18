@@ -7,13 +7,18 @@ async function lanzarNotificacionZona(texto){
     const Cap = window.Capacitor;
     if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
     const LN = Cap.Plugins.LocalNotifications;
+    
+    // Recreamos el canal por si Android lo ha bloqueado
+    await crearCanalNotificacionesZona();
+
     await LN.schedule({
       notifications: [{
         id: ID_NOTIF_ZONA,
         title: '📍 Cambio de zona',
         body: texto,
         channelId: 'zona-cambio',
-        smallIcon: 'ic_stat_icon_config_sample'
+        smallIcon: 'ic_stat_icon_config_sample',
+        schedule: { at: new Date(Date.now() + 1000) } // 👈 ESTA ES LA LÍNEA MÁGICA QUE FALTABA
       }]
     });
   } catch(e){ console.warn('Error lanzando notificación de zona:', e); }
@@ -380,8 +385,17 @@ async function actualizarNotificacionZona(nuevaZona){
     zonaCandidataCount = 0;
     ultimoCambioZonaMs = Date.now();
 
-    // 👇 CAMBIO: En vez de una notificación aparte, actualizamos el texto del watcher
-    await reiniciarWatcherConTexto(nuevaZona.nombre);
+    // Actualizar la pantalla si el mapa está abierto
+    const elZona = document.getElementById("mapaZonaActual");
+    if(elZona && ultimaPosicion){
+      elZona.innerHTML = "Zona: " + nuevaZona.nombre + "<div style='font-size:11px;color:#94a3b8;margin-top:4px;font-weight:600'>" + ultimaPosicion.lat.toFixed(5) + ", " + ultimaPosicion.lon.toFixed(5) + " · ±" + (ultimaPosicion.acc || 0) + "m</div>";
+      elZona.style.color = nuevaZona.color;
+    }
+
+    // 👇 LANZAMOS LA NOTIFICACIÓN NATIVA (Sin tocar el GPS) 👇
+    if(typeof lanzarNotificacionZona === 'function') {
+      lanzarNotificacionZona(nuevaZona.nombre);
+    }
 
   } finally {
     procesandoZona = false;
@@ -420,8 +434,7 @@ async function reiniciarWatcherConTexto(texto){
 function obtenerClaveRecorrido(fechaStr) { return "uberCambioRecorrido_" + fechaStr; }
 
 function guardarPuntoRecorrido(lat, lon, acc) {
-  // Filtro de precisión: aceptamos hasta 80m para no perder puntos en calles o túneles
-  if (acc && acc > 80) return;
+  if (acc && acc > 80) return; // Si la precisión es muy mala, no guardamos
 
   const hoy = fechaLocalStr();
   if (cacheFechaHoy !== hoy) {
@@ -432,24 +445,24 @@ function guardarPuntoRecorrido(lat, lon, acc) {
   if (cacheRecorridoHoy.length > 0) {
     const ultimo = cacheRecorridoHoy[cacheRecorridoHoy.length - 1];
     const dist = Math.sqrt(Math.pow(ultimo.lat - lat, 2) + Math.pow(ultimo.lon - lon, 2)) * 111000;
-    // Distancia mínima de 5m y máxima de 1000m (por si pega un salto el GPS)
-    if (dist < 5 || dist > 1000) return;
+    
+    // 👇 ARREGLO: Solo ignoramos si está muy cerca. Si hay un salto grande (túnel), LO GUARDAMOS.
+    if (dist < 15) return; 
   }
 
   cacheRecorridoHoy.push({ lat: lat, lon: lon, time: Date.now() });
 
-  // 👇 SUBIMOS EL LÍMITE A 35.000 PUNTOS (suficiente para 350km)
-  if (cacheRecorridoHoy.length > 35000) {
-    cacheRecorridoHoy.splice(0, 2000); 
+  // Límite de seguridad para no reventar la memoria del móvil
+  if (cacheRecorridoHoy.length > 30000) {
+    cacheRecorridoHoy.splice(0, 5000); // Borra los 5000 puntos más viejos
   }
 
-  // Guardado automático cada 20 segundos
   const ahora = Date.now();
   if (ahora - ultimoGuardadoRecorridoMs > 20000) {
     try {
       safeStorage.set(obtenerClaveRecorrido(hoy), JSON.stringify(cacheRecorridoHoy));
       ultimoGuardadoRecorridoMs = ahora;
-    } catch(e) {}
+    } catch(e) { console.error("Error guardando ruta:", e); }
   }
 }
 
@@ -631,7 +644,7 @@ async function iniciarGeolocalizacion(){
     };
     geoWatcherId = await BG.addWatcher({
       backgroundMessage: 'Rastreo de zonas activo', backgroundTitle: 'Mapa de zonas',
-      requestPermissions: true, stale: false, distanceFilter: 10
+      requestPermissions: true, stale: false, distanceFilter: 15
     }, onLocation);
     geoActivo = true;
     actualizarEstadoGeo();

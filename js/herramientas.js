@@ -191,6 +191,10 @@ function confirmarCierre(){
   // 👇 Estas dos líneas son las nuevas y están perfectas 👇
   if(typeof saveHistorialOps === "function") saveHistorialOps([]); 
   renderChuletaDeposito(); 
+
+  alert("✅ Depósito realizado.\nEntregados: "+moneyText(total));
+  programarAvisosDeposito();
+  reponerState = { viajes:20, colchon:3, marcados:{}, modo:"auto", manualAdd:{}, importeManual:0 };
 }
 
 function renderCierreHistorico(){
@@ -948,11 +952,15 @@ function renderReponerInicio(){
 function cambiarModoReponer(modo){reponerState.modo=modo;if(modo==="manual"){if(Object.keys(reponerState.manualAdd).length===0)denominations.forEach(d=>{reponerState.manualAdd[d.c]=0});if(reponerState.importeManual>0)setTimeout(()=>onCambioImporteManual(),0)}renderReponerInicio()}
 
 function actualizarReponerPropuesta(){
-  const zona = document.getElementById("reponerDinamico"), btn = document.getElementById("reponerBtnConfirmar");
+  const zona = document.getElementById("reponerDinamico");
+  const btn = document.getElementById("reponerBtnConfirmar");
   if(!zona) return;
+  
+  // 👇 FORZAMOS que los cálculos usen el stock actualizado
   const rec = configuracionRecomendada();
   const { faltantes, total, totalDeHucha, totalDeBanco } = calcularFaltantes(rec.viajes, rec.colchon);
   const { sobran, totalSobra } = calcularIntercambiosRecomendados();
+
   let html = "";
 
   if(!faltantes.length){
@@ -960,12 +968,16 @@ function actualizarReponerPropuesta(){
     if(btn) btn.style.display = "none";
   } else {
     if(btn) btn.style.display = "block";
+    
     const conHucha = faltantes.filter(x => x.deHucha > 0).sort((a,b) => b.d.c - a.d.c);
     if(conHucha.length){
       html += `<div class='card' style='margin:0 0 12px 0;text-align:center;background:#2e1065;border:1px solid #7c3aed'><div style='font-size:12px;color:#c4b5fd;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>🐷 TIENES EN CASA</div><div style='font-size:26px;font-weight:900;color:#fff'>${moneyText(totalDeHucha)}</div><div style='font-size:12px;color:#c4b5fd;margin-top:4px'>Te cubre parte de lo que falta</div><button type="button" onclick="sacarTodaLaHuchaReponer()" style="width:100%;margin-top:10px;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer">🐷 SACAR DE LA HUCHA A LA CAJA</button></div>`;
     }
+    
     html += `<div class='card' style='margin:0 0 12px 0;text-align:center;background:#1e3a8a;border:1px solid #3b82f6'><div style='font-size:12px;color:#bfdbfe;font-weight:800;letter-spacing:0.5px;margin-bottom:6px'>🏦 PEDIR AL BANCO</div><div id='reponerTotal' style='font-size:38px;font-weight:900;color:#fff'>${moneyText(totalDeBanco)}</div><div style='font-size:12px;color:#bfdbfe;margin-top:6px'>Pulsa cada pieza para marcarla/desmarcarla</div></div>`;
+    
     html += `<div class='card' style='margin:0 0 12px 0'><div style='font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px'>📋 DESGLOSE</div>`;
+    
     if(conHucha.length){
       html += `<div style='font-size:11px;color:#c4b5fd;font-weight:900;letter-spacing:0.5px;margin:0 0 6px;padding:6px 10px;background:#2e1065;border-radius:8px;display:flex;justify-content:space-between'><span>🐷 DE LA HUCHA</span><span>${moneyText(totalDeHucha)}</span></div>`;
       conHucha.forEach(x => {
@@ -973,11 +985,19 @@ function actualizarReponerPropuesta(){
         html += `<div style='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155'><div class='${gc}' style='flex-shrink:0'>${d.short}</div><div style='flex:1;min-width:0'><div style='font-size:15px;font-weight:800;color:#fff'>${x.deHucha} × ${d.n}</div><div style='font-size:12px;color:#94a3b8'>${moneyText(x.deHucha * d.c)}</div></div><div style='font-size:11px;font-weight:800;color:#c4b5fd;background:#4c1d95;padding:4px 8px;border-radius:6px;white-space:nowrap'>🐷 Hucha</div></div>`;
       });
     }
+    
     const rowsBanco = faltantes.filter(x => x.deBanco > 0);
     if(rowsBanco.length){
       html += `<div style='font-size:11px;color:#93c5fd;font-weight:900;letter-spacing:0.5px;margin:14px 0 6px;padding:6px 10px;background:#1e3a8a;border-radius:8px;display:flex;justify-content:space-between'><span>🏦 DEL BANCO</span><span>${moneyText(totalDeBanco)}</span></div>`;
-      const b = rowsBanco.filter(x => x.d.type === "bill").sort((a,b) => b.d.c - a.d.c), m = rowsBanco.filter(x => x.d.type === "coin").sort((a,b) => b.d.c - a.d.c);
-      const rowF = x => { const d = x.d, c = d.c, marc = reponerState.marcados[c] !== false, imp = x.deBanco * c, gc = (d.type === "bill" ? "bill-graphic " : "coin-graphic ") + d.class; return `<label style='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155;cursor:pointer'><input type='checkbox' data-c='${c}' ${marc?'checked':''} onchange='toggleMarcadoReponer(this)' style='width:22px;height:22px;cursor:pointer;flex-shrink:0'><div class='${gc}' style='flex-shrink:0'>${d.short}</div><div style='flex:1;min-width:0'><div class='reponerFila' style='font-size:15px;font-weight:800;color:${marc?'#fff':'#475569'}'>${x.deBanco} × ${d.n}</div><div style='font-size:12px;color:#94a3b8'>${moneyText(imp)}</div></div></label>`; };
+      const b = rowsBanco.filter(x => x.d.type === "bill").sort((a,b) => b.d.c - a.d.c);
+      const m = rowsBanco.filter(x => x.d.type === "coin").sort((a,b) => b.d.c - a.d.c);
+      const rowF = x => { 
+        const d = x.d, c = d.c; 
+        const marc = reponerState.marcados[c] !== false; 
+        const imp = x.deBanco * c; 
+        const gc = (d.type === "bill" ? "bill-graphic " : "coin-graphic ") + d.class; 
+        return `<label style='display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #334155;cursor:pointer'><input type='checkbox' data-c='${c}' ${marc?'checked':''} onchange='toggleMarcadoReponer(this)' style='width:22px;height:22px;cursor:pointer;flex-shrink:0'><div class='${gc}' style='flex-shrink:0'>${d.short}</div><div style='flex:1;min-width:0'><div class='reponerFila' style='font-size:15px;font-weight:800;color:${marc?'#fff':'#475569'}'>${x.deBanco} × ${d.n}</div><div style='font-size:12px;color:#94a3b8'>${moneyText(imp)}</div></div></label>`; 
+      };
       if(b.length){ html += `<div style='font-size:11px;color:#4ade80;font-weight:800;letter-spacing:0.5px;margin:6px 0 4px'>💵 BILLETES</div>`; b.forEach(x => html += rowF(x)); }
       if(m.length){ html += `<div style='font-size:11px;color:#facc15;font-weight:800;letter-spacing:0.5px;margin:12px 0 4px'>🪙 MONEDAS</div>`; m.forEach(x => html += rowF(x)); }
     }
@@ -987,6 +1007,7 @@ function actualizarReponerPropuesta(){
   if(sobran.length > 0){
     html += `<div class='card' style='margin:0 0 12px 0;background:#1e293b;border:1px solid #7c3aed'><div style='font-size:12px;color:#c4b5fd;font-weight:800;letter-spacing:0.5px;margin-bottom:8px'>🔄 APROVECHA EL VIAJE AL BANCO</div><div style='font-size:12px;color:#94a3b8;margin-bottom:10px;line-height:1.4'>Tienes <b style='color:#c4b5fd'>${moneyText(totalSobra)}</b> en billetes que acumulas.</div><button type='button' onclick='cerrarReponerPantalla();abrirCambioPantalla()' style='width:100%;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:14px;cursor:pointer'>🔀 IR A CAMBIAR BILLETE</button></div>`;
   }
+  
   zona.innerHTML = html;
 }
 

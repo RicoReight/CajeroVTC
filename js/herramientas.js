@@ -663,14 +663,11 @@ function abrirCambioPantalla(){
 function cerrarCambioPantalla(){ const p=document.getElementById("cambioPantalla"); if(p)p.style.display="none"; }
 
 function renderRecomendacionCambio(){
-  // 1) Pedir recomendación base
   const rec = calcularIntercambiosRecomendados();
   let sobran = rec.sobran || [];
   let monedasSobran = rec.monedasSobran || [];
-  let totalSobra = rec.totalSobra || 0;
-  let totalMonedasSobra = rec.totalMonedasSobra || 0;
 
-  // 2) 🔧 FIX: recortar SIEMPRE al stock real de cada denominación
+  // Recortar siempre al stock real
   sobran = sobran.map(x => {
     const i = denominations.findIndex(d => d.c === x.d.c);
     const sa = i >= 0 ? (stock[i] || 0) : 0;
@@ -683,16 +680,14 @@ function renderRecomendacionCambio(){
     return { d: x.d, index: i, cantidad: Math.min(x.cantidad, sa) };
   }).filter(x => x.index >= 0 && x.cantidad > 0);
 
-  // 3) Recalcular totales con lo realmente recortado
-  totalSobra = sobran.reduce((s, x) => s + x.cantidad * x.d.c, 0);
-  totalMonedasSobra = monedasSobran.reduce((s, x) => s + x.cantidad * x.d.c, 0);
+  const totalSobra = sobran.reduce((s, x) => s + x.cantidad * x.d.c, 0);
+  const totalMonedasSobra = monedasSobran.reduce((s, x) => s + x.cantidad * x.d.c, 0);
 
   if(!sobran.length && !monedasSobran.length) return "";
 
   let html = "";
 
   if(sobran.length){
-    // 4) Calcular qué pedir al banco, sin pasarse nunca de totalSobra
     let restante = totalSobra;
     const pedir = {};
     const cands = denominations.slice().sort((a, b) => b.c - a.c);
@@ -714,11 +709,9 @@ function renderRecomendacionCambio(){
       }
     });
 
-    // 5) Construir "entregar"
     const entregar = {};
     sobran.forEach(x => { entregar[x.d.c] = (entregar[x.d.c] || 0) + x.cantidad; });
 
-    // 6) Netear piezas comunes (entregar 5×10 y pedir 3×10 → entregar 2×10, pedir 0)
     Object.keys(pedir).forEach(cStr => {
       const c = parseInt(cStr);
       if (entregar[c]) {
@@ -730,12 +723,10 @@ function renderRecomendacionCambio(){
       }
     });
 
-    // 7) Totalizar
     let tE = 0, tR = 0;
     Object.keys(entregar).forEach(c => tE += parseInt(c) * entregar[c]);
     Object.keys(pedir).forEach(c => tR += parseInt(c) * pedir[c]);
 
-    // 8) 🔧 FIX: si no cuadran, ajustar hacia abajo hasta que cuadren
     let guard = 0;
     while (tR > tE && guard++ < 200) {
       const keys = Object.keys(pedir).map(k => parseInt(k)).filter(c => pedir[c] > 0).sort((a, b) => a - b);
@@ -767,7 +758,6 @@ function renderRecomendacionCambio(){
       if (!ok) break;
     }
 
-    // 9) Guardar para el botón "USAR ESTA RECOMENDACIÓN"
     __recomendacionCambio = { entregar, pedir };
 
     const entregarKeys = Object.keys(entregar).map(k => parseInt(k)).filter(c => entregar[c] > 0).sort((a, b) => b - a);

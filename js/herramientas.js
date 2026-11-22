@@ -195,6 +195,8 @@ function confirmarCierre(){
   alert("✅ Depósito realizado.\nEntregados: "+moneyText(total));
   programarAvisosDeposito();
   reponerState = { viajes:20, colchon:3, marcados:{}, modo:"auto", manualAdd:{}, importeManual:0 };
+  const pc = document.getElementById("cambioPantalla");
+  if(pc && pc.style.display === "block") renderCambioInicio();
 }
 
 function renderCierreHistorico(){
@@ -613,6 +615,8 @@ function moverAHucha(idx, cantidad){
   try { renderStockList(); } catch(e){} try { updateCashSummary(); } catch(e){}
   try { if(document.getElementById("huchaContenido")) renderHucha(); } catch(e){}
   try { if(document.getElementById("cambioContenido")) renderCambioInicio(); } catch(e){}
+  const pc = document.getElementById("cambioPantalla");
+  if(pc && pc.style.display === "block") renderCambioInicio();
   return cantidad;
 }
 function sacarDeHucha(idx, cantidad){
@@ -653,6 +657,7 @@ function abrirCambioPantalla(){
   if(d)d.classList.remove("active"); if(o)o.classList.remove("active");
   const p=document.getElementById("cambioPantalla"); if(p)p.style.display="block";
   cambioState={aEntregar:{},aRecibir:{},modo:null,orden:[],ordenRecibir:[],sinDatos:false};
+  if(typeof loadStock === "function") loadStock();
   renderCambioInicio();
 }
 function cerrarCambioPantalla(){ const p=document.getElementById("cambioPantalla"); if(p)p.style.display="none"; }
@@ -738,19 +743,72 @@ function renderCambioInicio(){
 }
 
 function renderCambioBotones(containerId, valores){
-  const bot=document.getElementById(containerId); if(!bot)return;
-  valores.forEach(c=>{
-    const idx=denominations.findIndex(x=>x.c===c); if(idx<0)return;
-    const d=denominations[idx], sa=stock[idx]||0;
-    const wrap=document.createElement("div"); wrap.style.cssText="position:relative";
-    const b=document.createElement("button"); b.type="button";
-    b.innerHTML="<div style='font-size:14px;font-weight:800'>"+(c/100)+" €</div><div style='font-size:10px;color:#94a3b8;font-weight:600;margin-top:2px'>tienes "+sa+"</div>";
-    b.style.cssText="width:100%;background:#283548;border:1px solid #475569;color:#fff;padding:10px 4px;border-radius:10px;cursor:pointer";
-    b.onclick=()=>{cambioState.aEntregar[c]=(cambioState.aEntregar[c]||0)+1;cambioState.orden.push(c);actualizarCambioInicio()};
-    const bd=document.createElement("div"); bd.id="cambioBadge"+c;
-    bd.style.cssText="position:absolute;top:-6px;right:-6px;background:#38bdf8;color:#0f172a;font-size:11px;font-weight:900;padding:2px 6px;border-radius:10px;display:none";
-    wrap.appendChild(b); wrap.appendChild(bd); bot.appendChild(wrap);
+  const bot = document.getElementById(containerId);
+  if(!bot) return;
+  bot.innerHTML = "";
+
+  valores.forEach(c => {
+    const idx = denominations.findIndex(x => x.c === c);
+    if(idx < 0) return;
+
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "position:relative";
+
+    const b = document.createElement("button");
+    b.type = "button";
+    b.id = "cambioBtn" + c;
+    b.onclick = () => {
+      const i = denominations.findIndex(x => x.c === c);
+      const sa = stock[i] || 0;
+      const sel = cambioState.aEntregar[c] || 0;
+
+      if(sel >= sa){
+        mostrarToast("⚠️ No tienes más piezas de " + denominations[i].n);
+        return;
+      }
+
+      cambioState.aEntregar[c] = sel + 1;
+      cambioState.orden.push(c);
+      actualizarCambioInicio();
+    };
+
+    const bd = document.createElement("div");
+    bd.id = "cambioBadge" + c;
+    bd.style.cssText = "position:absolute;top:-6px;right:-6px;background:#38bdf8;color:#0f172a;font-size:11px;font-weight:900;padding:2px 6px;border-radius:10px;display:none";
+
+    wrap.appendChild(b);
+    wrap.appendChild(bd);
+    bot.appendChild(wrap);
+
+    actualizarBotonCambio(c);
   });
+}
+
+function actualizarBotonCambio(c){
+  const b = document.getElementById("cambioBtn" + c);
+  if(!b) return;
+
+  const i = denominations.findIndex(x => x.c === c);
+  if(i < 0) return;
+
+  const d = denominations[i];
+  const sa = stock[i] || 0;
+  const sel = cambioState.aEntregar[c] || 0;
+  const rest = Math.max(0, sa - sel);
+
+  b.innerHTML =
+    "<div style='font-size:14px;font-weight:800'>" + (c / 100) + " €</div>" +
+    "<div style='font-size:10px;color:#94a3b8;font-weight:600;margin-top:2px'>" +
+      "tienes " + sa + (sel > 0 ? " · quedan " + rest : "") +
+    "</div>";
+
+  b.style.cssText =
+    "width:100%;background:#283548;border:1px solid #475569;color:#fff;" +
+    "padding:10px 4px;border-radius:10px;" +
+    "cursor:" + (rest <= 0 ? "not-allowed" : "pointer") + ";" +
+    "opacity:" + (rest <= 0 ? "0.45" : "1");
+
+  b.disabled = rest <= 0;
 }
 
 function actualizarCambioInicio(){
@@ -761,7 +819,9 @@ function actualizarCambioInicio(){
     if(bd){ if(n>0){bd.textContent="x"+n;bd.style.display="block"} else bd.style.display="none"; }
   });
   const el=document.getElementById("cambioTotal"); if(el)el.textContent=moneyText(tot);
+  denominations.forEach(d => actualizarBotonCambio(d.c));
 }
+
 function deshacerCambioEntregar(){if(!cambioState.orden)cambioState.orden=[];const last=cambioState.orden.pop();if(last==null)return;if(cambioState.aEntregar[last]>0){cambioState.aEntregar[last]--;if(cambioState.aEntregar[last]<=0)delete cambioState.aEntregar[last]}actualizarCambioInicio()}
 function resetCambioEntregar(){cambioState.aEntregar={};cambioState.orden=[];actualizarCambioInicio()}
 
@@ -1093,6 +1153,8 @@ function confirmarReponer(){
   añadir.forEach(x => { stock[x.index] += x.cantidad; statsOps.repuesto[x.index] += x.cantidad; });
   saveStats(); saveStock(); renderStockList(); updateCashSummary();
   alert("✅ Añadido a la caja desde el banco: " + moneyText(total)); cerrarReponerPantalla();
+  const pc = document.getElementById("cambioPantalla");
+  if(pc && pc.style.display === "block") renderCambioInicio();
 }
 
 /* ==================== DIAGNÓSTICO ==================== */

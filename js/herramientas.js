@@ -663,44 +663,150 @@ function abrirCambioPantalla(){
 function cerrarCambioPantalla(){ const p=document.getElementById("cambioPantalla"); if(p)p.style.display="none"; }
 
 function renderRecomendacionCambio(){
-  const { sobran, totalSobra, monedasSobran, totalMonedasSobra } = calcularIntercambiosRecomendados();
+  // 1) Pedir recomendación base
+  const rec = calcularIntercambiosRecomendados();
+  let sobran = rec.sobran || [];
+  let monedasSobran = rec.monedasSobran || [];
+  let totalSobra = rec.totalSobra || 0;
+  let totalMonedasSobra = rec.totalMonedasSobra || 0;
+
+  // 2) 🔧 FIX: recortar SIEMPRE al stock real de cada denominación
+  sobran = sobran.map(x => {
+    const i = denominations.findIndex(d => d.c === x.d.c);
+    const sa = i >= 0 ? (stock[i] || 0) : 0;
+    return { d: x.d, index: i, cantidad: Math.min(x.cantidad, sa) };
+  }).filter(x => x.index >= 0 && x.cantidad > 0);
+
+  monedasSobran = monedasSobran.map(x => {
+    const i = denominations.findIndex(d => d.c === x.d.c);
+    const sa = i >= 0 ? (stock[i] || 0) : 0;
+    return { d: x.d, index: i, cantidad: Math.min(x.cantidad, sa) };
+  }).filter(x => x.index >= 0 && x.cantidad > 0);
+
+  // 3) Recalcular totales con lo realmente recortado
+  totalSobra = sobran.reduce((s, x) => s + x.cantidad * x.d.c, 0);
+  totalMonedasSobra = monedasSobran.reduce((s, x) => s + x.cantidad * x.d.c, 0);
+
   if(!sobran.length && !monedasSobran.length) return "";
+
   let html = "";
+
   if(sobran.length){
-    let restante = totalSobra, pedir = {};
-    const cands = denominations.slice().sort((a,b) => b.c - a.c);
+    // 4) Calcular qué pedir al banco, sin pasarse nunca de totalSobra
+    let restante = totalSobra;
+    const pedir = {};
+    const cands = denominations.slice().sort((a, b) => b.c - a.c);
+
     cands.forEach(d => {
-      if (restante >= d.c) {
-        const tope = topesRecibir[d.c] || 0;
-        if(tope === 0) return;
-        const i = denominations.findIndex(x => x.c === d.c), sa = stock[i] || 0;
-        const espacio = Math.max(0, tope - sa), n = Math.floor(restante / d.c);
-        let limite = Math.min(n, espacio);
-        if(d.c < 10 && restante > 50) limite = Math.min(limite, 4);
-        if (limite > 0) { pedir[d.c] = (pedir[d.c] || 0) + limite; restante -= limite * d.c; }
+      if (restante < d.c) return;
+      const tope = topesRecibir[d.c] || 0;
+      if(tope === 0) return;
+      const i = denominations.findIndex(x => x.c === d.c);
+      const sa = i >= 0 ? (stock[i] || 0) : 0;
+      const espacio = Math.max(0, tope - sa);
+      if(espacio <= 0) return;
+      const n = Math.floor(restante / d.c);
+      let limite = Math.min(n, espacio);
+      if(d.c < 10 && restante > 50) limite = Math.min(limite, 4);
+      if (limite > 0) {
+        pedir[d.c] = (pedir[d.c] || 0) + limite;
+        restante -= limite * d.c;
       }
     });
-    const entregar = {}; sobran.forEach(x => { entregar[x.d.c] = x.cantidad; });
+
+    // 5) Construir "entregar"
+    const entregar = {};
+    sobran.forEach(x => { entregar[x.d.c] = (entregar[x.d.c] || 0) + x.cantidad; });
+
+    // 6) Netear piezas comunes (entregar 5×10 y pedir 3×10 → entregar 2×10, pedir 0)
     Object.keys(pedir).forEach(cStr => {
       const c = parseInt(cStr);
-      if (entregar[c]) { const restar = Math.min(entregar[c], pedir[c]); entregar[c] -= restar; pedir[c] -= restar; if (entregar[c] <= 0) delete entregar[c]; if (pedir[c] <= 0) delete pedir[c]; }
+      if (entregar[c]) {
+        const restar = Math.min(entregar[c], pedir[c]);
+        entregar[c] -= restar;
+        pedir[c] -= restar;
+        if (entregar[c] <= 0) delete entregar[c];
+        if (pedir[c] <= 0) delete pedir[c];
+      }
     });
-    __recomendacionCambio = { entregar, pedir };
-    const entregarKeys = Object.keys(entregar).map(k => parseInt(k)).sort((a,b) => b-a);
-    const pedirKeys = Object.keys(pedir).map(k => parseInt(k)).sort((a,b) => b-a);
-    let tE = 0, tR = 0; entregarKeys.forEach(c => tE += entregar[c] * c); pedirKeys.forEach(c => tR += pedir[c] * c);
 
-    html += `<div class="card" style="margin:0 0 12px 0;background:#1e293b;border:2px solid #3b82f6"><div style="font-size:12px;color:#93c5fd;font-weight:900;letter-spacing:1px;margin-bottom:8px">💵 BILLETES · CAMBIO EN BANCO</div><div style="font-size:11px;color:#94a3b8;margin-bottom:10px;line-height:1.4">Tienes <b style="color:#93c5fd">${moneyText(totalSobra)}</b> en billetes que acumulas. Cámbialos en el banco por piezas más útiles.</div>`;
-    if(entregarKeys.length){ html += `<div style="font-size:11px;color:#f87171;font-weight:800;margin-bottom:4px">📤 ENTREGAS AL BANCO</div>`; entregarKeys.forEach(c => { const d = denominations.find(x => x.c === c); if(d) html += `<div style="display:flex;justify-content:space-between;font-size:13px;color:#fff;padding:2px 0"><span>${entregar[c]} × ${d.n}</span><span style="color:#f87171;font-weight:700">${moneyText(entregar[c]*c)}</span></div>`; }); }
-    if(pedirKeys.length){ html += `<div style="font-size:11px;color:#4ade80;font-weight:800;margin:8px 0 4px">📥 PIDES AL BANCO</div>`; pedirKeys.forEach(c => { const d = denominations.find(x => x.c === c); if(d) html += `<div style="display:flex;justify-content:space-between;font-size:13px;color:#fff;padding:2px 0"><span>${pedir[c]} × ${d.n}</span><span style="color:#4ade80;font-weight:700">${moneyText(pedir[c]*c)}</span></div>`; }); }
-    if(tE > 0 && tR > 0) html += `<button type="button" onclick="aplicarRecomendacionCambio(${tE})" style="width:100%;margin-top:10px;background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:10px;padding:10px;font-weight:800;font-size:13px;cursor:pointer">✅ USAR ESTA RECOMENDACIÓN</button>`;
+    // 7) Totalizar
+    let tE = 0, tR = 0;
+    Object.keys(entregar).forEach(c => tE += parseInt(c) * entregar[c]);
+    Object.keys(pedir).forEach(c => tR += parseInt(c) * pedir[c]);
+
+    // 8) 🔧 FIX: si no cuadran, ajustar hacia abajo hasta que cuadren
+    let guard = 0;
+    while (tR > tE && guard++ < 200) {
+      const keys = Object.keys(pedir).map(k => parseInt(k)).filter(c => pedir[c] > 0).sort((a, b) => a - b);
+      let ok = false;
+      for (const c of keys) {
+        if (pedir[c] > 0 && tR - c >= tE) {
+          pedir[c]--;
+          if (pedir[c] <= 0) delete pedir[c];
+          tR -= c;
+          ok = true;
+          break;
+        }
+      }
+      if (!ok) break;
+    }
+    guard = 0;
+    while (tE > tR && guard++ < 200) {
+      const keys = Object.keys(entregar).map(k => parseInt(k)).filter(c => entregar[c] > 0).sort((a, b) => a - b);
+      let ok = false;
+      for (const c of keys) {
+        if (entregar[c] > 0 && tE - c >= tR) {
+          entregar[c]--;
+          if (entregar[c] <= 0) delete entregar[c];
+          tE -= c;
+          ok = true;
+          break;
+        }
+      }
+      if (!ok) break;
+    }
+
+    // 9) Guardar para el botón "USAR ESTA RECOMENDACIÓN"
+    __recomendacionCambio = { entregar, pedir };
+
+    const entregarKeys = Object.keys(entregar).map(k => parseInt(k)).filter(c => entregar[c] > 0).sort((a, b) => b - a);
+    const pedirKeys = Object.keys(pedir).map(k => parseInt(k)).filter(c => pedir[c] > 0).sort((a, b) => b - a);
+
+    html += `<div class="card" style="margin:0 0 12px 0;background:#1e293b;border:2px solid #3b82f6">`;
+    html += `<div style="font-size:12px;color:#93c5fd;font-weight:900;letter-spacing:1px;margin-bottom:8px">💵 BILLETES · CAMBIO EN BANCO</div>`;
+    html += `<div style="font-size:11px;color:#94a3b8;margin-bottom:10px;line-height:1.4">Tienes <b style="color:#93c5fd">${moneyText(totalSobra)}</b> en billetes que acumulas. Cámbialos en el banco por piezas más útiles.</div>`;
+
+    if(entregarKeys.length){
+      html += `<div style="font-size:11px;color:#f87171;font-weight:800;margin-bottom:4px">📤 ENTREGAS AL BANCO</div>`;
+      entregarKeys.forEach(c => {
+        const d = denominations.find(x => x.c === c);
+        if(d) html += `<div style="display:flex;justify-content:space-between;font-size:13px;color:#fff;padding:2px 0"><span>${entregar[c]} × ${d.n}</span><span style="color:#f87171;font-weight:700">${moneyText(entregar[c] * c)}</span></div>`;
+      });
+    }
+    if(pedirKeys.length){
+      html += `<div style="font-size:11px;color:#4ade80;font-weight:800;margin:8px 0 4px">📥 PIDES AL BANCO</div>`;
+      pedirKeys.forEach(c => {
+        const d = denominations.find(x => x.c === c);
+        if(d) html += `<div style="display:flex;justify-content:space-between;font-size:13px;color:#fff;padding:2px 0"><span>${pedir[c]} × ${d.n}</span><span style="color:#4ade80;font-weight:700">${moneyText(pedir[c] * c)}</span></div>`;
+      });
+    }
+    if(tE > 0 && tR > 0 && tE === tR){
+      html += `<button type="button" onclick="aplicarRecomendacionCambio(${tE})" style="width:100%;margin-top:10px;background:#1e40af;color:#fff;border:1px solid #3b82f6;border-radius:10px;padding:10px;font-weight:800;font-size:13px;cursor:pointer">✅ USAR ESTA RECOMENDACIÓN</button>`;
+    }
     html += `</div>`;
   }
+
   if(monedasSobran.length){
-    html += `<div class="card" style="margin:0 0 12px 0;background:#2e1065;border:2px solid #7c3aed"><div style="font-size:12px;color:#c4b5fd;font-weight:900;letter-spacing:1px;margin-bottom:8px">🐷 MONEDAS · MOVER A HUCHA</div><div style="font-size:11px;color:#e9d5ff;margin-bottom:10px;line-height:1.4">Las monedas <b>no se pueden llevar al banco</b>. Llévalas a casa y apúntalas en la Hucha. Total: <b style="color:#c4b5fd">${moneyText(totalMonedasSobra)}</b></div>`;
-    monedasSobran.forEach(x => { html += `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #3b0764"><span style="font-size:13px;color:#fff;font-weight:700">${x.cantidad} × ${x.d.n}</span><button type="button" onclick="abrirModalMoverHucha(${x.index}, ${x.cantidad})" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer">🐷 Mover</button></div>`; });
+    html += `<div class="card" style="margin:0 0 12px 0;background:#2e1065;border:2px solid #7c3aed">`;
+    html += `<div style="font-size:12px;color:#c4b5fd;font-weight:900;letter-spacing:1px;margin-bottom:8px">🐷 MONEDAS · MOVER A HUCHA</div>`;
+    html += `<div style="font-size:11px;color:#e9d5ff;margin-bottom:10px;line-height:1.4">Las monedas <b>no se pueden llevar al banco</b>. Llévalas a casa y apúntalas en la Hucha. Total: <b style="color:#c4b5fd">${moneyText(totalMonedasSobra)}</b></div>`;
+    monedasSobran.forEach(x => {
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #3b0764"><span style="font-size:13px;color:#fff;font-weight:700">${x.cantidad} × ${x.d.n}</span><button type="button" onclick="abrirModalMoverHucha(${x.index}, ${x.cantidad})" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer">🐷 Mover</button></div>`;
+    });
     html += `<button type="button" onclick="moverTodasMonedasAHucha()" style="width:100%;margin-top:10px;background:#7c3aed;color:#fff;border:none;border-radius:10px;padding:10px;font-weight:800;font-size:13px;cursor:pointer">🐷 Mover TODAS a la Hucha</button></div>`;
   }
+
   return html;
 }
 
@@ -761,12 +867,10 @@ function renderCambioBotones(containerId, valores){
       const i = denominations.findIndex(x => x.c === c);
       const sa = stock[i] || 0;
       const sel = cambioState.aEntregar[c] || 0;
-
       if(sel >= sa){
         mostrarToast("⚠️ No tienes más piezas de " + denominations[i].n);
         return;
       }
-
       cambioState.aEntregar[c] = sel + 1;
       cambioState.orden.push(c);
       actualizarCambioInicio();

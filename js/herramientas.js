@@ -507,7 +507,8 @@ function actualizarBotonCochePrincipal(){
     const colorBorder = urgente ? "#ef4444" : "#ea580c", colorIcon = urgente ? "#fca5a5" : "#fed7aa", shadow = urgente ? "rgba(239,68,68,0.45)" : "rgba(234,88,12,0.35)";
     alertHtml = `<div onclick="abrirModalAvisos()" title="${avisos.length} aviso${avisos.length !== 1 ? 's' : ''}" style="background:${colorBg}; border:1px solid ${colorBorder}; border-radius:20px; padding:6px 12px; display:inline-flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 2px 8px ${shadow};"><span style="font-size:16px;">🔔</span><span style="font-size:14px; font-weight:900; color:${colorIcon}; letter-spacing:0.5px;">${avisos.length}</span></div>`;
   }
-  widget.innerHTML = carHtml + alertHtml;
+  let estadoHtml = (typeof obtenerBotonEstadoHTML === "function") ? obtenerBotonEstadoHTML() : "";
+  widget.innerHTML = carHtml + estadoHtml + alertHtml;
   return true;
 }
 

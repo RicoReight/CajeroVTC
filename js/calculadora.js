@@ -307,9 +307,13 @@ function confirmTransaction(){
   const propina = pendingTransaction.tip || 0;
   const cambio = dado - precio - propina;
 
+  // 1. Actualizamos el stock
   for(let i=0;i<stock.length;i++) stock[i]+=pendingTransaction.incoming[i]-pendingTransaction.used[i];
+  
+  // 2. Actualizamos propinas
   if(pendingTransaction.tip>0){ totalTips+=pendingTransaction.tip; saveTips(); }
   
+  // 3. Actualizamos estadísticas
   statsOps.operations++;
   for(let i=0;i<denominations.length;i++){
     statsOps.received[i]+=pendingTransaction.incoming[i]||0;
@@ -318,11 +322,21 @@ function confirmTransaction(){
   saveStats();
   saveStock();
 
-  añadirHistorialOp({ fecha: new Date().toISOString(), precio, dado, propina, cambio });
+  // 👇 AQUÍ ESTÁ EL CAMBIO. Añadimos estadoJornada y esViajeUber al historial 👇
+  añadirHistorialOp({ 
+    fecha: new Date().toISOString(), 
+    precio, 
+    dado, 
+    propina, 
+    cambio,
+    estadoJornada: (typeof estadoApp !== 'undefined') ? estadoApp : "offline",
+    esViajeUber: (typeof estadoApp !== 'undefined' && estadoApp === 'ocupado')
+  });
 
   if(typeof renderStockList === "function") renderStockList();
   if(typeof actualizarBotonCochePrincipal === "function") actualizarBotonCochePrincipal();
   
+  // 4. Limpiamos la pantalla para el siguiente viaje
   received=[];
   pendingTransaction=null;
   propinasDelCambio = {};
@@ -331,6 +345,7 @@ function confirmTransaction(){
   document.getElementById("tip").value="";
   document.getElementById("changeResult").style.display="none";
   updateReceived();
+  
   alert("¡Operación guardada!");
   
   try { programarAvisosDeposito(); } catch(e){}

@@ -199,6 +199,7 @@ async function abrirMapaPantalla(){
 
   cont.innerHTML = `
     <div id="geoEstadoBadge" style="text-align:center;margin-bottom:12px;padding:14px;border-radius:12px;border:2px solid #475569;background:linear-gradient(135deg,#1e293b,#0f172a);color:#94a3b8;font-size:15px;font-weight:900;letter-spacing:0.5px;transition:all 0.3s">⚫ RASTREO DETENIDO<div style='font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px'>Pulsa INICIAR para empezar</div></div>
+    <div id="resumenJornadaBox" style="margin-bottom:12px;"></div>
     <div style="position:relative;margin-bottom:12px">
       <div id="mapa-leaflet" style="width:100%;height:50vh;min-height:300px;border-radius:12px;background:#1e293b;border:1px solid #334155"></div>
       <button type="button" onclick="centrarEnMiUbicacion()" title="Mi ubicación" style="position:absolute;right:10px;bottom:20px;z-index:500;width:46px;height:46px;border-radius:50%;border:2px solid #0ea5e9;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-size:22px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:0;line-height:1">◎</button>
@@ -259,6 +260,10 @@ async function abrirMapaPantalla(){
   if(inpFecha) inpFecha.value = fechaLocalStr();
   renderListaRutasHistorial();
   aplicarEstadoHistorialRutas();
+  if(typeof renderResumenJornada === "function") {
+    renderResumenJornada();
+    setInterval(() => { if(document.getElementById("resumenJornadaBox")) renderResumenJornada(); }, 60000);
+  }
 }
 
 function cerrarMapaPantalla(){
@@ -462,16 +467,15 @@ function guardarPuntoRecorrido(lat, lon, acc) {
   if (cacheRecorridoHoy.length > 0) {
     const ultimo = cacheRecorridoHoy[cacheRecorridoHoy.length - 1];
     const dist = Math.sqrt(Math.pow(ultimo.lat - lat, 2) + Math.pow(ultimo.lon - lon, 2)) * 111000;
-    
-    // 👇 ARREGLO: Solo ignoramos si está muy cerca. Si hay un salto grande (túnel), LO GUARDAMOS.
     if (dist < 15) return; 
   }
 
-  cacheRecorridoHoy.push({ lat: lat, lon: lon, time: Date.now() });
+  // 👇 AQUÍ GUARDAMOS EL ESTADO ACTUAL (libre/ocupado/repostando) 👇
+  let est = (typeof estadoApp !== "undefined") ? estadoApp : "libre";
+  cacheRecorridoHoy.push({ lat: lat, lon: lon, time: Date.now(), estado: est });
 
-  // Límite de seguridad para no reventar la memoria del móvil
   if (cacheRecorridoHoy.length > 30000) {
-    cacheRecorridoHoy.splice(0, 5000); // Borra los 5000 puntos más viejos
+    cacheRecorridoHoy.splice(0, 5000); 
   }
 
   const ahora = Date.now();
@@ -494,41 +498,69 @@ function dibujarRecorridoEnMapa(fechaStr) {
   let puntosStr = safeStorage.get(claveMatched);
   let puntos = puntosStr ? JSON.parse(puntosStr) : obtenerRecorrido(fechaStr);
   if (!puntos || puntos.length < 2) return;
-  if (capaRecorridoActual && capaRecorridoActual._fecha === fechaStr && capaRecorridoActual._numPuntos === puntos.length) return;
   
-  // Limpiamos la ruta anterior y sus flechas
+  // Limpiamos cualquier ruta anterior del mapa
   if (capaRecorridoActual) { mapaInstance.removeLayer(capaRecorridoActual); capaRecorridoActual = null; }
-  if (capaFlechasRuta) { mapaInstance.removeLayer(capaFlechasRuta); capaFlechasRuta = null; }
-
-  const coordenadas = puntos.map(p => [p.lat, p.lon]);
-  
-  // 1. Dibujamos la línea azul
-  capaRecorridoActual = L.polyline(coordenadas, { color: '#38bdf8', weight: 5, opacity: 0.8, lineJoin: 'round', smoothFactor: 1.5 }).addTo(mapaInstance);
-  
-  // 2. Le añadimos las flechas encima
-  if (L.polylineDecorator) {
-    capaFlechasRuta = L.polylineDecorator(capaRecorridoActual, {
-      patterns: [
-        {
-          offset: 20,       // Empieza a pintar flechas a los 20px
-          repeat: 70,       // Pone una flecha cada 70px
-          symbol: L.Symbol.arrowHead({
-            pixelSize: 10,  // Tamaño de la flecha
-            polygon: false, // Solo la punta, sin relleno
-            pathOptions: {
-              stroke: true,
-              color: '#38bdf8', // Mismo color azul
-              weight: 3,
-              opacity: 1
-            }
-          })
-        }
-      ]
-    }).addTo(mapaInstance);
+  if (typeof capasSegmentosRuta !== 'undefined') {
+    capasSegmentosRuta.forEach(capa => mapaInstance.removeLayer(capa));
+    capasSegmentosRuta = [];
   }
 
-  capaRecorridoActual._fecha = fechaStr;
-  capaRecorridoActual._numPuntos = puntos.length;
+  // Agrupar puntos en segmentos (por estado)
+  let segmentos = [];
+  let tramoActual = null;
+
+  puntos.forEach((p) => {
+    let est = p.estado || "libre"; // Rutas antiguas no tienen estado, asumimos libre
+    
+    if (!tramoActual || tramoActual.estado !== est) {
+      if (tramoActual && tramoActual.coords.length > 0) {
+        tramoActual.coords.push([p.lat, p.lon]); // Unimos el final del tramo anterior con el inicio del nuevo
+        segmentos.push(tramoActual);
+      }
+      tramoActual = { estado: est, coords: [[p.lat, p.lon]] };
+    } else {
+      tramoActual.coords.push([p.lat, p.lon]);
+    }
+  });
+  if (tramoActual && tramoActual.coords.length > 1) segmentos.push(tramoActual);
+
+  // Dibujar cada segmento con su color
+  segmentos.forEach(seg => {
+    if (seg.coords.length < 2) return;
+
+    let color = "#38bdf8"; // Azul (Libre)
+    if (seg.estado === "ocupado") color = "#ef4444"; // Rojo (Ocupado)
+    if (seg.estado === "incidencia") color = "#f59e0b"; // Naranja (Incidencia)
+    if (seg.estado === "descanso") color = "#a855f7"; // Morado (Descanso)
+    if (seg.estado === "fuera") color = "#94a3b8"; // Gris (Fuera App)
+    let peso = seg.estado === "ocupado" ? 6 : 5;
+
+    // Dibujamos la línea
+    const linea = L.polyline(seg.coords, { color: color, weight: peso, opacity: 0.9, lineJoin: 'round', smoothFactor: 1.5 }).addTo(mapaInstance);
+    
+    if (typeof capasSegmentosRuta !== 'undefined') capasSegmentosRuta.push(linea);
+    if (!capaRecorridoActual) capaRecorridoActual = linea; // Guardamos la 1ª línea para que fitBounds funcione
+
+    // Añadimos las flechas
+    if (L.polylineDecorator) {
+      const flechas = L.polylineDecorator(linea, {
+        patterns: [{
+          offset: 20, repeat: 70,
+          symbol: L.Symbol.arrowHead({
+            pixelSize: 10, polygon: false,
+            pathOptions: { stroke: true, color: color, weight: 3, opacity: 1 }
+          })
+        }]
+      }).addTo(mapaInstance);
+      if (typeof capasSegmentosRuta !== 'undefined') capasSegmentosRuta.push(flechas);
+    }
+  });
+  
+  if (capaRecorridoActual) {
+    capaRecorridoActual._fecha = fechaStr;
+    capaRecorridoActual._numPuntos = puntos.length;
+  }
 }
 
 function toggleHistorialRutas(){
@@ -575,11 +607,17 @@ function renderListaRutasHistorial() {
 
 function verRutaHistorial(fechaStr) {
   const inp = document.getElementById("fechaRutaInput"); if (!inp || !mapaInstance) return;
+  
   if (inp.value === fechaStr && capaRecorridoActual) { 
-    mapaInstance.removeLayer(capaRecorridoActual); capaRecorridoActual = null; 
-    if (capaFlechasRuta) { mapaInstance.removeLayer(capaFlechasRuta); capaFlechasRuta = null; }
+    // Si ya está abierta, la ocultamos y borramos los segmentos de colores
+    if (typeof capasSegmentosRuta !== 'undefined') {
+      capasSegmentosRuta.forEach(capa => mapaInstance.removeLayer(capa));
+      capasSegmentosRuta = [];
+    }
+    capaRecorridoActual = null; 
   }
   else { 
+    // Si no está abierta, la dibujamos
     inp.value = fechaStr; 
     dibujarRecorridoEnMapa(fechaStr); 
     if (capaRecorridoActual) { mapaInstance.fitBounds(capaRecorridoActual.getBounds(), { padding: [30, 30] }); } 
@@ -589,14 +627,22 @@ function verRutaHistorial(fechaStr) {
 
 function borrarRutaHistorial(fechaStr) {
   if(!confirm("¿Borrar la ruta del " + fechaStr + "?\n\nEsta acción no se puede deshacer.")) return;
+  
+  // Borramos de la memoria
   localStorage.removeItem("uberCambioRecorrido_" + fechaStr);
   localStorage.removeItem("uberCambioRecorridoMatched_" + fechaStr);
+  
   const inp = document.getElementById("fechaRutaInput");
+  // Si la ruta que estamos borrando es la que está en pantalla, la quitamos del mapa
   if (inp && inp.value === fechaStr && capaRecorridoActual) { 
-    mapaInstance.removeLayer(capaRecorridoActual); capaRecorridoActual = null; 
-    if (capaFlechasRuta) { mapaInstance.removeLayer(capaFlechasRuta); capaFlechasRuta = null; }
+    if (typeof capasSegmentosRuta !== 'undefined') {
+      capasSegmentosRuta.forEach(capa => mapaInstance.removeLayer(capa));
+      capasSegmentosRuta = [];
+    }
+    capaRecorridoActual = null; 
   }
-  renderListaRutasHistorial(); mostrarToast("🗑️ Ruta borrada");
+  renderListaRutasHistorial(); 
+  mostrarToast("🗑️ Ruta borrada");
 }
 
 /* ==================== PROCESAMIENTO DE POSICIÓN ==================== */

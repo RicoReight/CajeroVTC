@@ -374,7 +374,8 @@ async function programarAvisosFestivos(){
       const caducidad = fechaCaducidad(f.fecha); if(!caducidad) return;
       const p = f.fecha.split("-"); const idBase = (parseInt(p[0]) * 10000 + parseInt(p[1]) * 100 + parseInt(p[2])) % 9000;
       [15, 5, 1].forEach((diasAntes, k) => {
-        const fechaAviso = new Date(caducidad.getTime()); fechaAviso.setDate(fechaAviso.getDate() - diasAntes); fechaAviso.setHours(10, 0, 0, 0);
+        const [hh, mm] = horaRecordatorio.split(":").map(Number);
+        const fechaAviso = new Date(caducidad.getTime()); fechaAviso.setDate(fechaAviso.getDate() - diasAntes); fechaAviso.setHours(hh, mm, 0, 0);
         if(fechaAviso.getTime() <= ahora.getTime()) return;
         notificaciones.push({ id: 300000 + idBase * 10 + k, title: '💼 Festivo a punto de caducar', body: `Te quedan ${diasAntes} día${diasAntes !== 1 ? 's' : ''} para solicitar el festivo del ${formatearFechaBonita(f.fecha)} (${f.nombre}).`, channelId: 'recordatorios-alta', schedule: { at: fechaAviso, allowWhileIdle: true } });
       });
@@ -393,10 +394,10 @@ async function programarAvisosResetPropinas(){
     if(diaReset === 0) return;
     const proxReset = calcularProximoReset(); if(!proxReset) return;
     const ahora = new Date();
+    const [hh, mm] = horaRecordatorio.split(":").map(Number);
     let fechaLimite = calcularLimiteDepositoReal(proxReset);
-    let fechaPreparacion = new Date(fechaLimite.getTime()); let diasHastaViernes = (fechaLimite.getDay() + 7 - 5) % 7; if(diasHastaViernes === 0) diasHastaViernes = 7; fechaPreparacion.setDate(fechaPreparacion.getDate() - diasHastaViernes); fechaPreparacion.setHours(10, 0, 0, 0);
-    let fechaUltimaSemana = new Date(fechaLimite.getTime()); let diasHastaMartes = (fechaLimite.getDay() + 7 - 2) % 7; fechaUltimaSemana.setDate(fechaUltimaSemana.getDate() - diasHastaMartes); fechaUltimaSemana.setHours(10, 0, 0, 0);
-    const esMismoDia = (fechaUltimaSemana.getDate() === fechaLimite.getDate()); const nombreDiaLimite = diasSemanaNombres[fechaLimite.getDay()];
+    let fechaPreparacion = new Date(fechaLimite.getTime()); let diasHastaViernes = (fechaLimite.getDay() + 7 - 5) % 7; if(diasHastaViernes === 0) diasHastaViernes = 7; fechaPreparacion.setDate(fechaPreparacion.getDate() - diasHastaViernes); fechaPreparacion.setHours(hh, mm, 0, 0);
+    let fechaUltimaSemana = new Date(fechaLimite.getTime()); let diasHastaMartes = (fechaLimite.getDay() + 7 - 2) % 7; fechaUltimaSemana.setDate(fechaUltimaSemana.getDate() - diasHastaMartes); fechaUltimaSemana.setHours(hh, mm, 0, 0);
     const alertas = [{ fecha: fechaPreparacion, title: '📅 Último viernes de margen', body: `Aprovecha hoy que las máquinas están abiertas. El límite real para ingresar las propinas es el ${nombreDiaLimite} de la próxima semana.` }];
     if(!esMismoDia) alertas.push({ fecha: fechaUltimaSemana, title: '🔔 ¡Empieza tu semana de entrega!', body: `Tienes hasta el ${nombreDiaLimite} para meter las propinas en las máquinas.` });
     alertas.push({ fecha: fechaLimite, title: '⚠️ ¡ÚLTIMO DÍA DE ENTREGA!', body: 'Hoy es el último día para meter el dinero de las propinas en las máquinas.' });

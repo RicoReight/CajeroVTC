@@ -261,18 +261,19 @@ function obtenerBotonEstadoHTML() {
   if (estadoApp === 'incidencia') { color = "#f59e0b"; texto = "🟠 INCIDENCIA"; }
   if (estadoApp === 'descanso') { color = "#a855f7"; texto = "🟣 DESCANSO"; }
 
-  // Calculamos el tiempo en vivo del estado actual
   let crono = "";
   if (estadoApp !== 'offline') {
     const segs = Math.floor((Date.now() - tiempoInicioEstado) / 1000);
     const h = Math.floor(segs / 3600).toString().padStart(2, '0');
     const m = Math.floor((segs % 3600) / 60).toString().padStart(2, '0');
-    crono = ` · ${h}:${m}`;
+    crono = `${h}:${m}`; // Formato HH:MM sin segundos
   }
 
+  // Los dos textos van en spans separados para que no se pisen
   return `
-    <div onclick="abrirMenuEstado()" style="flex: 1; background:${color}; border:1px solid rgba(255,255,255,0.2); border-radius:20px; padding:6px 12px; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.3); transition:all 0.2s; min-width: 0;">
-      <span style="font-size:12px; font-weight:900; color:#fff; letter-spacing:0.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${texto}${crono}</span>
+    <div onclick="abrirMenuEstado()" style="flex: 1; background:${color}; border:1px solid rgba(255,255,255,0.2); border-radius:20px; padding:6px 12px; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.3); transition:all 0.2s; min-width:0; overflow:hidden;">
+      <span style="font-size:12px; font-weight:900; color:#fff; letter-spacing:0.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;">${texto}</span>
+      ${crono ? `<span style="font-size:11px; font-weight:800; color:rgba(255,255,255,0.9); white-space:nowrap; font-variant-numeric: tabular-nums;">· ${crono}</span>` : ''}
     </div>`;
 }
 

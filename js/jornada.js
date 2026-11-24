@@ -15,16 +15,53 @@ let segundosFueraHoy = parseInt(safeStorage.get("uberCambioTiempoFuera_" + fecha
 /* ==================== CONTROL DE ESTADOS ==================== */
 
 function abrirMenuEstado() {
+  // Calculamos los tiempos totales actuales para mostrarlos en el menú
+  let sLibre = segundosLibreHoy, sOcupado = segundosOcupadoHoy, sIncidencia = segundosIncidenciaHoy, sDescanso = segundosDescansoHoy, sFuera = segundosFueraHoy;
+  const segsActuales = Math.floor((Date.now() - tiempoInicioEstado) / 1000);
+  if (estadoApp === 'libre') sLibre += segsActuales;
+  if (estadoApp === 'ocupado') sOcupado += segsActuales;
+  if (estadoApp === 'incidencia') sIncidencia += segsActuales;
+  if (estadoApp === 'descanso') sDescanso += segsActuales;
+  if (estadoApp === 'fuera') sFuera += segsActuales;
+
+  const formatT = (totalSegs) => {
+    const h = Math.floor(totalSegs / 3600);
+    const m = Math.floor((totalSegs % 3600) / 60);
+    return `${h}h ${m}m`;
+  };
+
+  const uberOn = sLibre + sOcupado;
+  const jornadaTotal = uberOn + sIncidencia + sDescanso + sFuera;
+
   const m = document.createElement("div");
   m.id = "modalEstadoApp";
   m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;";
+  
   m.innerHTML = `
     <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:340px;width:100%;border:1px solid #334155;">
-      <div style="font-size:16px;font-weight:900;color:#fff;text-align:center;margin-bottom:16px;">ESTADO DE LA JORNADA</div>
+      
+      <!-- MINI RESUMEN DEL DÍA -->
+      <div style="background:#0f172a; border:1px solid #334155; border-radius:12px; padding:12px; margin-bottom:16px;">
+        <div style="font-size:11px; color:#94a3b8; font-weight:800; text-align:center; margin-bottom:8px;">RESUMEN DE HOY</div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="font-size:12px; color:#f8fafc; font-weight:700;">💼 Uber ON:</span>
+          <span style="font-size:12px; color:#4ade80; font-weight:900;">${formatT(uberOn)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="font-size:12px; color:#f8fafc; font-weight:700;">⚫ Fuera App:</span>
+          <span style="font-size:12px; color:#94a3b8; font-weight:900;">${formatT(sFuera)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; border-top:1px solid #334155; padding-top:4px; margin-top:4px;">
+          <span style="font-size:12px; color:#f8fafc; font-weight:800;">⏱️ Total Jornada:</span>
+          <span style="font-size:12px; color:#38bdf8; font-weight:900;">${formatT(jornadaTotal)}</span>
+        </div>
+      </div>
+
+      <div style="font-size:14px;font-weight:900;color:#fff;text-align:center;margin-bottom:12px;">CAMBIAR ESTADO</div>
       
       <button onclick="cambiarEstadoApp('libre')" style="width:100%;padding:14px;margin-bottom:8px;border-radius:10px;border:none;background:#10b981;color:#fff;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 4px 10px rgba(16,185,129,0.3);">🟢 LIBRE (Uber ON)</button>
       <button onclick="cambiarEstadoApp('ocupado')" style="width:100%;padding:14px;margin-bottom:8px;border-radius:10px;border:none;background:#ef4444;color:#fff;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 4px 10px rgba(239,68,68,0.3);">🔴 OCUPADO (Cliente)</button>
-      <button onclick="cambiarEstadoApp('incidencia')" style="width:100%;padding:14px;margin-bottom:8px;border-radius:10px;border:none;background:#f59e0b;color:#fff;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 4px 10px rgba(245,158,11,0.3);">🟠 INCIDENCIA (Repostar/Comer)</button>
+      <button onclick="cambiarEstadoApp('incidencia')" style="width:100%;padding:14px;margin-bottom:8px;border-radius:10px;border:none;background:#f59e0b;color:#fff;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 4px 10px rgba(245,158,11,0.3);">🟠 INCIDENCIA (Repostar)</button>
       <button onclick="cambiarEstadoApp('descanso')" style="width:100%;padding:14px;margin-bottom:8px;border-radius:10px;border:none;background:#a855f7;color:#fff;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 4px 10px rgba(168,85,247,0.3);">🟣 DESCANSO (Pausa)</button>
       <button onclick="cambiarEstadoApp('fuera')" style="width:100%;padding:14px;margin-bottom:16px;border-radius:10px;border:none;background:#475569;color:#fff;font-weight:900;font-size:15px;cursor:pointer;">⚫ FUERA DE LA APP (Extras)</button>
       
@@ -175,10 +212,37 @@ function obtenerBotonEstadoHTML() {
   if (estadoApp === 'incidencia') { color = "#f59e0b"; texto = "🟠 INCIDENCIA"; }
   if (estadoApp === 'descanso') { color = "#a855f7"; texto = "🟣 DESCANSO"; }
 
+  // Calculamos el tiempo en vivo del estado actual
+  let crono = "";
+  if (estadoApp !== 'offline') {
+    const segs = Math.floor((Date.now() - tiempoInicioEstado) / 1000);
+    const h = Math.floor(segs / 3600).toString().padStart(2, '0');
+    const m = Math.floor((segs % 3600) / 60).toString().padStart(2, '0');
+    crono = ` · ${h}:${m}`;
+  }
+
   return `
-    <div onclick="abrirMenuEstado()" style="background:${color}; border:1px solid rgba(255,255,255,0.2); border-radius:20px; padding:6px 12px; display:inline-flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.3); transition:all 0.2s;">
-      <span style="font-size:12px; font-weight:900; color:#fff; letter-spacing:0.5px;">${texto}</span>
+    <div onclick="abrirMenuEstado()" style="flex: 1; background:${color}; border:1px solid rgba(255,255,255,0.2); border-radius:20px; padding:6px 12px; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.3); transition:all 0.2s; min-width: 0;">
+      <span style="font-size:12px; font-weight:900; color:#fff; letter-spacing:0.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${texto}${crono}</span>
     </div>`;
+}
+
+function iniciarJornada() {
+  // Si estábamos offline, pasamos a "fuera" (o "libre" si lo prefieres)
+  if(estadoApp === 'offline') {
+    cambiarEstadoApp('fuera'); 
+  }
+  // Reiniciamos el contador para que cuente desde este preciso momento
+  tiempoInicioEstado = Date.now();
+  mostrarToast("⏱️ Jornada iniciada con el coche");
+}
+
+function detenerJornada() {
+  // Pasamos a offline y cerramos el día
+  if(estadoApp !== 'offline') {
+    cambiarEstadoApp('offline');
+    mostrarToast("🛑 Jornada finalizada");
+  }
 }
 
 // Comprobador de cambio de día
@@ -193,3 +257,10 @@ setInterval(() => {
     segundosFueraHoy = parseInt(safeStorage.get("uberCambioTiempoFuera_" + hoy)) || 0;
   }
 }, 60000);
+
+// Actualizar el reloj del botón cada 10 segundos
+setInterval(() => {
+  if (typeof actualizarBotonCochePrincipal === 'function') {
+    actualizarBotonCochePrincipal();
+  }
+}, 10000); 

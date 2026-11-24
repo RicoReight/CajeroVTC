@@ -430,12 +430,22 @@ function seleccionarCoche(mat){
   const item = pinesLista.find(x => x.mat === mat);
   if(!item) return;
   cocheActual = mat; timestampSeleccionCoche = Date.now(); saveCocheActual();
-  registrarCocheDia(mat); renderPinesResultados(); actualizarBotonCochePrincipal(); mostrarToast("✅ Coche actual: " + mat);
+  registrarCocheDia(mat); renderPinesResultados(); actualizarBotonCochePrincipal(); 
+  mostrarToast("✅ Coche actual: " + mat);
+  
+  // 👇 AÑADE ESTA LÍNEA 👇
+  if(typeof iniciarJornada === 'function') iniciarJornada();
 }
+
 function liberarCoche(){
   if(!cocheActual) return;
   if(!confirm("¿Liberar el coche actual?\n\nTendrás que volver a seleccionarlo la próxima vez.")) return;
-  cocheActual = ""; timestampSeleccionCoche = 0; saveCocheActual(); renderPinesResultados(); actualizarBotonCochePrincipal(); mostrarToast("🔓 Coche liberado");
+  cocheActual = ""; timestampSeleccionCoche = 0; saveCocheActual(); 
+  renderPinesResultados(); actualizarBotonCochePrincipal(); 
+  mostrarToast("🔓 Coche liberado");
+
+  // 👇 AÑADE ESTA LÍNEA 👇
+  if(typeof detenerJornada === 'function') detenerJornada();
 }
 
 function checkResetCoche(){

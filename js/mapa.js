@@ -72,6 +72,7 @@ let ultimaPosicion = null;
 let zonaActual = null;
 let zonaPendiente = null;
 let capaRecorridoActual = null;
+let capaFlechasRuta = null;
 let procesandoZona = false;
 let zonaCandidata = null;
 let zonaCandidataCount = 0;
@@ -131,12 +132,28 @@ async function cargarLeaflet(){
   if(leafletLoading) return leafletLoading;
   leafletLoading = new Promise((resolve, reject) => {
     const timeout = setTimeout(() => { reject(new Error("Timeout: Leaflet no cargó en 10s")); }, 10000);
+    
+    // 1. Cargar CSS de Leaflet
     const css = document.createElement("link"); css.rel = "stylesheet";
     css.href = "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css";
     document.head.appendChild(css);
+    
+    // 2. Cargar JS de Leaflet
     const s = document.createElement("script");
     s.src = "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js";
-    s.onload = () => { clearTimeout(timeout); leafletLoaded = true; console.log("✅ Leaflet cargado"); resolve(); };
+    s.onload = () => { 
+      // 3. Cargar el plugin de flechas JUSTO DESPUÉS
+      const s2 = document.createElement("script");
+      s2.src = "https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js";
+      s2.onload = () => {
+        clearTimeout(timeout); 
+        leafletLoaded = true; 
+        console.log("✅ Leaflet y Flechas cargados"); 
+        resolve(); 
+      };
+      s2.onerror = () => { clearTimeout(timeout); reject(new Error("No se pudo cargar el plugin de flechas")); };
+      document.head.appendChild(s2);
+    };
     s.onerror = () => { clearTimeout(timeout); reject(new Error("No se pudo cargar Leaflet desde jsdelivr")); };
     document.head.appendChild(s);
   });
@@ -478,9 +495,38 @@ function dibujarRecorridoEnMapa(fechaStr) {
   let puntos = puntosStr ? JSON.parse(puntosStr) : obtenerRecorrido(fechaStr);
   if (!puntos || puntos.length < 2) return;
   if (capaRecorridoActual && capaRecorridoActual._fecha === fechaStr && capaRecorridoActual._numPuntos === puntos.length) return;
+  
+  // Limpiamos la ruta anterior y sus flechas
   if (capaRecorridoActual) { mapaInstance.removeLayer(capaRecorridoActual); capaRecorridoActual = null; }
+  if (capaFlechasRuta) { mapaInstance.removeLayer(capaFlechasRuta); capaFlechasRuta = null; }
+
   const coordenadas = puntos.map(p => [p.lat, p.lon]);
-  capaRecorridoActual = L.polyline(coordenadas, { color: '#38bdf8', weight: 4, opacity: 0.9, lineJoin: 'round', smoothFactor: 1.5 }).addTo(mapaInstance);
+  
+  // 1. Dibujamos la línea azul
+  capaRecorridoActual = L.polyline(coordenadas, { color: '#38bdf8', weight: 5, opacity: 0.8, lineJoin: 'round', smoothFactor: 1.5 }).addTo(mapaInstance);
+  
+  // 2. Le añadimos las flechas encima
+  if (L.polylineDecorator) {
+    capaFlechasRuta = L.polylineDecorator(capaRecorridoActual, {
+      patterns: [
+        {
+          offset: 20,       // Empieza a pintar flechas a los 20px
+          repeat: 70,       // Pone una flecha cada 70px
+          symbol: L.Symbol.arrowHead({
+            pixelSize: 10,  // Tamaño de la flecha
+            polygon: false, // Solo la punta, sin relleno
+            pathOptions: {
+              stroke: true,
+              color: '#38bdf8', // Mismo color azul
+              weight: 3,
+              opacity: 1
+            }
+          })
+        }
+      ]
+    }).addTo(mapaInstance);
+  }
+
   capaRecorridoActual._fecha = fechaStr;
   capaRecorridoActual._numPuntos = puntos.length;
 }
@@ -529,8 +575,15 @@ function renderListaRutasHistorial() {
 
 function verRutaHistorial(fechaStr) {
   const inp = document.getElementById("fechaRutaInput"); if (!inp || !mapaInstance) return;
-  if (inp.value === fechaStr && capaRecorridoActual) { mapaInstance.removeLayer(capaRecorridoActual); capaRecorridoActual = null; }
-  else { inp.value = fechaStr; dibujarRecorridoEnMapa(fechaStr); if (capaRecorridoActual) { mapaInstance.fitBounds(capaRecorridoActual.getBounds(), { padding: [30, 30] }); } }
+  if (inp.value === fechaStr && capaRecorridoActual) { 
+    mapaInstance.removeLayer(capaRecorridoActual); capaRecorridoActual = null; 
+    if (capaFlechasRuta) { mapaInstance.removeLayer(capaFlechasRuta); capaFlechasRuta = null; }
+  }
+  else { 
+    inp.value = fechaStr; 
+    dibujarRecorridoEnMapa(fechaStr); 
+    if (capaRecorridoActual) { mapaInstance.fitBounds(capaRecorridoActual.getBounds(), { padding: [30, 30] }); } 
+  }
   renderListaRutasHistorial();
 }
 
@@ -539,7 +592,10 @@ function borrarRutaHistorial(fechaStr) {
   localStorage.removeItem("uberCambioRecorrido_" + fechaStr);
   localStorage.removeItem("uberCambioRecorridoMatched_" + fechaStr);
   const inp = document.getElementById("fechaRutaInput");
-  if (inp && inp.value === fechaStr && capaRecorridoActual) { mapaInstance.removeLayer(capaRecorridoActual); capaRecorridoActual = null; }
+  if (inp && inp.value === fechaStr && capaRecorridoActual) { 
+    mapaInstance.removeLayer(capaRecorridoActual); capaRecorridoActual = null; 
+    if (capaFlechasRuta) { mapaInstance.removeLayer(capaFlechasRuta); capaFlechasRuta = null; }
+  }
   renderListaRutasHistorial(); mostrarToast("🗑️ Ruta borrada");
 }
 

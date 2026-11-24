@@ -225,6 +225,9 @@ function calcularIntercambiosRecomendados(){
   const ops = statsOps.operations;
   if(ops < 10) return { sobran: [], totalSobra: 0, monedasSobran: [], totalMonedasSobra: 0 };
 
+  const rec = configuracionRecomendada();
+  const v = rec.viajes, c = rec.colchon;
+
   const sobran = [];
   let totalSobra = 0;
   const monedasSobran = [];
@@ -236,16 +239,28 @@ function calcularIntercambiosRecomendados(){
     
     if(t <= 0) return;
 
-    if(sa > t){
-      const objetivo = Math.max(1, Math.floor(t * FACTOR_LLENADO));
-      const cantidad = sa - objetivo;
+    // 🧠 APRENDIZAJE: Calculamos el objetivo ideal (lo que realmente necesitas)
+    const gm = statsOps.spent[i] / ops; 
+    let objetivoDinamico = 0;
+    
+    if (gm > 0) {
+       objetivoDinamico = Math.ceil(gm * v) + c;
+       const limSup = Math.max(1, Math.floor(t * FACTOR_LLENADO));
+       objetivoDinamico = Math.min(objetivoDinamico, limSup);
+    } else {
+       // Si nunca gastas una pieza, el objetivo es 0. Si es moneda, dejamos 1 de margen.
+       objetivoDinamico = (d.type === "coin") ? 1 : 0;
+    }
 
+    // Si tengo MÁS de lo que necesito, me sobra
+    if(sa > objetivoDinamico){
+      const cantidad = sa - objetivoDinamico;
       if(cantidad > 0){
         if(d.type === "bill"){
-          sobran.push({ d, index: i, cantidad, stock: sa, objetivo });
+          sobran.push({ d, index: i, cantidad, stock: sa, objetivo: objetivoDinamico });
           totalSobra += cantidad * d.c;
         } else {
-          monedasSobran.push({ d, index: i, cantidad, stock: sa, objetivo });
+          monedasSobran.push({ d, index: i, cantidad, stock: sa, objetivo: objetivoDinamico });
           totalMonedasSobra += cantidad * d.c;
         }
       }
@@ -261,6 +276,7 @@ function calcularIntercambiosRecomendados(){
 function calcularFaltantes(v, c){
   const ops = statsOps.operations;
   const fal = [], obj = {};
+  
   denominations.forEach((d, i) => {
     const sa = stock[i] || 0;
     const ha = hucha[i] || 0;
@@ -268,23 +284,42 @@ function calcularFaltantes(v, c){
     
     if(t === 0) return;
 
+    let o = 0; 
+
+    if (ops >= 5) {
+      // 🧠 APRENDIZAJE: Si gastas de esta pieza, calculamos cuánto necesitas.
+      const gm = statsOps.spent[i] / ops; 
+      if (gm > 0) o = Math.ceil(gm * v) + c;
+    } else {
+      // 📦 ARRANQUE: Usamos los valores por defecto.
+      const ba = ARRANQUE[d.c] || 0;
+      if (ba > 0) o = Math.ceil(ba * (v / 20)) + c;
+    }
+
     const limSup = Math.max(1, Math.floor(t * FACTOR_LLENADO));
-    let o;
-    if(ops >= 5){ const gm = statsOps.spent[i]/ops; o = Math.ceil(gm*v) + c; }
-    else { const ba = ARRANQUE[d.c] || 0; o = Math.ceil(ba*(v/20)) + c; }
-    o = Math.min(o, limSup);
+    
+    if (o > 0) {
+      o = Math.min(o, limSup); // El objetivo no puede superar tu Tope Máximo
+    } else {
+      o = 0; 
+    }
+    
     obj[d.c] = o;
     
+    // Calculamos cuánto falta
     const falta = Math.max(0, o - sa);
+    
     if(falta > 0){
       const deHucha = Math.min(falta, ha);
       const deBanco = falta - deHucha;
       fal.push({ d, index: i, falta, deHucha, deBanco });
     }
   });
+
   const total = fal.reduce((s,x) => s + x.falta * x.d.c, 0);
   const totalDeHucha = fal.reduce((s,x) => s + x.deHucha * x.d.c, 0);
   const totalDeBanco = fal.reduce((s,x) => s + x.deBanco * x.d.c, 0);
+  
   return { faltantes: fal, total, totalDeHucha, totalDeBanco };
 }
 

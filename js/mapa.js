@@ -184,30 +184,26 @@ async function cargarLeaflet(){
   return leafletLoading;
 }
 
-async function cargarPoligonos(cont){
+async function cargarPoligonos(){
   if(!geoAMB){
     try {
-      if(cont) cont.innerHTML = "<div style='text-align:center;color:#94a3b8;padding:20px'>Cargando zona AMB...</div>";
       const r1 = await fetch("VallasMap/AMB.json"); if(!r1.ok) throw new Error("HTTP "+r1.status);
       geoAMB = await r1.json();
-    } catch(e){ console.warn("⚠️ AMB no cargado:", e); if(cont) cont.innerHTML = "<div style='text-align:center;color:#fbbf24;padding:20px'>⚠️ AMB no cargado. Siguiendo...</div>"; await new Promise(r => setTimeout(r, 800)); }
+    } catch(e){ console.warn("⚠️ AMB no cargado:", e); }
   }
   if(!geoZBE){
     try {
-      if(cont) cont.innerHTML = "<div style='text-align:center;color:#94a3b8;padding:20px'>Cargando zona Rondas...</div>";
       const r2 = await fetch("VallasMap/ZBE.json"); if(!r2.ok) throw new Error("HTTP "+r2.status);
       geoZBE = await r2.json();
-    } catch(e){ console.warn("⚠️ ZBE no cargado:", e); if(cont) cont.innerHTML = "<div style='text-align:center;color:#fbbf24;padding:20px'>⚠️ ZBE no cargado. Siguiendo...</div>"; await new Promise(r => setTimeout(r, 800)); }
+    } catch(e){ console.warn("⚠️ ZBE no cargado:", e); }
   }
   if(!geoPROV){
     try {
-      if(cont) cont.innerHTML = "<div style='text-align:center;color:#94a3b8;padding:20px'>Cargando provincia de Barcelona...</div>";
       const r3 = await fetch("VallasMap/ProvinciaBCN.json"); if(!r3.ok) throw new Error("HTTP "+r3.status);
       geoPROV = await r3.json();
-    } catch(e){ console.warn("⚠️ Provincia BCN no cargada:", e); if(cont) cont.innerHTML = "<div style='text-align:center;color:#fbbf24;padding:20px'>⚠️ Provincia no cargada. Siguiendo...</div>"; await new Promise(r => setTimeout(r, 800)); }
+    } catch(e){ console.warn("⚠️ Provincia BCN no cargada:", e); }
   }
 }
-
 /* ==================== PANTALLA DEL MAPA ==================== */
 async function abrirMapaPantalla(){
   const d=document.getElementById("drawer"),o=document.getElementById("overlay");
@@ -215,12 +211,13 @@ async function abrirMapaPantalla(){
   const p=document.getElementById("mapaPantalla"); if(p)p.style.display="block";
   const cont = document.getElementById("mapaContenido");
   
+  // PANTALLA DE CARGA VISUAL
   cont.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;text-align:center;">
       <div style="font-size:48px;margin-bottom:16px;animation:spin 2s linear infinite;display:inline-block;">🌍</div>
       <div id="loadingText" style="font-size:16px;color:#38bdf8;font-weight:800;margin-bottom:16px;">Iniciando motor...</div>
       <div style="width:80%;max-width:300px;background:#1e293b;border-radius:10px;height:12px;overflow:hidden;border:1px solid #334155;">
-        <div id="loadingBar" style="width:0%;height:100%;background:linear-gradient(90deg, #0ea5e9, #38bdf8);transition:width 0.8s ease-in-out;"></div>
+        <div id="loadingBar" style="width:0%;height:100%;background:linear-gradient(90deg, #0ea5e9, #38bdf8);transition:width 0.5s ease-in-out;"></div>
       </div>
     </div>
     <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
@@ -232,21 +229,27 @@ async function abrirMapaPantalla(){
     if(b) b.style.width = pct + "%";
   };
 
-  // Simulamos una carga con tiempos controlados
-  setLoad("Cargando librerías...", 20);
-  await new Promise(r => setTimeout(r, 800)); // Pausa forzada para que se vea
-  
-  try { await cargarLeaflet(); setLoad("Preparando zonas...", 50); }
+  // 👇 CARGA PASO A PASO (Sin solapamientos) 👇
+  setLoad("Cargando motor del mapa...", 10);
+  try { await cargarLeaflet(); } 
   catch(e){ cont.innerHTML = "<div style='text-align:center;color:#ef4444;padding:30px;background:#1e293b;border-radius:12px;'>❌ Error: "+e.message+"<br><br><button onclick='abrirMapaPantalla()' style='margin-top:12px;padding:10px 20px;border-radius:8px;border:none;background:#334155;color:#fff;font-weight:800;'>Reintentar</button></div>"; return; }
 
-  await new Promise(r => setTimeout(r, 800)); // Otra pausa
-  setLoad("Descargando datos...", 80);
-  await cargarPoligonos(cont); 
-  
-  await new Promise(r => setTimeout(r, 500));
-  setLoad("¡Listo!", 100);
-  await new Promise(r => setTimeout(r, 500)); // Pausa final antes de mostrar el mapa
+  setLoad("Descargando zona AMB...", 30);
+  await new Promise(r => setTimeout(r, 600)); 
 
+  setLoad("Descargando ZBE (Rondas)...", 50);
+  await new Promise(r => setTimeout(r, 600));
+
+  setLoad("Descargando provincia...", 70);
+  await cargarPoligonos(); 
+  
+  setLoad("Dibujando mapa...", 90);
+  await new Promise(r => setTimeout(r, 600)); 
+  
+  setLoad("¡Listo!", 100);
+  await new Promise(r => setTimeout(r, 500)); // Pausa final
+
+  // PANTALLA REAL DEL MAPA
   cont.innerHTML = `
     <div id="geoEstadoBadge" style="text-align:center;margin-bottom:12px;padding:14px;border-radius:12px;border:2px solid #475569;background:linear-gradient(135deg,#1e293b,#0f172a);color:#94a3b8;font-size:15px;font-weight:900;letter-spacing:0.5px;transition:all 0.3s">⚫ RASTREO DETENIDO<div style='font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px'>Pulsa INICIAR para empezar</div></div>
     <div id="resumenJornadaBox" style="display:flex; justify-content:center; gap:8px; margin-bottom:12px;"></div>
@@ -327,7 +330,6 @@ async function abrirMapaPantalla(){
   const inpFecha = document.getElementById("fechaRutaInput");
   if(inpFecha) inpFecha.value = fechaLocalStr();
   
-  // 👇 Forzamos a que el slider esté al 100% al abrir
   const sl = document.getElementById("rutaSlider"); if(sl) sl.value = 100;
 
   renderListaRutasHistorial();
@@ -571,7 +573,7 @@ function actualizarMapaVisual() {
   timeoutMapaVisual = setTimeout(() => {
     const inp = document.getElementById("fechaRutaInput");
     if (inp && inp.value) dibujarRecorridoEnMapa(inp.value);
-  }, 150); // 150ms de retraso para que sea fluido
+  }, 30); // 30ms es casi instantáneo
 }
 
 function dibujarRecorridoEnMapa(fechaStr) {
@@ -583,14 +585,9 @@ function dibujarRecorridoEnMapa(fechaStr) {
   
   puntosRutaActualGlobal = puntos;
 
-  // Limpiamos todo usando el featureGroup
-  if (grupoRutaActual) {
-    mapaInstance.removeLayer(grupoRutaActual);
-    grupoRutaActual = null;
-  }
+  if (grupoRutaActual) { mapaInstance.removeLayer(grupoRutaActual); grupoRutaActual = null; }
   grupoRutaActual = L.featureGroup().addTo(mapaInstance);
-  
-  capasSegmentosRuta = []; // Vaciamos el array
+  capasSegmentosRuta = [];
 
   const filtros = {
     libre: document.getElementById("filtro_libre")?.checked ?? true,
@@ -603,8 +600,12 @@ function dibujarRecorridoEnMapa(fechaStr) {
   const pct = parseInt(document.getElementById("rutaSlider")?.value || 100);
   const numPuntosAMostrar = Math.floor(puntos.length * (pct / 100));
   const puntosVisibles = puntos.slice(0, numPuntosAMostrar);
+  
+  // Detectamos cuál es el último punto visible para el zoom y los marcadores
+  const idxActual = Math.max(0, numPuntosAMostrar - 1);
+  const puntoActual = puntos[idxActual];
+  const timeActual = puntoActual ? (puntoActual.time || Date.now()) : Date.now();
 
-  // Línea fantasma si el slider está a medias
   if (pct < 100) {
     const coordsFantasma = puntos.map(p => [p.lat, p.lon]);
     const lineaFantasma = L.polyline(coordsFantasma, { color: '#334155', weight: 3, opacity: 0.5, dashArray: '5, 10' }).addTo(grupoRutaActual);
@@ -650,7 +651,7 @@ function dibujarRecorridoEnMapa(fechaStr) {
     }
   });
 
-  // ICONOS CON NÚMERO DE VIAJE
+  // ICONOS CON NÚMERO DE VIAJE (Filtrados por tiempo)
   let marcadoresViajes = {};
   try { marcadoresViajes = JSON.parse(safeStorage.get("uberCambioMarcadoresViajes") || "{}"); } catch(e){}
   
@@ -660,8 +661,11 @@ function dibujarRecorridoEnMapa(fechaStr) {
     marcadoresViajes[fechaStr].forEach(punto => {
       const esA = punto.tipo === 'A';
       if (!filtros.ocupado) return; 
-
+      
       if (esA) contadorViaje++;
+
+      // 👇 SI LA BARRA NO HA LLEGADO AL MOMENTO DEL PUNTO, NO LO DIBUJAMOS 👇
+      if (pct < 100 && punto.time && punto.time > timeActual) return;
 
       const color = esA ? '#10b981' : '#ef4444'; 
       const emoji = esA ? '🙋‍♂️' : '🏁'; 
@@ -683,8 +687,12 @@ function dibujarRecorridoEnMapa(fechaStr) {
     });
   }
   
-  // 👇 AHORA EL ZOOM SE AJUSTA A TODO EL GRUPO (Evita que se vea borroso o descuadrado)
-  if (grupoRutaActual && grupoRutaActual.getLayers().length > 0) {
+  // 👇 MAGIA DEL ZOOM SEGÚN LA BARRA 👇
+  if (pct < 100 && puntoActual) {
+    // Si estamos moviendo la barra, nos centramos en el punto actual con zoom de calle
+    mapaInstance.setView([puntoActual.lat, puntoActual.lon], 15, { animate: true });
+  } else if (grupoRutaActual.getLayers().length > 0) {
+    // Si está al 100%, encajamos toda la ruta
     mapaInstance.fitBounds(grupoRutaActual.getBounds(), { padding: [30, 30] });
   }
 }

@@ -212,25 +212,70 @@ async function abrirMapaPantalla(){
   if(d)d.classList.remove("active"); if(o)o.classList.remove("active");
   const p=document.getElementById("mapaPantalla"); if(p)p.style.display="block";
   const cont = document.getElementById("mapaContenido");
-  cont.innerHTML = "<div style='text-align:center;color:#94a3b8;padding:20px'>Cargando librería de mapas...</div>";
+  
+  // 👇 NUEVA PANTALLA DE CARGA CON BARRA 👇
+  cont.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;text-align:center;">
+      <div style="font-size:48px;margin-bottom:16px;animation:spin 2s linear infinite;display:inline-block;">🌍</div>
+      <div id="loadingText" style="font-size:16px;color:#38bdf8;font-weight:800;margin-bottom:16px;">Cargando librería...</div>
+      <div style="width:80%;max-width:300px;background:#1e293b;border-radius:10px;height:12px;overflow:hidden;border:1px solid #334155;">
+        <div id="loadingBar" style="width:10%;height:100%;background:linear-gradient(90deg, #0ea5e9, #38bdf8);transition:width 0.3s;"></div>
+      </div>
+    </div>
+    <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
+  `;
 
-  try { await cargarLeaflet(); }
-  catch(e){ cont.innerHTML = "<div style='text-align:center;color:#ef4444;padding:20px'>❌ Error: "+e.message+"</div>"; return; }
+  const setLoad = (txt, pct) => {
+    const t = document.getElementById("loadingText"), b = document.getElementById("loadingBar");
+    if(t) t.textContent = txt;
+    if(b) b.style.width = pct + "%";
+  };
 
-  await cargarPoligonos(cont);
+  try { await cargarLeaflet(); setLoad("Preparando zonas...", 40); }
+  catch(e){ cont.innerHTML = "<div style='text-align:center;color:#ef4444;padding:30px;background:#1e293b;border-radius:12px;'>❌ Error: "+e.message+"<br><br><button onclick='abrirMapaPantalla()' style='margin-top:12px;padding:10px 20px;border-radius:8px;border:none;background:#334155;color:#fff;font-weight:800;'>Reintentar</button></div>"; return; }
+
+  await cargarPoligonos(cont); setLoad("Dibujando mapa...", 80);
 
   cont.innerHTML = `
     <div id="geoEstadoBadge" style="text-align:center;margin-bottom:12px;padding:14px;border-radius:12px;border:2px solid #475569;background:linear-gradient(135deg,#1e293b,#0f172a);color:#94a3b8;font-size:15px;font-weight:900;letter-spacing:0.5px;transition:all 0.3s">⚫ RASTREO DETENIDO<div style='font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px'>Pulsa INICIAR para empezar</div></div>
+    
     <div id="resumenJornadaBox" style="display:flex; justify-content:center; gap:8px; margin-bottom:12px;"></div>
+
     <div style="position:relative;margin-bottom:12px">
       <div id="mapa-leaflet" style="width:100%;height:50vh;min-height:300px;border-radius:12px;background:#1e293b;border:1px solid #334155"></div>
       <button type="button" onclick="centrarEnMiUbicacion()" title="Mi ubicación" style="position:absolute;right:10px;bottom:20px;z-index:500;width:46px;height:46px;border-radius:50%;border:2px solid #0ea5e9;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-size:22px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:0;line-height:1">◎</button>
     </div>
+
+    <!-- 👇 PANEL DE FILTROS Y REPRODUCTOR 👇 -->
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;margin-bottom:12px;overflow:hidden;">
+      <div onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='none'?'block':'none'; this.querySelector('span').textContent = this.nextElementSibling.style.display==='none'?'▼':'▲';" style="padding:12px;background:#0f172a;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:12px;color:#38bdf8;font-weight:900;letter-spacing:0.5px;">🎛️ FILTROS Y REPRODUCTOR DE RUTA</div>
+        <span style="color:#64748b;font-size:14px;">▼</span>
+      </div>
+      <div style="display:none;padding:12px;">
+        <div style="font-size:11px;color:#94a3b8;font-weight:800;margin-bottom:8px;">MOSTRAR COLORES:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#fff;background:#0f172a;padding:6px 10px;border-radius:8px;cursor:pointer;"><input type="checkbox" id="filtro_libre" checked onchange="actualizarMapaVisual()"> 🟢 Libre</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#fff;background:#0f172a;padding:6px 10px;border-radius:8px;cursor:pointer;"><input type="checkbox" id="filtro_ocupado" checked onchange="actualizarMapaVisual()"> 🔴 Ocupado</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#fff;background:#0f172a;padding:6px 10px;border-radius:8px;cursor:pointer;"><input type="checkbox" id="filtro_incidencia" checked onchange="actualizarMapaVisual()"> 🟠 Incid.</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#fff;background:#0f172a;padding:6px 10px;border-radius:8px;cursor:pointer;"><input type="checkbox" id="filtro_descanso" checked onchange="actualizarMapaVisual()"> 🟣 Desc.</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#fff;background:#0f172a;padding:6px 10px;border-radius:8px;cursor:pointer;"><input type="checkbox" id="filtro_fuera" checked onchange="actualizarMapaVisual()"> ⚫ Fuera</label>
+        </div>
+        <div style="font-size:11px;color:#94a3b8;font-weight:800;margin-bottom:8px;">REPRODUCIR RECORRIDO:</div>
+        <input type="range" id="rutaSlider" min="0" max="100" value="100" oninput="actualizarMapaVisual()" style="width:100%;accent-color:#38bdf8;cursor:pointer;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#64748b;margin-top:4px;font-weight:700;">
+          <span>Inicio</span><span>Final</span>
+        </div>
+      </div>
+    </div>
+
     <div id="mapaZonaActual" style="text-align:center;margin-bottom:12px;padding:12px;background:#1e293b;border-radius:12px;font-size:15px;font-weight:800;color:#94a3b8;border:1px solid #334155">Zona: —</div>
+    
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <button type="button" id="btnGeoIniciar" onclick="iniciarGeolocalizacion()" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;padding:14px;font-weight:900;font-size:15px;cursor:pointer;letter-spacing:0.5px;box-shadow:0 4px 10px rgba(16,185,129,0.3)">▶ INICIAR</button>
       <button type="button" id="btnGeoDetener" onclick="detenerGeolocalizacion()" style="background:#1e293b;color:#64748b;border:1px solid #334155;border-radius:10px;padding:14px;font-weight:900;font-size:15px;cursor:not-allowed;letter-spacing:0.5px">⏹ DETENER</button>
     </div>
+    
     <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:14px; margin-bottom:12px;">
       <div onclick="toggleHistorialRutas()" style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;">
         <div style="font-size:11px; color:#94a3b8; font-weight:800; letter-spacing:0.5px;">🗺️ HISTORIAL DE RUTAS</div>
@@ -241,6 +286,7 @@ async function abrirMapaPantalla(){
         <div id="listaRutasHistorial" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
       </div>
     </div>
+    
     <div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:12px;margin-bottom:12px">
       <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px">📖 LEYENDA</div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:20px;height:6px;background:#4ade80;border-radius:3px"></div><span style="font-size:13px;color:#e2e8f0;font-weight:600">Zona de trabajo</span></div>
@@ -248,6 +294,7 @@ async function abrirMapaPantalla(){
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:20px;height:6px;background:#fb923c;border-radius:3px"></div><span style="font-size:13px;color:#e2e8f0;font-weight:600">Zona Interurbana</span></div>
       <div style="display:flex;align-items:center;gap:10px"><div style="width:20px;height:6px;background:#ef4444;border-radius:3px"></div><span style="font-size:13px;color:#e2e8f0;font-weight:600">Fuera Provincia</span></div>
     </div>
+
     <div style="text-align:center;margin-top:10px;margin-bottom:20px"><button type="button" onclick="toggleDebugCoords()" style="background:transparent;color:#64748b;border:1px dashed #475569;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">🐞 Probar coordenadas</button></div>
     <div id="debugCoordsBox" style="display:none;margin-top:10px;padding:12px;background:#1e293b;border:1px dashed #475569;border-radius:10px">
       <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px;letter-spacing:0.5px">DEBUG · PRUEBA RÁPIDA</div>
@@ -278,6 +325,7 @@ async function abrirMapaPantalla(){
     } catch(e){ console.error("Error montando el mapa:", e); }
   }, 100);
   
+  setLoad("Listo", 100);
   const inpFecha = document.getElementById("fechaRutaInput");
   if(inpFecha) inpFecha.value = fechaLocalStr();
   renderListaRutasHistorial();
@@ -514,6 +562,15 @@ function obtenerRecorrido(fechaStr) {
   return JSON.parse(safeStorage.get(obtenerClaveRecorrido(fechaStr)) || "[]");
 }
 
+let puntosRutaActualGlobal = [];
+
+function actualizarMapaVisual() {
+  const inp = document.getElementById("fechaRutaInput");
+  if (inp && inp.value) {
+    dibujarRecorridoEnMapa(inp.value);
+  }
+}
+
 function dibujarRecorridoEnMapa(fechaStr) {
   if (!mapaInstance) return;
   const claveMatched = "uberCambioRecorridoMatched_" + fechaStr;
@@ -521,6 +578,8 @@ function dibujarRecorridoEnMapa(fechaStr) {
   let puntos = puntosStr ? JSON.parse(puntosStr) : obtenerRecorrido(fechaStr);
   if (!puntos || puntos.length < 2) return;
   
+  puntosRutaActualGlobal = puntos;
+
   // Limpiamos cualquier ruta o marcador anterior del mapa
   if (capaRecorridoActual) { mapaInstance.removeLayer(capaRecorridoActual); capaRecorridoActual = null; }
   if (typeof capasSegmentosRuta !== 'undefined') {
@@ -528,16 +587,37 @@ function dibujarRecorridoEnMapa(fechaStr) {
     capasSegmentosRuta = [];
   }
 
-  // 1. Agrupar puntos en segmentos (por estado para los colores)
+  // Leer Filtros
+  const filtros = {
+    libre: document.getElementById("filtro_libre")?.checked ?? true,
+    ocupado: document.getElementById("filtro_ocupado")?.checked ?? true,
+    incidencia: document.getElementById("filtro_incidencia")?.checked ?? true,
+    descanso: document.getElementById("filtro_descanso")?.checked ?? true,
+    fuera: document.getElementById("filtro_fuera")?.checked ?? true
+  };
+  
+  // Leer Porcentaje del reproductor
+  const pct = parseInt(document.getElementById("rutaSlider")?.value || 100);
+  const numPuntosAMostrar = Math.floor(puntos.length * (pct / 100));
+  const puntosVisibles = puntos.slice(0, numPuntosAMostrar);
+
+  // Dibujar la ruta completa en gris tenue para que se vea el "fantasma" si el slider no está al 100%
+  if (pct < 100) {
+    const coordsFantasma = puntos.map(p => [p.lat, p.lon]);
+    const lineaFantasma = L.polyline(coordsFantasma, { color: '#334155', weight: 3, opacity: 0.5, dashArray: '5, 10' }).addTo(mapaInstance);
+    capasSegmentosRuta.push(lineaFantasma);
+  }
+
+  // Agrupar SOLO los puntos visibles en segmentos
   let segmentos = [];
   let tramoActual = null;
 
-  puntos.forEach((p) => {
+  puntosVisibles.forEach((p) => {
     let est = p.estado || "libre";
     
     if (!tramoActual || tramoActual.estado !== est) {
       if (tramoActual && tramoActual.coords.length > 0) {
-        tramoActual.coords.push([p.lat, p.lon]); // Unimos tramos
+        tramoActual.coords.push([p.lat, p.lon]); 
         segmentos.push(tramoActual);
       }
       tramoActual = { estado: est, coords: [[p.lat, p.lon]] };
@@ -547,21 +627,22 @@ function dibujarRecorridoEnMapa(fechaStr) {
   });
   if (tramoActual && tramoActual.coords.length > 1) segmentos.push(tramoActual);
 
-  // 2. Dibujar cada segmento con su color y flechas
+  // Dibujar cada segmento con su color y flechas
   segmentos.forEach(seg => {
     if (seg.coords.length < 2) return;
+    if (!filtros[seg.estado]) return; // Si el filtro está desmarcado, no lo dibujamos
 
-    let color = "#38bdf8"; // Azul (Libre)
-    if (seg.estado === "ocupado") color = "#ef4444"; // Rojo (Ocupado)
-    if (seg.estado === "incidencia") color = "#f59e0b"; // Naranja (Incidencia)
-    if (seg.estado === "descanso") color = "#a855f7"; // Morado (Descanso)
-    if (seg.estado === "fuera") color = "#94a3b8"; // Gris (Fuera App)
+    let color = "#38bdf8"; 
+    if (seg.estado === "ocupado") color = "#ef4444"; 
+    if (seg.estado === "incidencia") color = "#f59e0b"; 
+    if (seg.estado === "descanso") color = "#a855f7"; 
+    if (seg.estado === "fuera") color = "#94a3b8"; 
     let peso = seg.estado === "ocupado" ? 6 : 5;
 
     const linea = L.polyline(seg.coords, { color: color, weight: peso, opacity: 0.9, lineJoin: 'round', smoothFactor: 1.5 }).addTo(mapaInstance);
     
-    if (typeof capasSegmentosRuta !== 'undefined') capasSegmentosRuta.push(linea);
-    if (!capaRecorridoActual) capaRecorridoActual = linea; // Guardamos la 1ª línea para fitBounds
+    capasSegmentosRuta.push(linea);
+    if (!capaRecorridoActual) capaRecorridoActual = linea;
 
     if (L.polylineDecorator) {
       const flechas = L.polylineDecorator(linea, {
@@ -573,7 +654,7 @@ function dibujarRecorridoEnMapa(fechaStr) {
           })
         }]
       }).addTo(mapaInstance);
-      if (typeof capasSegmentosRuta !== 'undefined') capasSegmentosRuta.push(flechas);
+      capasSegmentosRuta.push(flechas);
     }
   });
   
@@ -582,26 +663,28 @@ function dibujarRecorridoEnMapa(fechaStr) {
     capaRecorridoActual._numPuntos = puntos.length;
   }
 
-  // 👇 3. DIBUJAR PUNTOS DE RECOGIDA (A) Y DEJE (B) 👇
+  // DIBUJAR PUNTOS DE RECOGIDA (A) Y DEJE (B)
   let marcadoresViajes = {};
   try { marcadoresViajes = JSON.parse(safeStorage.get("uberCambioMarcadoresViajes") || "{}"); } catch(e){}
   
   if (marcadoresViajes[fechaStr]) {
     marcadoresViajes[fechaStr].forEach(punto => {
       const esA = punto.tipo === 'A';
-      const color = esA ? '#10b981' : '#ef4444'; // Verde para A, Rojo para B
-      const letra = esA ? 'A' : 'B';
+      if (!esA && !filtros.ocupado) return; // Ocultar B si ocultamos ocupado
+      if (esA && !filtros.libre) return; // Ocultar A si ocultamos libre
+
+      const color = esA ? '#10b981' : '#ef4444'; 
+      const emoji = esA ? '🤝' : '👋'; // Iconos de recoger y dejar
       
-      // Creamos el icono con un circulito y la letra
       const icono = L.divIcon({
         className: 'custom-marker',
-        html: `<div style="background:${color}; color:#fff; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:12px; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.5);">${letra}</div>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
+        html: `<div style="background:${color}; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.5);">${emoji}</div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
       });
       
       const marcador = L.marker([punto.lat, punto.lon], { icon: icono }).addTo(mapaInstance);
-      if (typeof capasSegmentosRuta !== 'undefined') capasSegmentosRuta.push(marcador);
+      capasSegmentosRuta.push(marcador);
     });
   }
 }
@@ -643,7 +726,11 @@ function renderListaRutasHistorial() {
     const p = f.split("-"), dateObj = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
     const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
     const fechaBonita = `${p[2]}/${p[1]}/${p[0]} <span style="font-size:11px;color:#64748b">(${dias[dateObj.getDay()]})</span>`;
-    html += `<div style="display:flex; justify-content:space-between; align-items:center; background:#0f172a; border:1px solid ${esActual?'#3b82f6':'#334155'}; border-radius:8px; padding:10px;"><div style="font-size:14px; font-weight:800; color:#fff;">${fechaBonita} ${tieneMatched ? '<span title="Mapa dibujado" style="font-size:10px; color:#4ade80; border:1px solid #4ade80; padding:2px 4px; border-radius:4px; margin-left:4px;">MAPA</span>' : ''}</div><div style="display:flex; gap:6px;"><button type="button" onclick="verRutaHistorial('${f}')" style="background:${esActual?'#3b82f6':'#1e293b'}; color:#fff; border:none; border-radius:6px; padding:6px 10px; font-weight:700; font-size:12px; cursor:pointer;">${esActual ? 'Ocultar' : 'Ver'}</button><button type="button" onclick="borrarRutaHistorial('${f}')" style="background:#7f1d1d; color:#fca5a5; border:none; border-radius:6px; padding:6px 10px; font-size:14px; cursor:pointer;">🗑️</button></div></div>`;
+    
+    // Calcular KMs del historial
+    const kms = typeof calcularKmsTotales === 'function' ? calcularKmsTotales(f) : "0.0";
+
+    html += `<div style="display:flex; justify-content:space-between; align-items:center; background:#0f172a; border:1px solid ${esActual?'#3b82f6':'#334155'}; border-radius:8px; padding:10px;"><div><div style="font-size:14px; font-weight:800; color:#fff;">${fechaBonita} ${tieneMatched ? '<span title="Mapa dibujado" style="font-size:10px; color:#4ade80; border:1px solid #4ade80; padding:2px 4px; border-radius:4px; margin-left:4px;">MAPA</span>' : ''}</div><div style="font-size:11px; color:#38bdf8; font-weight:800; margin-top:2px;">🛣️ ${kms} km</div></div><div style="display:flex; gap:6px;"><button type="button" onclick="verRutaHistorial('${f}')" style="background:${esActual?'#3b82f6':'#1e293b'}; color:#fff; border:none; border-radius:6px; padding:6px 10px; font-weight:700; font-size:12px; cursor:pointer;">${esActual ? 'Ocultar' : 'Ver'}</button><button type="button" onclick="borrarRutaHistorial('${f}')" style="background:#7f1d1d; color:#fca5a5; border:none; border-radius:6px; padding:6px 10px; font-size:14px; cursor:pointer;">🗑️</button></div></div>`;
   });
   cont.innerHTML = html;
 }

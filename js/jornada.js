@@ -142,27 +142,24 @@ function cambiarEstadoApp(nuevoEstado) {
   const m = document.getElementById("modalEstadoApp"); if(m) m.remove();
   if(estadoApp === nuevoEstado) return;
 
-  // 👇 NUEVO: Guardar puntos de recogida (A) y deje (B) 👇
+  // 👇 NUEVO: Guardar puntos de recogida (A) y deje (B) con hora 👇
   if(typeof ultimaPosicion !== 'undefined' && ultimaPosicion) {
     const hoy = fechaLocalStr();
     let marcadores = {};
     try { marcadores = JSON.parse(safeStorage.get("uberCambioMarcadoresViajes") || "{}"); } catch(e){}
     if(!marcadores[hoy]) marcadores[hoy] = [];
 
-    // Si pasamos a OCUPADO, guardamos punto A (Recogida)
     if (nuevoEstado === 'ocupado' && estadoApp !== 'ocupado') {
-      marcadores[hoy].push({ lat: ultimaPosicion.lat, lon: ultimaPosicion.lon, tipo: 'A' });
+      marcadores[hoy].push({ lat: ultimaPosicion.lat, lon: ultimaPosicion.lon, tipo: 'A', time: Date.now() });
       safeStorage.set("uberCambioMarcadoresViajes", JSON.stringify(marcadores));
     }
-    // Si salimos de OCUPADO, guardamos punto B (Deje)
     if (estadoApp === 'ocupado' && nuevoEstado !== 'ocupado') {
-      marcadores[hoy].push({ lat: ultimaPosicion.lat, lon: ultimaPosicion.lon, tipo: 'B' });
+      marcadores[hoy].push({ lat: ultimaPosicion.lat, lon: ultimaPosicion.lon, tipo: 'B', time: Date.now() });
       safeStorage.set("uberCambioMarcadoresViajes", JSON.stringify(marcadores));
     }
   }
   // 👆 FIN DEL NUEVO CÓDIGO 👆
 
-  // 1. Guardar el tiempo que ha pasado en el estado anterior
   const ahora = Date.now();
   const segundosTranscurridos = Math.floor((ahora - tiempoInicioEstado) / 1000);
   
@@ -172,7 +169,6 @@ function cambiarEstadoApp(nuevoEstado) {
   if (estadoApp === 'descanso') segundosDescansoHoy += segundosTranscurridos;
   if (estadoApp === 'fuera') segundosFueraHoy += segundosTranscurridos;
 
-  // 2. Guardar en memoria (localStorage)
   const hoy = fechaLocalStr();
   safeStorage.set("uberCambioTiempoLibre_" + hoy, segundosLibreHoy);
   safeStorage.set("uberCambioTiempoOcupado_" + hoy, segundosOcupadoHoy);
@@ -180,7 +176,6 @@ function cambiarEstadoApp(nuevoEstado) {
   safeStorage.set("uberCambioTiempoDescanso_" + hoy, segundosDescansoHoy);
   safeStorage.set("uberCambioTiempoFuera_" + hoy, segundosFueraHoy);
 
-  // 3. Cambiar al nuevo estado
   estadoApp = nuevoEstado;
   tiempoInicioEstado = ahora;
   safeStorage.set("uberCambioEstadoApp", estadoApp);

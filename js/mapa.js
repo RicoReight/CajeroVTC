@@ -76,6 +76,8 @@ let capaFlechasRuta = null;
 let procesandoZona = false;
 let zonaCandidata = null;
 let zonaCandidataCount = 0;
+let capasSegmentosRuta = [];
+let grupoRutaActual = null; 
 const ZONA_CONFIRMACION_MUESTRAS = 2;
 const ZONA_COOLDOWN_MS = 20000;
 let ultimoCambioZonaMs = 0;
@@ -213,13 +215,12 @@ async function abrirMapaPantalla(){
   const p=document.getElementById("mapaPantalla"); if(p)p.style.display="block";
   const cont = document.getElementById("mapaContenido");
   
-  // 👇 NUEVA PANTALLA DE CARGA FLUIDA 👇
   cont.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;text-align:center;">
       <div style="font-size:48px;margin-bottom:16px;animation:spin 2s linear infinite;display:inline-block;">🌍</div>
       <div id="loadingText" style="font-size:16px;color:#38bdf8;font-weight:800;margin-bottom:16px;">Iniciando motor...</div>
       <div style="width:80%;max-width:300px;background:#1e293b;border-radius:10px;height:12px;overflow:hidden;border:1px solid #334155;">
-        <div id="loadingBar" style="width:0%;height:100%;background:linear-gradient(90deg, #0ea5e9, #38bdf8);transition:width 0.6s ease-in-out;"></div>
+        <div id="loadingBar" style="width:0%;height:100%;background:linear-gradient(90deg, #0ea5e9, #38bdf8);transition:width 0.8s ease-in-out;"></div>
       </div>
     </div>
     <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
@@ -228,32 +229,31 @@ async function abrirMapaPantalla(){
   const setLoad = (txt, pct) => {
     const t = document.getElementById("loadingText"), b = document.getElementById("loadingBar");
     if(t) t.textContent = txt;
-    // Pequeño delay para que la transición CSS se vea fluida
-    if(b) setTimeout(() => { b.style.width = pct + "%"; }, 50);
+    if(b) b.style.width = pct + "%";
   };
 
-  setLoad("Cargando mapa...", 20);
+  // Simulamos una carga con tiempos controlados
+  setLoad("Cargando librerías...", 20);
+  await new Promise(r => setTimeout(r, 800)); // Pausa forzada para que se vea
+  
   try { await cargarLeaflet(); setLoad("Preparando zonas...", 50); }
   catch(e){ cont.innerHTML = "<div style='text-align:center;color:#ef4444;padding:30px;background:#1e293b;border-radius:12px;'>❌ Error: "+e.message+"<br><br><button onclick='abrirMapaPantalla()' style='margin-top:12px;padding:10px 20px;border-radius:8px;border:none;background:#334155;color:#fff;font-weight:800;'>Reintentar</button></div>"; return; }
 
+  await new Promise(r => setTimeout(r, 800)); // Otra pausa
   setLoad("Descargando datos...", 80);
   await cargarPoligonos(cont); 
   
+  await new Promise(r => setTimeout(r, 500));
   setLoad("¡Listo!", 100);
-  // Pausa de medio segundo para que la barra llegue al 100% visualmente antes de cambiar
-  await new Promise(r => setTimeout(r, 600));
+  await new Promise(r => setTimeout(r, 500)); // Pausa final antes de mostrar el mapa
 
   cont.innerHTML = `
     <div id="geoEstadoBadge" style="text-align:center;margin-bottom:12px;padding:14px;border-radius:12px;border:2px solid #475569;background:linear-gradient(135deg,#1e293b,#0f172a);color:#94a3b8;font-size:15px;font-weight:900;letter-spacing:0.5px;transition:all 0.3s">⚫ RASTREO DETENIDO<div style='font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px'>Pulsa INICIAR para empezar</div></div>
-    
     <div id="resumenJornadaBox" style="display:flex; justify-content:center; gap:8px; margin-bottom:12px;"></div>
-
     <div style="position:relative;margin-bottom:12px">
       <div id="mapa-leaflet" style="width:100%;height:50vh;min-height:300px;border-radius:12px;background:#1e293b;border:1px solid #334155"></div>
       <button type="button" onclick="centrarEnMiUbicacion()" title="Mi ubicación" style="position:absolute;right:10px;bottom:20px;z-index:500;width:46px;height:46px;border-radius:50%;border:2px solid #0ea5e9;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-size:22px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:0;line-height:1">◎</button>
     </div>
-
-    <!-- PANEL DE FILTROS Y REPRODUCTOR -->
     <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;margin-bottom:12px;overflow:hidden;">
       <div onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='none'?'block':'none'; this.querySelector('span').textContent = this.nextElementSibling.style.display==='none'?'▼':'▲';" style="padding:12px;background:#0f172a;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
         <div style="font-size:12px;color:#38bdf8;font-weight:900;letter-spacing:0.5px;">🎛️ FILTROS Y REPRODUCTOR</div>
@@ -270,19 +270,13 @@ async function abrirMapaPantalla(){
         </div>
         <div style="font-size:11px;color:#94a3b8;font-weight:800;margin-bottom:8px;">REPRODUCIR RECORRIDO:</div>
         <input type="range" id="rutaSlider" min="0" max="100" value="100" oninput="actualizarMapaVisual()" style="width:100%;accent-color:#38bdf8;cursor:pointer;">
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:#64748b;margin-top:4px;font-weight:700;">
-          <span>Inicio</span><span>Final</span>
-        </div>
       </div>
     </div>
-
     <div id="mapaZonaActual" style="text-align:center;margin-bottom:12px;padding:12px;background:#1e293b;border-radius:12px;font-size:15px;font-weight:800;color:#94a3b8;border:1px solid #334155">Zona: —</div>
-    
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <button type="button" id="btnGeoIniciar" onclick="iniciarGeolocalizacion()" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;padding:14px;font-weight:900;font-size:15px;cursor:pointer;letter-spacing:0.5px;box-shadow:0 4px 10px rgba(16,185,129,0.3)">▶ INICIAR</button>
       <button type="button" id="btnGeoDetener" onclick="detenerGeolocalizacion()" style="background:#1e293b;color:#64748b;border:1px solid #334155;border-radius:10px;padding:14px;font-weight:900;font-size:15px;cursor:not-allowed;letter-spacing:0.5px">⏹ DETENER</button>
     </div>
-    
     <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:14px; margin-bottom:12px;">
       <div onclick="toggleHistorialRutas()" style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;">
         <div style="font-size:11px; color:#94a3b8; font-weight:800; letter-spacing:0.5px;">🗺️ HISTORIAL DE RUTAS</div>
@@ -293,7 +287,6 @@ async function abrirMapaPantalla(){
         <div id="listaRutasHistorial" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
       </div>
     </div>
-    
     <div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:12px;margin-bottom:12px">
       <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px">📖 LEYENDA</div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:20px;height:6px;background:#4ade80;border-radius:3px"></div><span style="font-size:13px;color:#e2e8f0;font-weight:600">Zona de trabajo</span></div>
@@ -301,7 +294,6 @@ async function abrirMapaPantalla(){
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:20px;height:6px;background:#fb923c;border-radius:3px"></div><span style="font-size:13px;color:#e2e8f0;font-weight:600">Zona Interurbana</span></div>
       <div style="display:flex;align-items:center;gap:10px"><div style="width:20px;height:6px;background:#ef4444;border-radius:3px"></div><span style="font-size:13px;color:#e2e8f0;font-weight:600">Fuera Provincia</span></div>
     </div>
-
     <div style="text-align:center;margin-top:10px;margin-bottom:20px"><button type="button" onclick="toggleDebugCoords()" style="background:transparent;color:#64748b;border:1px dashed #475569;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">🐞 Probar coordenadas</button></div>
     <div id="debugCoordsBox" style="display:none;margin-top:10px;padding:12px;background:#1e293b;border:1px dashed #475569;border-radius:10px">
       <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px;letter-spacing:0.5px">DEBUG · PRUEBA RÁPIDA</div>
@@ -334,6 +326,10 @@ async function abrirMapaPantalla(){
   
   const inpFecha = document.getElementById("fechaRutaInput");
   if(inpFecha) inpFecha.value = fechaLocalStr();
+  
+  // 👇 Forzamos a que el slider esté al 100% al abrir
+  const sl = document.getElementById("rutaSlider"); if(sl) sl.value = 100;
+
   renderListaRutasHistorial();
   aplicarEstadoHistorialRutas();
   if(typeof renderResumenJornada === "function") {
@@ -569,12 +565,13 @@ function obtenerRecorrido(fechaStr) {
 }
 
 let puntosRutaActualGlobal = [];
-
+let timeoutMapaVisual = null;
 function actualizarMapaVisual() {
-  const inp = document.getElementById("fechaRutaInput");
-  if (inp && inp.value) {
-    dibujarRecorridoEnMapa(inp.value);
-  }
+  if(timeoutMapaVisual) clearTimeout(timeoutMapaVisual);
+  timeoutMapaVisual = setTimeout(() => {
+    const inp = document.getElementById("fechaRutaInput");
+    if (inp && inp.value) dibujarRecorridoEnMapa(inp.value);
+  }, 150); // 150ms de retraso para que sea fluido
 }
 
 function dibujarRecorridoEnMapa(fechaStr) {
@@ -586,11 +583,14 @@ function dibujarRecorridoEnMapa(fechaStr) {
   
   puntosRutaActualGlobal = puntos;
 
-  if (capaRecorridoActual) { mapaInstance.removeLayer(capaRecorridoActual); capaRecorridoActual = null; }
-  if (typeof capasSegmentosRuta !== 'undefined') {
-    capasSegmentosRuta.forEach(capa => mapaInstance.removeLayer(capa));
-    capasSegmentosRuta = [];
+  // Limpiamos todo usando el featureGroup
+  if (grupoRutaActual) {
+    mapaInstance.removeLayer(grupoRutaActual);
+    grupoRutaActual = null;
   }
+  grupoRutaActual = L.featureGroup().addTo(mapaInstance);
+  
+  capasSegmentosRuta = []; // Vaciamos el array
 
   const filtros = {
     libre: document.getElementById("filtro_libre")?.checked ?? true,
@@ -604,9 +604,10 @@ function dibujarRecorridoEnMapa(fechaStr) {
   const numPuntosAMostrar = Math.floor(puntos.length * (pct / 100));
   const puntosVisibles = puntos.slice(0, numPuntosAMostrar);
 
+  // Línea fantasma si el slider está a medias
   if (pct < 100) {
     const coordsFantasma = puntos.map(p => [p.lat, p.lon]);
-    const lineaFantasma = L.polyline(coordsFantasma, { color: '#334155', weight: 3, opacity: 0.5, dashArray: '5, 10' }).addTo(mapaInstance);
+    const lineaFantasma = L.polyline(coordsFantasma, { color: '#334155', weight: 3, opacity: 0.5, dashArray: '5, 10' }).addTo(grupoRutaActual);
     capasSegmentosRuta.push(lineaFantasma);
   }
 
@@ -638,42 +639,33 @@ function dibujarRecorridoEnMapa(fechaStr) {
     if (seg.estado === "fuera") color = "#94a3b8"; 
     let peso = seg.estado === "ocupado" ? 6 : 5;
 
-    const linea = L.polyline(seg.coords, { color: color, weight: peso, opacity: 0.9, lineJoin: 'round', smoothFactor: 1.5 }).addTo(mapaInstance);
+    const linea = L.polyline(seg.coords, { color: color, weight: peso, opacity: 0.9, lineJoin: 'round', smoothFactor: 1.5 }).addTo(grupoRutaActual);
     capasSegmentosRuta.push(linea);
-    if (!capaRecorridoActual) capaRecorridoActual = linea;
 
     if (L.polylineDecorator) {
       const flechas = L.polylineDecorator(linea, {
         patterns: [{ offset: 20, repeat: 70, symbol: L.Symbol.arrowHead({ pixelSize: 10, polygon: false, pathOptions: { stroke: true, color: color, weight: 3, opacity: 1 } }) }]
-      }).addTo(mapaInstance);
+      }).addTo(grupoRutaActual);
       capasSegmentosRuta.push(flechas);
     }
   });
-  
-  if (capaRecorridoActual) {
-    capaRecorridoActual._fecha = fechaStr;
-    capaRecorridoActual._numPuntos = puntos.length;
-  }
 
-  // 👇 NUEVOS ICONOS CON NÚMERO DE VIAJE 👇
+  // ICONOS CON NÚMERO DE VIAJE
   let marcadoresViajes = {};
   try { marcadoresViajes = JSON.parse(safeStorage.get("uberCambioMarcadoresViajes") || "{}"); } catch(e){}
   
   if (marcadoresViajes[fechaStr]) {
-    let contadorViaje = 0; // Contador para saber el orden (1, 2, 3...)
+    let contadorViaje = 0;
     
     marcadoresViajes[fechaStr].forEach(punto => {
       const esA = punto.tipo === 'A';
-      
-      // Si el filtro de ocupado está desmarcado, ocultamos todos los marcadores de viaje
       if (!filtros.ocupado) return; 
 
-      if (esA) contadorViaje++; // Si es recogida, sumamos un viaje nuevo
+      if (esA) contadorViaje++;
 
       const color = esA ? '#10b981' : '#ef4444'; 
-      const emoji = esA ? '🙋‍♂️' : '🏁'; // Persona pidiendo taxi / Bandera a cuadros
+      const emoji = esA ? '🙋‍♂️' : '🏁'; 
       
-      // Creamos el icono HTML combinando el emoji y el número de viaje
       const icono = L.divIcon({
         className: 'custom-marker',
         html: `
@@ -686,9 +678,14 @@ function dibujarRecorridoEnMapa(fechaStr) {
         iconAnchor: [17, 17]
       });
       
-      const marcador = L.marker([punto.lat, punto.lon], { icon: icono }).addTo(mapaInstance);
+      const marcador = L.marker([punto.lat, punto.lon], { icon: icono }).addTo(grupoRutaActual);
       capasSegmentosRuta.push(marcador);
     });
+  }
+  
+  // 👇 AHORA EL ZOOM SE AJUSTA A TODO EL GRUPO (Evita que se vea borroso o descuadrado)
+  if (grupoRutaActual && grupoRutaActual.getLayers().length > 0) {
+    mapaInstance.fitBounds(grupoRutaActual.getBounds(), { padding: [30, 30] });
   }
 }
 
@@ -740,17 +737,19 @@ function renderListaRutasHistorial() {
 
 function verRutaHistorial(fechaStr) {
   const inp = document.getElementById("fechaRutaInput"); if (!inp || !mapaInstance) return;
-  if (inp.value === fechaStr && capaRecorridoActual) { 
-    if (typeof capasSegmentosRuta !== 'undefined') {
-      capasSegmentosRuta.forEach(capa => mapaInstance.removeLayer(capa));
-      capasSegmentosRuta = [];
-    }
-    capaRecorridoActual = null; 
+  
+  if (inp.value === fechaStr && grupoRutaActual) { 
+    // Si ya está abierta, la ocultamos
+    if (grupoRutaActual) { mapaInstance.removeLayer(grupoRutaActual); grupoRutaActual = null; }
+    capasSegmentosRuta = [];
+    capaRecorridoActual = null;
   }
   else { 
+    // Si abrimos una nueva ruta, reseteamos el slider al 100%
+    const sl = document.getElementById("rutaSlider"); if(sl) sl.value = 100;
+    
     inp.value = fechaStr; 
     dibujarRecorridoEnMapa(fechaStr); 
-    if (capaRecorridoActual) { mapaInstance.fitBounds(capaRecorridoActual.getBounds(), { padding: [30, 30] }); } 
   }
   renderListaRutasHistorial();
 }

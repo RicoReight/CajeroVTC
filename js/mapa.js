@@ -213,13 +213,13 @@ async function abrirMapaPantalla(){
   const p=document.getElementById("mapaPantalla"); if(p)p.style.display="block";
   const cont = document.getElementById("mapaContenido");
   
-  // 👇 NUEVA PANTALLA DE CARGA CON BARRA 👇
+  // 👇 NUEVA PANTALLA DE CARGA FLUIDA 👇
   cont.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;text-align:center;">
       <div style="font-size:48px;margin-bottom:16px;animation:spin 2s linear infinite;display:inline-block;">🌍</div>
-      <div id="loadingText" style="font-size:16px;color:#38bdf8;font-weight:800;margin-bottom:16px;">Cargando librería...</div>
+      <div id="loadingText" style="font-size:16px;color:#38bdf8;font-weight:800;margin-bottom:16px;">Iniciando motor...</div>
       <div style="width:80%;max-width:300px;background:#1e293b;border-radius:10px;height:12px;overflow:hidden;border:1px solid #334155;">
-        <div id="loadingBar" style="width:10%;height:100%;background:linear-gradient(90deg, #0ea5e9, #38bdf8);transition:width 0.3s;"></div>
+        <div id="loadingBar" style="width:0%;height:100%;background:linear-gradient(90deg, #0ea5e9, #38bdf8);transition:width 0.6s ease-in-out;"></div>
       </div>
     </div>
     <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
@@ -228,13 +228,20 @@ async function abrirMapaPantalla(){
   const setLoad = (txt, pct) => {
     const t = document.getElementById("loadingText"), b = document.getElementById("loadingBar");
     if(t) t.textContent = txt;
-    if(b) b.style.width = pct + "%";
+    // Pequeño delay para que la transición CSS se vea fluida
+    if(b) setTimeout(() => { b.style.width = pct + "%"; }, 50);
   };
 
-  try { await cargarLeaflet(); setLoad("Preparando zonas...", 40); }
+  setLoad("Cargando mapa...", 20);
+  try { await cargarLeaflet(); setLoad("Preparando zonas...", 50); }
   catch(e){ cont.innerHTML = "<div style='text-align:center;color:#ef4444;padding:30px;background:#1e293b;border-radius:12px;'>❌ Error: "+e.message+"<br><br><button onclick='abrirMapaPantalla()' style='margin-top:12px;padding:10px 20px;border-radius:8px;border:none;background:#334155;color:#fff;font-weight:800;'>Reintentar</button></div>"; return; }
 
-  await cargarPoligonos(cont); setLoad("Dibujando mapa...", 80);
+  setLoad("Descargando datos...", 80);
+  await cargarPoligonos(cont); 
+  
+  setLoad("¡Listo!", 100);
+  // Pausa de medio segundo para que la barra llegue al 100% visualmente antes de cambiar
+  await new Promise(r => setTimeout(r, 600));
 
   cont.innerHTML = `
     <div id="geoEstadoBadge" style="text-align:center;margin-bottom:12px;padding:14px;border-radius:12px;border:2px solid #475569;background:linear-gradient(135deg,#1e293b,#0f172a);color:#94a3b8;font-size:15px;font-weight:900;letter-spacing:0.5px;transition:all 0.3s">⚫ RASTREO DETENIDO<div style='font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px'>Pulsa INICIAR para empezar</div></div>
@@ -246,10 +253,10 @@ async function abrirMapaPantalla(){
       <button type="button" onclick="centrarEnMiUbicacion()" title="Mi ubicación" style="position:absolute;right:10px;bottom:20px;z-index:500;width:46px;height:46px;border-radius:50%;border:2px solid #0ea5e9;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-size:22px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:0;line-height:1">◎</button>
     </div>
 
-    <!-- 👇 PANEL DE FILTROS Y REPRODUCTOR 👇 -->
+    <!-- PANEL DE FILTROS Y REPRODUCTOR -->
     <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;margin-bottom:12px;overflow:hidden;">
       <div onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='none'?'block':'none'; this.querySelector('span').textContent = this.nextElementSibling.style.display==='none'?'▼':'▲';" style="padding:12px;background:#0f172a;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
-        <div style="font-size:12px;color:#38bdf8;font-weight:900;letter-spacing:0.5px;">🎛️ FILTROS Y REPRODUCTOR DE RUTA</div>
+        <div style="font-size:12px;color:#38bdf8;font-weight:900;letter-spacing:0.5px;">🎛️ FILTROS Y REPRODUCTOR</div>
         <span style="color:#64748b;font-size:14px;">▼</span>
       </div>
       <div style="display:none;padding:12px;">
@@ -325,7 +332,6 @@ async function abrirMapaPantalla(){
     } catch(e){ console.error("Error montando el mapa:", e); }
   }, 100);
   
-  setLoad("Listo", 100);
   const inpFecha = document.getElementById("fechaRutaInput");
   if(inpFecha) inpFecha.value = fechaLocalStr();
   renderListaRutasHistorial();
@@ -580,14 +586,12 @@ function dibujarRecorridoEnMapa(fechaStr) {
   
   puntosRutaActualGlobal = puntos;
 
-  // Limpiamos cualquier ruta o marcador anterior del mapa
   if (capaRecorridoActual) { mapaInstance.removeLayer(capaRecorridoActual); capaRecorridoActual = null; }
   if (typeof capasSegmentosRuta !== 'undefined') {
     capasSegmentosRuta.forEach(capa => mapaInstance.removeLayer(capa));
     capasSegmentosRuta = [];
   }
 
-  // Leer Filtros
   const filtros = {
     libre: document.getElementById("filtro_libre")?.checked ?? true,
     ocupado: document.getElementById("filtro_ocupado")?.checked ?? true,
@@ -596,25 +600,21 @@ function dibujarRecorridoEnMapa(fechaStr) {
     fuera: document.getElementById("filtro_fuera")?.checked ?? true
   };
   
-  // Leer Porcentaje del reproductor
   const pct = parseInt(document.getElementById("rutaSlider")?.value || 100);
   const numPuntosAMostrar = Math.floor(puntos.length * (pct / 100));
   const puntosVisibles = puntos.slice(0, numPuntosAMostrar);
 
-  // Dibujar la ruta completa en gris tenue para que se vea el "fantasma" si el slider no está al 100%
   if (pct < 100) {
     const coordsFantasma = puntos.map(p => [p.lat, p.lon]);
     const lineaFantasma = L.polyline(coordsFantasma, { color: '#334155', weight: 3, opacity: 0.5, dashArray: '5, 10' }).addTo(mapaInstance);
     capasSegmentosRuta.push(lineaFantasma);
   }
 
-  // Agrupar SOLO los puntos visibles en segmentos
   let segmentos = [];
   let tramoActual = null;
 
   puntosVisibles.forEach((p) => {
     let est = p.estado || "libre";
-    
     if (!tramoActual || tramoActual.estado !== est) {
       if (tramoActual && tramoActual.coords.length > 0) {
         tramoActual.coords.push([p.lat, p.lon]); 
@@ -627,10 +627,9 @@ function dibujarRecorridoEnMapa(fechaStr) {
   });
   if (tramoActual && tramoActual.coords.length > 1) segmentos.push(tramoActual);
 
-  // Dibujar cada segmento con su color y flechas
   segmentos.forEach(seg => {
     if (seg.coords.length < 2) return;
-    if (!filtros[seg.estado]) return; // Si el filtro está desmarcado, no lo dibujamos
+    if (!filtros[seg.estado]) return; 
 
     let color = "#38bdf8"; 
     if (seg.estado === "ocupado") color = "#ef4444"; 
@@ -640,19 +639,12 @@ function dibujarRecorridoEnMapa(fechaStr) {
     let peso = seg.estado === "ocupado" ? 6 : 5;
 
     const linea = L.polyline(seg.coords, { color: color, weight: peso, opacity: 0.9, lineJoin: 'round', smoothFactor: 1.5 }).addTo(mapaInstance);
-    
     capasSegmentosRuta.push(linea);
     if (!capaRecorridoActual) capaRecorridoActual = linea;
 
     if (L.polylineDecorator) {
       const flechas = L.polylineDecorator(linea, {
-        patterns: [{
-          offset: 20, repeat: 70,
-          symbol: L.Symbol.arrowHead({
-            pixelSize: 10, polygon: false,
-            pathOptions: { stroke: true, color: color, weight: 3, opacity: 1 }
-          })
-        }]
+        patterns: [{ offset: 20, repeat: 70, symbol: L.Symbol.arrowHead({ pixelSize: 10, polygon: false, pathOptions: { stroke: true, color: color, weight: 3, opacity: 1 } }) }]
       }).addTo(mapaInstance);
       capasSegmentosRuta.push(flechas);
     }
@@ -663,24 +655,35 @@ function dibujarRecorridoEnMapa(fechaStr) {
     capaRecorridoActual._numPuntos = puntos.length;
   }
 
-  // DIBUJAR PUNTOS DE RECOGIDA (A) Y DEJE (B)
+  // 👇 NUEVOS ICONOS CON NÚMERO DE VIAJE 👇
   let marcadoresViajes = {};
   try { marcadoresViajes = JSON.parse(safeStorage.get("uberCambioMarcadoresViajes") || "{}"); } catch(e){}
   
   if (marcadoresViajes[fechaStr]) {
+    let contadorViaje = 0; // Contador para saber el orden (1, 2, 3...)
+    
     marcadoresViajes[fechaStr].forEach(punto => {
       const esA = punto.tipo === 'A';
-      if (!esA && !filtros.ocupado) return; // Ocultar B si ocultamos ocupado
-      if (esA && !filtros.libre) return; // Ocultar A si ocultamos libre
+      
+      // Si el filtro de ocupado está desmarcado, ocultamos todos los marcadores de viaje
+      if (!filtros.ocupado) return; 
+
+      if (esA) contadorViaje++; // Si es recogida, sumamos un viaje nuevo
 
       const color = esA ? '#10b981' : '#ef4444'; 
-      const emoji = esA ? '🤝' : '👋'; // Iconos de recoger y dejar
+      const emoji = esA ? '🙋‍♂️' : '🏁'; // Persona pidiendo taxi / Bandera a cuadros
       
+      // Creamos el icono HTML combinando el emoji y el número de viaje
       const icono = L.divIcon({
         className: 'custom-marker',
-        html: `<div style="background:${color}; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.5);">${emoji}</div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
+        html: `
+          <div style="position:relative; width:34px; height:34px;">
+            <div style="background:${color}; width:100%; height:100%; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; border:2px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,0.6);">${emoji}</div>
+            <div style="position:absolute; top:-6px; right:-6px; background:#0f172a; color:#fff; font-size:11px; font-weight:900; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:1.5px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,0.5);">${contadorViaje}</div>
+          </div>
+        `,
+        iconSize: [34, 34],
+        iconAnchor: [17, 17]
       });
       
       const marcador = L.marker([punto.lat, punto.lon], { icon: icono }).addTo(mapaInstance);

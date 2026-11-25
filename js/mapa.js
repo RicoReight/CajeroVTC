@@ -570,19 +570,27 @@ let puntosRutaActualGlobal = [];
 let timeoutMapaVisual = null;
 function actualizarMapaVisual() {
   if(timeoutMapaVisual) clearTimeout(timeoutMapaVisual);
+  // Subimos a 100ms para que no se sature el móvil y vaya más fluido
   timeoutMapaVisual = setTimeout(() => {
     const inp = document.getElementById("fechaRutaInput");
     if (inp && inp.value) dibujarRecorridoEnMapa(inp.value);
-  }, 30); // 30ms es casi instantáneo
+  }, 100); 
 }
 
 function dibujarRecorridoEnMapa(fechaStr) {
   if (!mapaInstance) return;
-  const claveMatched = "uberCambioRecorridoMatched_" + fechaStr;
-  let puntosStr = safeStorage.get(claveMatched);
-  let puntos = puntosStr ? JSON.parse(puntosStr) : obtenerRecorrido(fechaStr);
-  if (!puntos || puntos.length < 2) return;
   
+  // 👇 MEJORA: Si ya tenemos los puntos en memoria, no leemos el localStorage (más fluido)
+  let puntos;
+  if (puntosRutaActualGlobal && puntosRutaActualGlobal.length > 0 && document.getElementById("fechaRutaInput")?.value === fechaStr) {
+    puntos = puntosRutaActualGlobal;
+  } else {
+    const claveMatched = "uberCambioRecorridoMatched_" + fechaStr;
+    let puntosStr = safeStorage.get(claveMatched);
+    puntos = puntosStr ? JSON.parse(puntosStr) : obtenerRecorrido(fechaStr);
+  }
+  
+  if (!puntos || puntos.length < 2) return;
   puntosRutaActualGlobal = puntos;
 
   if (grupoRutaActual) { mapaInstance.removeLayer(grupoRutaActual); grupoRutaActual = null; }
@@ -601,14 +609,13 @@ function dibujarRecorridoEnMapa(fechaStr) {
   const numPuntosAMostrar = Math.floor(puntos.length * (pct / 100));
   const puntosVisibles = puntos.slice(0, numPuntosAMostrar);
   
-  // Detectamos cuál es el último punto visible para el zoom y los marcadores
   const idxActual = Math.max(0, numPuntosAMostrar - 1);
   const puntoActual = puntos[idxActual];
   const timeActual = puntoActual ? (puntoActual.time || Date.now()) : Date.now();
 
   if (pct < 100) {
     const coordsFantasma = puntos.map(p => [p.lat, p.lon]);
-    const lineaFantasma = L.polyline(coordsFantasma, { color: '#334155', weight: 3, opacity: 0.5, dashArray: '5, 10' }).addTo(grupoRutaActual);
+    const lineaFantasma = L.polyline(coordsFantasma, { color: '#334155', weight: 3, opacity: 0.3, dashArray: '5, 10' }).addTo(grupoRutaActual);
     capasSegmentosRuta.push(lineaFantasma);
   }
 
@@ -651,7 +658,7 @@ function dibujarRecorridoEnMapa(fechaStr) {
     }
   });
 
-  // ICONOS CON NÚMERO DE VIAJE (Filtrados por tiempo)
+  // ICONOS CON NÚMERO DE VIAJE
   let marcadoresViajes = {};
   try { marcadoresViajes = JSON.parse(safeStorage.get("uberCambioMarcadoresViajes") || "{}"); } catch(e){}
   
@@ -664,7 +671,6 @@ function dibujarRecorridoEnMapa(fechaStr) {
       
       if (esA) contadorViaje++;
 
-      // 👇 SI LA BARRA NO HA LLEGADO AL MOMENTO DEL PUNTO, NO LO DIBUJAMOS 👇
       if (pct < 100 && punto.time && punto.time > timeActual) return;
 
       const color = esA ? '#10b981' : '#ef4444'; 
@@ -687,13 +693,13 @@ function dibujarRecorridoEnMapa(fechaStr) {
     });
   }
   
-  // 👇 MAGIA DEL ZOOM SEGÚN LA BARRA 👇
+  // 👇 ZOOM CORREGIDO 👇
   if (pct < 100 && puntoActual) {
-    // Si estamos moviendo la barra, nos centramos en el punto actual con zoom de calle
-    mapaInstance.setView([puntoActual.lat, puntoActual.lon], 15, { animate: true });
+    // Nivel 16: Se ve la calle y el coche justo en el medio
+    mapaInstance.setView([puntoActual.lat, puntoActual.lon], 16, { animate: true });
   } else if (grupoRutaActual.getLayers().length > 0) {
-    // Si está al 100%, encajamos toda la ruta
-    mapaInstance.fitBounds(grupoRutaActual.getBounds(), { padding: [30, 30] });
+    // Al 100%: Un zoom máximo de 15 para que no se aleje demasiado, y menos margen (padding)
+    mapaInstance.fitBounds(grupoRutaActual.getBounds(), { padding: [20, 20], maxZoom: 15 });
   }
 }
 

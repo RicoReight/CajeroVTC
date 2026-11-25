@@ -580,7 +580,6 @@ function actualizarMapaVisual() {
 function dibujarRecorridoEnMapa(fechaStr) {
   if (!mapaInstance) return;
   
-  // 👇 MEJORA: Si ya tenemos los puntos en memoria, no leemos el localStorage (más fluido)
   let puntos;
   if (puntosRutaActualGlobal && puntosRutaActualGlobal.length > 0 && document.getElementById("fechaRutaInput")?.value === fechaStr) {
     puntos = puntosRutaActualGlobal;
@@ -693,13 +692,11 @@ function dibujarRecorridoEnMapa(fechaStr) {
     });
   }
   
-  // 👇 ZOOM CORREGIDO 👇
+  // 👇 ZOOM ARREGLADO (Ahora es 14, más abierto) 👇
   if (pct < 100 && puntoActual) {
-    // Nivel 16: Se ve la calle y el coche justo en el medio
-    mapaInstance.setView([puntoActual.lat, puntoActual.lon], 16, { animate: true });
+    mapaInstance.setView([puntoActual.lat, puntoActual.lon], 14, { animate: true });
   } else if (grupoRutaActual.getLayers().length > 0) {
-    // Al 100%: Un zoom máximo de 15 para que no se aleje demasiado, y menos margen (padding)
-    mapaInstance.fitBounds(grupoRutaActual.getBounds(), { padding: [20, 20], maxZoom: 15 });
+    mapaInstance.fitBounds(grupoRutaActual.getBounds(), { padding: [30, 30], maxZoom: 14 });
   }
 }
 
@@ -732,19 +729,49 @@ function renderListaRutasHistorial() {
   }
   fechas.sort().reverse();
   if (fechas.length === 0) { cont.innerHTML = "<div style='color:#64748b;font-size:13px;text-align:center;padding:10px'>No hay rutas guardadas</div>"; return; }
+  
   const fechaActual = document.getElementById("fechaRutaInput")?.value || "";
   let html = "";
+  
+  let marcadoresViajes = {};
+  try { marcadoresViajes = JSON.parse(safeStorage.get("uberCambioMarcadoresViajes") || "{}"); } catch(e){}
+
   fechas.forEach(f => {
     const tieneMatched = localStorage.getItem("uberCambioRecorridoMatched_" + f);
-    const esActual = (f === fechaActual && capaRecorridoActual);
+    
+    // 👇 MEJORA: Saber si es la ruta activa actual
+    const esActual = (f === fechaActual); 
+    
     const p = f.split("-"), dateObj = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
     const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
     const fechaBonita = `${p[2]}/${p[1]}/${p[0]} <span style="font-size:11px;color:#64748b">(${dias[dateObj.getDay()]})</span>`;
     
-    // Calcular KMs del historial
     const kms = typeof calcularKmsTotales === 'function' ? calcularKmsTotales(f) : "0.0";
+    
+    // 👇 NUEVO: Contar paradas (recogidas)
+    let numParadas = 0;
+    if (marcadoresViajes[f]) {
+      numParadas = marcadoresViajes[f].filter(m => m.tipo === 'A').length;
+    }
 
-    html += `<div style="display:flex; justify-content:space-between; align-items:center; background:#0f172a; border:1px solid ${esActual?'#3b82f6':'#334155'}; border-radius:8px; padding:10px;"><div><div style="font-size:14px; font-weight:800; color:#fff;">${fechaBonita} ${tieneMatched ? '<span title="Mapa dibujado" style="font-size:10px; color:#4ade80; border:1px solid #4ade80; padding:2px 4px; border-radius:4px; margin-left:4px;">MAPA</span>' : ''}</div><div style="font-size:11px; color:#38bdf8; font-weight:800; margin-top:2px;">🛣️ ${kms} km</div></div><div style="display:flex; gap:6px;"><button type="button" onclick="verRutaHistorial('${f}')" style="background:${esActual?'#3b82f6':'#1e293b'}; color:#fff; border:none; border-radius:6px; padding:6px 10px; font-weight:700; font-size:12px; cursor:pointer;">${esActual ? 'Ocultar' : 'Ver'}</button><button type="button" onclick="borrarRutaHistorial('${f}')" style="background:#7f1d1d; color:#fca5a5; border:none; border-radius:6px; padding:6px 10px; font-size:14px; cursor:pointer;">🗑️</button></div></div>`;
+    // 👇 NUEVO DISEÑO SELECCIONADO
+    const bgCaja = esActual ? "#1e3a8a" : "#0f172a";
+    const bordeCaja = esActual ? "2px solid #3b82f6" : "1px solid #334155";
+    const textoBoton = esActual ? "✅ Activo" : "Ver";
+    const colorBoton = esActual ? "#10b981" : "#1e293b"; 
+
+    html += `<div style="display:flex; justify-content:space-between; align-items:center; background:${bgCaja}; border:${bordeCaja}; border-radius:8px; padding:10px; transition:all 0.2s; box-shadow:${esActual ? '0 0 10px rgba(59,130,246,0.3)' : 'none'};">
+      <div>
+        <div style="font-size:14px; font-weight:800; color:#fff;">${fechaBonita} ${tieneMatched ? '<span title="Mapa dibujado" style="font-size:10px; color:#4ade80; border:1px solid #4ade80; padding:2px 4px; border-radius:4px; margin-left:4px;">MAPA</span>' : ''}</div>
+        <div style="font-size:11px; color:#38bdf8; font-weight:800; margin-top:4px;">
+          🛣️ ${kms} km <span style="color:#64748b; margin:0 4px;">·</span> 📍 ${numParadas} parada${numParadas !== 1 ? 's' : ''}
+        </div>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <button type="button" onclick="verRutaHistorial('${f}')" style="background:${colorBoton}; color:#fff; border:none; border-radius:6px; padding:8px 12px; font-weight:800; font-size:12px; cursor:pointer; min-width:70px;">${textoBoton}</button>
+        <button type="button" onclick="borrarRutaHistorial('${f}')" style="background:#7f1d1d; color:#fca5a5; border:none; border-radius:6px; padding:8px 10px; font-size:14px; cursor:pointer;">🗑️</button>
+      </div>
+    </div>`;
   });
   cont.innerHTML = html;
 }
@@ -752,17 +779,17 @@ function renderListaRutasHistorial() {
 function verRutaHistorial(fechaStr) {
   const inp = document.getElementById("fechaRutaInput"); if (!inp || !mapaInstance) return;
   
-  if (inp.value === fechaStr && grupoRutaActual) { 
-    // Si ya está abierta, la ocultamos
+  if (inp.value === fechaStr) { 
+    // Deseleccionar ruta
+    inp.value = ""; 
     if (grupoRutaActual) { mapaInstance.removeLayer(grupoRutaActual); grupoRutaActual = null; }
     capasSegmentosRuta = [];
     capaRecorridoActual = null;
-  }
-  else { 
-    // Si abrimos una nueva ruta, reseteamos el slider al 100%
     const sl = document.getElementById("rutaSlider"); if(sl) sl.value = 100;
-    
+  } else { 
+    // Seleccionar nueva ruta
     inp.value = fechaStr; 
+    const sl = document.getElementById("rutaSlider"); if(sl) sl.value = 100;
     dibujarRecorridoEnMapa(fechaStr); 
   }
   renderListaRutasHistorial();

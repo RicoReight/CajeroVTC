@@ -130,33 +130,55 @@ function centrarEnMiUbicacion(){
 async function cargarLeaflet(){
   if(leafletLoaded) return;
   if(leafletLoading) return leafletLoading;
+  
   leafletLoading = new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => { reject(new Error("Timeout: Leaflet no cargó en 10s")); }, 10000);
+    // Damos 20 segundos de margen para redes lentas
+    const timeout = setTimeout(() => { 
+      leafletLoading = null; // Permitir reintentar si falla
+      reject(new Error("Timeout: La conexión es muy lenta y el mapa no cargó en 20s")); 
+    }, 20000);
     
     // 1. Cargar CSS de Leaflet
-    const css = document.createElement("link"); css.rel = "stylesheet";
+    const css = document.createElement("link"); 
+    css.rel = "stylesheet";
     css.href = "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css";
     document.head.appendChild(css);
     
-    // 2. Cargar JS de Leaflet
+    // 2. Cargar JS de Leaflet base
     const s = document.createElement("script");
     s.src = "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js";
+    
     s.onload = () => { 
-      // 3. Cargar el plugin de flechas JUSTO DESPUÉS
+      // 3. Cargar plugin de flechas (ahora desde jsdelivr, más fiable)
       const s2 = document.createElement("script");
-      s2.src = "https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js";
+      s2.src = "https://cdn.jsdelivr.net/npm/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js";
+      
       s2.onload = () => {
         clearTimeout(timeout); 
         leafletLoaded = true; 
         console.log("✅ Leaflet y Flechas cargados"); 
         resolve(); 
       };
-      s2.onerror = () => { clearTimeout(timeout); reject(new Error("No se pudo cargar el plugin de flechas")); };
+      
+      s2.onerror = () => { 
+        clearTimeout(timeout); 
+        leafletLoaded = true; // ¡Importante! Cargamos el mapa igual
+        console.warn("⚠️ Falló el plugin de flechas, el mapa funcionará sin flechas");
+        resolve(); 
+      };
+      
       document.head.appendChild(s2);
     };
-    s.onerror = () => { clearTimeout(timeout); reject(new Error("No se pudo cargar Leaflet desde jsdelivr")); };
+    
+    s.onerror = () => { 
+      clearTimeout(timeout); 
+      leafletLoading = null; // Permitir reintentar si el usuario vuelve a abrir
+      reject(new Error("No se pudo cargar Leaflet. Revisa tu conexión a internet.")); 
+    };
+    
     document.head.appendChild(s);
   });
+  
   return leafletLoading;
 }
 

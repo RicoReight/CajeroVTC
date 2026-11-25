@@ -142,6 +142,26 @@ function cambiarEstadoApp(nuevoEstado) {
   const m = document.getElementById("modalEstadoApp"); if(m) m.remove();
   if(estadoApp === nuevoEstado) return;
 
+  // 👇 NUEVO: Guardar puntos de recogida (A) y deje (B) 👇
+  if(typeof ultimaPosicion !== 'undefined' && ultimaPosicion) {
+    const hoy = fechaLocalStr();
+    let marcadores = {};
+    try { marcadores = JSON.parse(safeStorage.get("uberCambioMarcadoresViajes") || "{}"); } catch(e){}
+    if(!marcadores[hoy]) marcadores[hoy] = [];
+
+    // Si pasamos a OCUPADO, guardamos punto A (Recogida)
+    if (nuevoEstado === 'ocupado' && estadoApp !== 'ocupado') {
+      marcadores[hoy].push({ lat: ultimaPosicion.lat, lon: ultimaPosicion.lon, tipo: 'A' });
+      safeStorage.set("uberCambioMarcadoresViajes", JSON.stringify(marcadores));
+    }
+    // Si salimos de OCUPADO, guardamos punto B (Deje)
+    if (estadoApp === 'ocupado' && nuevoEstado !== 'ocupado') {
+      marcadores[hoy].push({ lat: ultimaPosicion.lat, lon: ultimaPosicion.lon, tipo: 'B' });
+      safeStorage.set("uberCambioMarcadoresViajes", JSON.stringify(marcadores));
+    }
+  }
+  // 👆 FIN DEL NUEVO CÓDIGO 👆
+
   // 1. Guardar el tiempo que ha pasado en el estado anterior
   const ahora = Date.now();
   const segundosTranscurridos = Math.floor((ahora - tiempoInicioEstado) / 1000);
@@ -170,7 +190,6 @@ function cambiarEstadoApp(nuevoEstado) {
   if(typeof actualizarBotonCochePrincipal === 'function') actualizarBotonCochePrincipal();
   if(typeof renderResumenJornada === 'function') renderResumenJornada();
 }
-
 /* ==================== CÁLCULOS DE LA JORNADA ==================== */
 
 function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
@@ -201,72 +220,10 @@ function renderResumenJornada() {
   const hoy = fechaLocalStr();
   const kms = calcularKmsTotales(hoy);
   
-  let sLibre = segundosLibreHoy;
-  let sOcupado = segundosOcupadoHoy;
-  let sIncidencia = segundosIncidenciaHoy;
-  let sDescanso = segundosDescansoHoy;
-  let sFuera = segundosFueraHoy;
-  
-  const ahora = Date.now();
-  const segundosActuales = Math.floor((ahora - tiempoInicioEstado) / 1000);
-  
-  if (estadoApp === 'libre') sLibre += segundosActuales;
-  if (estadoApp === 'ocupado') sOcupado += segundosActuales;
-  if (estadoApp === 'incidencia') sIncidencia += segundosActuales;
-  if (estadoApp === 'descanso') sDescanso += segundosActuales;
-  if (estadoApp === 'fuera') sFuera += segundosActuales;
-
-  const formatTime = (totalSegs) => {
-    const h = Math.floor(totalSegs / 3600);
-    const m = Math.floor((totalSegs % 3600) / 60);
-    return `${h}h ${m}m`;
-  };
-
-  // Cálculos de la jornada
-  const totalEfectivas = sLibre + sOcupado;
-  const totalJornada = totalEfectivas + sIncidencia + sDescanso + sFuera;
-
   box.innerHTML = `
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
-      <div style="background:#0f172a; border:1px solid #334155; border-radius:12px; padding:12px; text-align:center;">
-        <div style="font-size:11px; color:#94a3b8; font-weight:800; margin-bottom:4px;">🛣️ KMS HOY</div>
-        <div style="font-size:24px; color:#38bdf8; font-weight:900;">${kms} km</div>
-      </div>
-      <div style="background:#0f172a; border:1px solid #334155; border-radius:12px; padding:12px; text-align:center;">
-        <div style="font-size:11px; color:#94a3b8; font-weight:800; margin-bottom:4px;">⏱️ JORNADA TOTAL</div>
-        <div style="font-size:24px; color:#f8fafc; font-weight:900;">${formatTime(totalJornada)}</div>
-      </div>
-    </div>
-    
-    <div style="background:#0f172a; border:1px solid #334155; border-radius:12px; padding:12px; text-align:center; margin-bottom:8px;">
-      <div style="font-size:11px; color:#94a3b8; font-weight:800; margin-bottom:4px;">💼 HORAS EFECTIVAS (Uber ON)</div>
-      <div style="font-size:20px; color:#4ade80; font-weight:900;">${formatTime(totalEfectivas)}</div>
-    </div>
-
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
-      <div style="background:#064e3b; border:1px solid #059669; border-radius:10px; padding:8px; text-align:center;">
-        <div style="font-size:10px; color:#a7f3d0; font-weight:700;">LIBRE</div>
-        <div style="font-size:14px; color:#fff; font-weight:900;">${formatTime(sLibre)}</div>
-      </div>
-      <div style="background:#7f1d1d; border:1px solid #ef4444; border-radius:10px; padding:8px; text-align:center;">
-        <div style="font-size:10px; color:#fca5a5; font-weight:700;">OCUPADO</div>
-        <div style="font-size:14px; color:#fff; font-weight:900;">${formatTime(sOcupado)}</div>
-      </div>
-    </div>
-    
-    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
-      <div style="background:#78350f; border:1px solid #f59e0b; border-radius:10px; padding:8px; text-align:center;">
-        <div style="font-size:10px; color:#fcd34d; font-weight:700;">INCIDENCIA</div>
-        <div style="font-size:14px; color:#fff; font-weight:900;">${formatTime(sIncidencia)}</div>
-      </div>
-      <div style="background:#4c1d95; border:1px solid #a855f7; border-radius:10px; padding:8px; text-align:center;">
-        <div style="font-size:10px; color:#d8b4fe; font-weight:700;">DESCANSO</div>
-        <div style="font-size:14px; color:#fff; font-weight:900;">${formatTime(sDescanso)}</div>
-      </div>
-      <div style="background:#334155; border:1px solid #64748b; border-radius:10px; padding:8px; text-align:center;">
-        <div style="font-size:10px; color:#cbd5e1; font-weight:700;">FUERA APP</div>
-        <div style="font-size:14px; color:#fff; font-weight:900;">${formatTime(sFuera)}</div>
-      </div>
+    <div style="background:#1e3a8a; border:1px solid #3b82f6; border-radius:20px; padding:6px 14px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 8px rgba(59,130,246,0.3);">
+      <span style="font-size:14px;">🛣️</span>
+      <span style="font-size:14px; font-weight:900; color:#fff; letter-spacing:0.5px;">${kms} km hoy</span>
     </div>
   `;
 }

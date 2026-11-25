@@ -199,7 +199,7 @@ async function abrirMapaPantalla(){
 
   cont.innerHTML = `
     <div id="geoEstadoBadge" style="text-align:center;margin-bottom:12px;padding:14px;border-radius:12px;border:2px solid #475569;background:linear-gradient(135deg,#1e293b,#0f172a);color:#94a3b8;font-size:15px;font-weight:900;letter-spacing:0.5px;transition:all 0.3s">⚫ RASTREO DETENIDO<div style='font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px'>Pulsa INICIAR para empezar</div></div>
-    <div id="resumenJornadaBox" style="margin-bottom:12px;"></div>
+    <div id="resumenJornadaBox" style="display:flex; justify-content:center; gap:8px; margin-bottom:12px;"></div>
     <div style="position:relative;margin-bottom:12px">
       <div id="mapa-leaflet" style="width:100%;height:50vh;min-height:300px;border-radius:12px;background:#1e293b;border:1px solid #334155"></div>
       <button type="button" onclick="centrarEnMiUbicacion()" title="Mi ubicación" style="position:absolute;right:10px;bottom:20px;z-index:500;width:46px;height:46px;border-radius:50%;border:2px solid #0ea5e9;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-size:22px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:0;line-height:1">◎</button>
@@ -499,23 +499,23 @@ function dibujarRecorridoEnMapa(fechaStr) {
   let puntos = puntosStr ? JSON.parse(puntosStr) : obtenerRecorrido(fechaStr);
   if (!puntos || puntos.length < 2) return;
   
-  // Limpiamos cualquier ruta anterior del mapa
+  // Limpiamos cualquier ruta o marcador anterior del mapa
   if (capaRecorridoActual) { mapaInstance.removeLayer(capaRecorridoActual); capaRecorridoActual = null; }
   if (typeof capasSegmentosRuta !== 'undefined') {
     capasSegmentosRuta.forEach(capa => mapaInstance.removeLayer(capa));
     capasSegmentosRuta = [];
   }
 
-  // Agrupar puntos en segmentos (por estado)
+  // 1. Agrupar puntos en segmentos (por estado para los colores)
   let segmentos = [];
   let tramoActual = null;
 
   puntos.forEach((p) => {
-    let est = p.estado || "libre"; // Rutas antiguas no tienen estado, asumimos libre
+    let est = p.estado || "libre";
     
     if (!tramoActual || tramoActual.estado !== est) {
       if (tramoActual && tramoActual.coords.length > 0) {
-        tramoActual.coords.push([p.lat, p.lon]); // Unimos el final del tramo anterior con el inicio del nuevo
+        tramoActual.coords.push([p.lat, p.lon]); // Unimos tramos
         segmentos.push(tramoActual);
       }
       tramoActual = { estado: est, coords: [[p.lat, p.lon]] };
@@ -525,7 +525,7 @@ function dibujarRecorridoEnMapa(fechaStr) {
   });
   if (tramoActual && tramoActual.coords.length > 1) segmentos.push(tramoActual);
 
-  // Dibujar cada segmento con su color
+  // 2. Dibujar cada segmento con su color y flechas
   segmentos.forEach(seg => {
     if (seg.coords.length < 2) return;
 
@@ -536,13 +536,11 @@ function dibujarRecorridoEnMapa(fechaStr) {
     if (seg.estado === "fuera") color = "#94a3b8"; // Gris (Fuera App)
     let peso = seg.estado === "ocupado" ? 6 : 5;
 
-    // Dibujamos la línea
     const linea = L.polyline(seg.coords, { color: color, weight: peso, opacity: 0.9, lineJoin: 'round', smoothFactor: 1.5 }).addTo(mapaInstance);
     
     if (typeof capasSegmentosRuta !== 'undefined') capasSegmentosRuta.push(linea);
-    if (!capaRecorridoActual) capaRecorridoActual = linea; // Guardamos la 1ª línea para que fitBounds funcione
+    if (!capaRecorridoActual) capaRecorridoActual = linea; // Guardamos la 1ª línea para fitBounds
 
-    // Añadimos las flechas
     if (L.polylineDecorator) {
       const flechas = L.polylineDecorator(linea, {
         patterns: [{
@@ -560,6 +558,29 @@ function dibujarRecorridoEnMapa(fechaStr) {
   if (capaRecorridoActual) {
     capaRecorridoActual._fecha = fechaStr;
     capaRecorridoActual._numPuntos = puntos.length;
+  }
+
+  // 👇 3. DIBUJAR PUNTOS DE RECOGIDA (A) Y DEJE (B) 👇
+  let marcadoresViajes = {};
+  try { marcadoresViajes = JSON.parse(safeStorage.get("uberCambioMarcadoresViajes") || "{}"); } catch(e){}
+  
+  if (marcadoresViajes[fechaStr]) {
+    marcadoresViajes[fechaStr].forEach(punto => {
+      const esA = punto.tipo === 'A';
+      const color = esA ? '#10b981' : '#ef4444'; // Verde para A, Rojo para B
+      const letra = esA ? 'A' : 'B';
+      
+      // Creamos el icono con un circulito y la letra
+      const icono = L.divIcon({
+        className: 'custom-marker',
+        html: `<div style="background:${color}; color:#fff; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:12px; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.5);">${letra}</div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+      
+      const marcador = L.marker([punto.lat, punto.lon], { icon: icono }).addTo(mapaInstance);
+      if (typeof capasSegmentosRuta !== 'undefined') capasSegmentosRuta.push(marcador);
+    });
   }
 }
 
@@ -607,9 +628,7 @@ function renderListaRutasHistorial() {
 
 function verRutaHistorial(fechaStr) {
   const inp = document.getElementById("fechaRutaInput"); if (!inp || !mapaInstance) return;
-  
   if (inp.value === fechaStr && capaRecorridoActual) { 
-    // Si ya está abierta, la ocultamos y borramos los segmentos de colores
     if (typeof capasSegmentosRuta !== 'undefined') {
       capasSegmentosRuta.forEach(capa => mapaInstance.removeLayer(capa));
       capasSegmentosRuta = [];
@@ -617,7 +636,6 @@ function verRutaHistorial(fechaStr) {
     capaRecorridoActual = null; 
   }
   else { 
-    // Si no está abierta, la dibujamos
     inp.value = fechaStr; 
     dibujarRecorridoEnMapa(fechaStr); 
     if (capaRecorridoActual) { mapaInstance.fitBounds(capaRecorridoActual.getBounds(), { padding: [30, 30] }); } 
@@ -627,13 +645,19 @@ function verRutaHistorial(fechaStr) {
 
 function borrarRutaHistorial(fechaStr) {
   if(!confirm("¿Borrar la ruta del " + fechaStr + "?\n\nEsta acción no se puede deshacer.")) return;
-  
-  // Borramos de la memoria
   localStorage.removeItem("uberCambioRecorrido_" + fechaStr);
   localStorage.removeItem("uberCambioRecorridoMatched_" + fechaStr);
   
+  // (Opcional) Borrar también los marcadores A y B de este día
+  try {
+    let marcadoresViajes = JSON.parse(safeStorage.get("uberCambioMarcadoresViajes") || "{}");
+    if (marcadoresViajes[fechaStr]) {
+      delete marcadoresViajes[fechaStr];
+      safeStorage.set("uberCambioMarcadoresViajes", JSON.stringify(marcadoresViajes));
+    }
+  } catch(e){}
+
   const inp = document.getElementById("fechaRutaInput");
-  // Si la ruta que estamos borrando es la que está en pantalla, la quitamos del mapa
   if (inp && inp.value === fechaStr && capaRecorridoActual) { 
     if (typeof capasSegmentosRuta !== 'undefined') {
       capasSegmentosRuta.forEach(capa => mapaInstance.removeLayer(capa));
@@ -641,8 +665,7 @@ function borrarRutaHistorial(fechaStr) {
     }
     capaRecorridoActual = null; 
   }
-  renderListaRutasHistorial(); 
-  mostrarToast("🗑️ Ruta borrada");
+  renderListaRutasHistorial(); mostrarToast("🗑️ Ruta borrada");
 }
 
 /* ==================== PROCESAMIENTO DE POSICIÓN ==================== */

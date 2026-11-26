@@ -694,9 +694,9 @@ function dibujarRecorridoEnMapa(fechaStr) {
   
   // 👇 ZOOM ARREGLADO (Ahora es 14, más abierto) 👇
   if (pct < 100 && puntoActual) {
-    mapaInstance.setView([puntoActual.lat, puntoActual.lon], 14, { animate: true });
+    mapaInstance.setView([puntoActual.lat, puntoActual.lon], 10, { animate: true });
   } else if (grupoRutaActual.getLayers().length > 0) {
-    mapaInstance.fitBounds(grupoRutaActual.getBounds(), { padding: [30, 30], maxZoom: 14 });
+    mapaInstance.fitBounds(grupoRutaActual.getBounds(), { padding: [30, 30], maxZoom: 10 });
   }
 }
 

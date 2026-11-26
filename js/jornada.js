@@ -145,6 +145,16 @@ function calcularDistanciaAproxMetros(lat1, lon1, lat2, lon2) {
   return R * c; 
 }
 
+function contarViajesDia(fechaStr) {
+  try {
+    const marcadores = JSON.parse(safeStorage.get("uberCambioMarcadoresViajes") || "{}");
+    if (marcadores[fechaStr]) {
+      return marcadores[fechaStr].filter(m => m.tipo === 'A').length;
+    }
+  } catch(e) {}
+  return 0;
+}
+
 function cambiarEstadoApp(nuevoEstado) {
   const m = document.getElementById("modalEstadoApp"); if(m) m.remove();
   
@@ -323,6 +333,7 @@ function renderResumenJornada() {
 
   const hoy = fechaLocalStr();
   const kms = calcularKmsTotales(hoy);
+  const viajes = contarViajesDia(hoy);
   
   let sLibre = segundosLibreHoy, sOcupado = segundosOcupadoHoy, sIncidencia = segundosIncidenciaHoy, sDescanso = segundosDescansoHoy, sFuera = segundosFueraHoy;
   const segsActuales = Math.floor((Date.now() - tiempoInicioEstado) / 1000);
@@ -351,6 +362,11 @@ function renderResumenJornada() {
       <div style="display:flex; align-items:center; gap:6px;">
         <span style="font-size:14px;">💼</span>
         <span style="font-size:14px; font-weight:900; color:#fff; letter-spacing:0.5px;">${formatTime(totalApp)}</span>
+      </div>
+      <div style="width:1px; height:16px; background:#3b82f6;"></div>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span style="font-size:14px;">📍</span>
+        <span style="font-size:14px; font-weight:900; color:#fff; letter-spacing:0.5px;">${viajes}</span>
       </div>
     </div>
   `;
@@ -438,12 +454,19 @@ function guardarJornadaEnHistorial() {
     } catch(e) {}
 
     const kms = (typeof calcularKmsTotales === "function") ? calcularKmsTotales(hoy) : "0.00";
+    const viajes = (typeof contarViajesDia === "function") ? contarViajesDia(hoy) : 0; // 👈 NUEVO
     const totalHorasApp = sLibre + sOcupado;
     const totalJornada = totalHorasApp + sIncidencia + sDescanso + sFuera;
 
     const registroHoy = {
-      fecha: hoy, kms: parseFloat(kms), efectivo: efectivoHoy, propinas: propinasHoy,
-      totalUberOn: totalHorasApp, totalJornada, sLibre, sOcupado, sIncidencia, sDescanso, sFuera
+      fecha: hoy, 
+      kms: parseFloat(kms), 
+      viajes: viajes, // 👈 NUEVO
+      efectivo: efectivoHoy, 
+      propinas: propinasHoy,
+      totalUberOn: totalHorasApp, 
+      totalJornada, 
+      sLibre, sOcupado, sIncidencia, sDescanso, sFuera
     };
 
     let historial = [];
@@ -497,7 +520,7 @@ function mostrarResumenFinJornada() {
       <div style="background:#0f172a; border:1px solid #475569; border-radius:12px; padding:16px; text-align:center; margin-bottom:12px;">
         <div style="font-size:12px; color:#94a3b8; font-weight:800; margin-bottom:4px;">⏱️ JORNADA TOTAL</div>
         <div style="font-size:32px; color:#f8fafc; font-weight:900;">${formatT(totalJornada)}</div>
-        <div style="font-size:11px; color:#38bdf8; font-weight:700; margin-top:4px;">🛣️ ${kms} km recorridos</div>
+        <div style="font-size:11px; color:#38bdf8; font-weight:700; margin-top:4px;">🛣️ ${kms} km · 📍 ${viajes} viajes</div>
       </div>
       <div style="background:#064e3b; border:1px solid #059669; border-radius:12px; padding:12px; text-align:center; margin-bottom:12px;">
         <div style="font-size:12px; color:#a7f3d0; font-weight:800; margin-bottom:4px;">💼 HORAS APP (Efectivas)</div>
@@ -539,7 +562,9 @@ function renderJornadaHistorial() {
       <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
           <div style="font-size:15px;font-weight:900;color:#38bdf8;">📅 ${fechaBonita}</div>
-          <div style="font-size:13px;font-weight:800;color:#4ade80;background:#064e3b;padding:4px 8px;border-radius:6px;">🛣️ ${dia.kms || 0} km</div>
+          <div style="display:flex; gap:6px;">
+          <div style="font-size:12px;font-weight:800;color:#4ade80;background:#064e3b;padding:4px 8px;border-radius:6px;">🛣️ ${dia.kms || 0} km</div>
+          <div style="font-size:12px;font-weight:800;color:#38bdf8;background:#1e3a8a;padding:4px 8px;border-radius:6px;">📍 ${dia.viajes || 0} viajes</div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
           <div style="background:#0f172a;padding:8px;border-radius:8px;text-align:center;"><div style="font-size:10px;color:#94a3b8;font-weight:700;">EFECTIVO</div><div style="font-size:16px;color:#fff;font-weight:900;">${typeof moneyText === 'function' ? moneyText(dia.efectivo || 0) : dia.efectivo}</div></div>

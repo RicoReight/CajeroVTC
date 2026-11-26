@@ -211,7 +211,6 @@ async function abrirMapaPantalla(){
   const p=document.getElementById("mapaPantalla"); if(p)p.style.display="block";
   const cont = document.getElementById("mapaContenido");
   
-  // PANTALLA DE CARGA (Mantenemos tu loading)
   cont.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;text-align:center;">
       <div style="font-size:48px;margin-bottom:16px;animation:spin 2s linear infinite;display:inline-block;">🌍</div>
@@ -244,22 +243,15 @@ async function abrirMapaPantalla(){
   setLoad("¡Listo!", 100);
   await new Promise(r => setTimeout(r, 500)); 
 
-  // PANTALLA REAL DEL MAPA
   cont.innerHTML = `
     <div id="geoEstadoBadge" style="text-align:center;margin-bottom:12px;padding:14px;border-radius:12px;border:2px solid #475569;background:linear-gradient(135deg,#1e293b,#0f172a);color:#94a3b8;font-size:15px;font-weight:900;letter-spacing:0.5px;transition:all 0.3s">⚫ RASTREO DETENIDO<div style='font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px'>Pulsa INICIAR para empezar</div></div>
     <div id="resumenJornadaBox" style="display:flex; justify-content:center; gap:8px; margin-bottom:12px;"></div>
     
-    <!-- WRAPPER DEL MAPA (Aquí va la magia) -->
     <div id="mapaWrapper" style="position:relative; margin-bottom:12px; transition:all 0.3s;">
       <div id="mapa-leaflet" style="width:100%;height:50vh;min-height:300px;border-radius:12px;background:#1e293b;border:1px solid #334155;"></div>
-      
-      <!-- BOTÓN PANTALLA COMPLETA -->
       <button type="button" onclick="toggleFullscreenMapa()" style="position:absolute;right:10px;top:10px;z-index:500;width:40px;height:40px;border-radius:8px;background:rgba(30,41,59,0.8);backdrop-filter:blur(4px);border:1px solid #475569;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;">⛶</button>
-      
-      <!-- BOTÓN MI UBICACIÓN -->
       <button type="button" onclick="centrarEnMiUbicacion()" title="Mi ubicación" style="position:absolute;right:10px;bottom:20px;z-index:500;width:46px;height:46px;border-radius:50%;border:2px solid #0ea5e9;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-size:22px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:0;line-height:1">◎</button>
       
-      <!-- CONTROLES FLOTANTES DEL REPRODUCTOR (Ocultos por defecto, aparecen en Fullscreen) -->
       <div id="controlesFlotantes" style="display:none; position:absolute; bottom:0; left:0; right:0; z-index:500; background:linear-gradient(0deg, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0) 100%); padding:20px 15px 15px; border-radius:0 0 12px 12px;">
         <div style="display:flex; align-items:center; gap:10px;">
           <button type="button" id="btnPlayRuta" onclick="togglePlayRuta()" style="width:40px;height:40px;border-radius:50%;border:none;background:#38bdf8;color:#0f172a;font-size:18px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">▶️</button>
@@ -268,19 +260,24 @@ async function abrirMapaPantalla(){
       </div>
     </div>
 
-    <!-- PANEL DE FILTROS DEBAJO DEL MAPA -->
     <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;margin-bottom:12px;overflow:hidden;">
       <div onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='none'?'block':'none'; this.querySelector('span').textContent = this.nextElementSibling.style.display==='none'?'▼':'▲';" style="padding:12px;background:#0f172a;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
-        <div style="font-size:12px;color:#38bdf8;font-weight:900;letter-spacing:0.5px;">🎛️ FILTROS</div>
+        <div style="font-size:12px;color:#38bdf8;font-weight:900;letter-spacing:0.5px;">🎛️ FILTROS Y REPRODUCTOR</div>
         <span style="color:#64748b;font-size:14px;">▼</span>
       </div>
       <div style="display:none;padding:12px;">
-        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <div style="font-size:11px;color:#94a3b8;font-weight:800;margin-bottom:8px;">MOSTRAR COLORES:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
           <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#fff;background:#0f172a;padding:6px 10px;border-radius:8px;cursor:pointer;"><input type="checkbox" id="filtro_libre" checked onchange="actualizarMapaVisual()"> 🟢 Libre</label>
           <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#fff;background:#0f172a;padding:6px 10px;border-radius:8px;cursor:pointer;"><input type="checkbox" id="filtro_ocupado" checked onchange="actualizarMapaVisual()"> 🔴 Ocupado</label>
           <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#fff;background:#0f172a;padding:6px 10px;border-radius:8px;cursor:pointer;"><input type="checkbox" id="filtro_incidencia" checked onchange="actualizarMapaVisual()"> 🟠 Incid.</label>
           <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#fff;background:#0f172a;padding:6px 10px;border-radius:8px;cursor:pointer;"><input type="checkbox" id="filtro_descanso" checked onchange="actualizarMapaVisual()"> 🟣 Desc.</label>
           <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#fff;background:#0f172a;padding:6px 10px;border-radius:8px;cursor:pointer;"><input type="checkbox" id="filtro_fuera" checked onchange="actualizarMapaVisual()"> ⚫ Fuera</label>
+        </div>
+        <div style="font-size:11px;color:#94a3b8;font-weight:800;margin-bottom:8px;">REPRODUCIR RECORRIDO:</div>
+        <input type="range" id="rutaSlider" min="0" max="100" value="100" oninput="actualizarMapaVisual()" style="width:100%;accent-color:#38bdf8;cursor:pointer;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#64748b;margin-top:4px;font-weight:700;">
+          <span>Inicio</span><span>Final</span>
         </div>
       </div>
     </div>
@@ -290,7 +287,6 @@ async function abrirMapaPantalla(){
       <button type="button" id="btnGeoIniciar" onclick="iniciarGeolocalizacion()" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;padding:14px;font-weight:900;font-size:15px;cursor:pointer;letter-spacing:0.5px;box-shadow:0 4px 10px rgba(16,185,129,0.3)">▶ INICIAR</button>
       <button type="button" id="btnGeoDetener" onclick="detenerGeolocalizacion()" style="background:#1e293b;color:#64748b;border:1px solid #334155;border-radius:10px;padding:14px;font-weight:900;font-size:15px;cursor:not-allowed;letter-spacing:0.5px">⏹ DETENER</button>
     </div>
-    
     <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:14px; margin-bottom:12px;">
       <div onclick="toggleHistorialRutas()" style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;">
         <div style="font-size:11px; color:#94a3b8; font-weight:800; letter-spacing:0.5px;">🗺️ HISTORIAL DE RUTAS</div>
@@ -340,8 +336,11 @@ async function abrirMapaPantalla(){
     } catch(e){ console.error("Error montando el mapa:", e); }
   }, 100);
   
+  // 👇 CLAVE: Vaciamos caché para que no se recuerde nada
   const inpFecha = document.getElementById("fechaRutaInput");
-  if(inpFecha) inpFecha.value = fechaLocalStr();
+  if(inpFecha) inpFecha.value = ""; 
+  puntosRutaActualGlobal = [];
+  puntosRutaFechaCache = null;
   
   const sl = document.getElementById("rutaSlider"); if(sl) sl.value = 100;
   const slF = document.getElementById("rutaSliderFull"); if(slF) slF.value = 100;
@@ -581,10 +580,16 @@ function obtenerRecorrido(fechaStr) {
 }
 
 let puntosRutaActualGlobal = [];
+let puntosRutaFechaCache = null;
+let playRutaInterval = null; 
 let timeoutMapaVisual = null;
 function actualizarMapaVisual() {
+  // Sincroniza la barra normal con la de pantalla completa
+  const slFull = document.getElementById("rutaSliderFull");
+  const slNormal = document.getElementById("rutaSlider");
+  if (slFull && slNormal) slFull.value = slNormal.value;
+  
   if(timeoutMapaVisual) clearTimeout(timeoutMapaVisual);
-  // Subimos a 100ms para que no se sature el móvil y vaya más fluido
   timeoutMapaVisual = setTimeout(() => {
     const inp = document.getElementById("fechaRutaInput");
     if (inp && inp.value) dibujarRecorridoEnMapa(inp.value);
@@ -595,12 +600,15 @@ function dibujarRecorridoEnMapa(fechaStr) {
   if (!mapaInstance) return;
   
   let puntos;
-  if (puntosRutaActualGlobal && puntosRutaActualGlobal.length > 0 && document.getElementById("fechaRutaInput")?.value === fechaStr) {
+  if (puntosRutaActualGlobal && 
+      puntosRutaActualGlobal.length > 0 && 
+      puntosRutaFechaCache === fechaStr) {
     puntos = puntosRutaActualGlobal;
   } else {
     const claveMatched = "uberCambioRecorridoMatched_" + fechaStr;
     let puntosStr = safeStorage.get(claveMatched);
     puntos = puntosStr ? JSON.parse(puntosStr) : obtenerRecorrido(fechaStr);
+    puntosRutaFechaCache = fechaStr; // 👈 Guardamos la fecha del caché
   }
   
   if (!puntos || puntos.length < 2) return;
@@ -758,8 +766,8 @@ function renderListaRutasHistorial() {
   fechas.forEach(f => {
     const tieneMatched = localStorage.getItem("uberCambioRecorridoMatched_" + f);
     
-    // 👇 MEJORA: Saber si es la ruta activa actual
-    const esActual = (f === fechaActual); 
+    // 👇 Activo solo si tiene la misma fecha Y hay un grupo en el mapa
+    const esActual = (f === fechaActual && grupoRutaActual !== null && grupoRutaActual !== undefined); 
     
     const p = f.split("-"), dateObj = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
     const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -767,13 +775,11 @@ function renderListaRutasHistorial() {
     
     const kms = typeof calcularKmsTotales === 'function' ? calcularKmsTotales(f) : "0.0";
     
-    // 👇 NUEVO: Contar paradas (recogidas)
     let numParadas = 0;
     if (marcadoresViajes[f]) {
       numParadas = marcadoresViajes[f].filter(m => m.tipo === 'A').length;
     }
 
-    // 👇 NUEVO DISEÑO SELECCIONADO
     const bgCaja = esActual ? "#1e3a8a" : "#0f172a";
     const bordeCaja = esActual ? "2px solid #3b82f6" : "1px solid #334155";
     const textoBoton = esActual ? "✅ Activo" : "Ver";
@@ -798,21 +804,28 @@ function renderListaRutasHistorial() {
 function verRutaHistorial(fechaStr) {
   const inp = document.getElementById("fechaRutaInput"); if (!inp || !mapaInstance) return;
   
-  if (inp.value === fechaStr) { 
-    // Deseleccionar ruta
+  if (inp.value === fechaStr && grupoRutaActual) { 
+    // Deseleccionar
     inp.value = ""; 
     if (grupoRutaActual) { mapaInstance.removeLayer(grupoRutaActual); grupoRutaActual = null; }
     capasSegmentosRuta = [];
     capaRecorridoActual = null;
+    puntosRutaActualGlobal = [];
+    puntosRutaFechaCache = null;
     const sl = document.getElementById("rutaSlider"); if(sl) sl.value = 100;
+    const slF = document.getElementById("rutaSliderFull"); if(slF) slF.value = 100;
   } else { 
-    // Seleccionar nueva ruta
+    // Seleccionar nueva
     inp.value = fechaStr; 
+    puntosRutaActualGlobal = [];
+    puntosRutaFechaCache = null;
     const sl = document.getElementById("rutaSlider"); if(sl) sl.value = 100;
+    const slF = document.getElementById("rutaSliderFull"); if(slF) slF.value = 100;
     dibujarRecorridoEnMapa(fechaStr); 
   }
   renderListaRutasHistorial();
 }
+
 
 function borrarRutaHistorial(fechaStr) {
   if(!confirm("¿Borrar la ruta del " + fechaStr + "?\n\nEsta acción no se puede deshacer.")) return;
@@ -1086,15 +1099,16 @@ function toggleFullscreenMapa() {
 
 // 2. Sincronizar la barra flotante con el dibujado
 function sincronizarSlider() {
-  const val = document.getElementById("rutaSliderFull").value;
+  // Sincroniza la barra de pantalla completa con la normal
+  const slFull = document.getElementById("rutaSliderFull");
   const slNormal = document.getElementById("rutaSlider");
-  if(slNormal) slNormal.value = val; // Sincronizamos por si acaso
+  if (slFull && slNormal) slNormal.value = slFull.value;
   
-  clearTimeout(timeoutMapaVisual);
+  if(timeoutMapaVisual) clearTimeout(timeoutMapaVisual);
   timeoutMapaVisual = setTimeout(() => {
     const inp = document.getElementById("fechaRutaInput");
     if (inp && inp.value) dibujarRecorridoEnMapa(inp.value);
-  }, 30);
+  }, 30); 
 }
 
 // 3. Reproducción automática (tipo vídeo)
@@ -1102,20 +1116,23 @@ let playRutaInterval = null;
 function togglePlayRuta() {
   const btn = document.getElementById("btnPlayRuta");
   const slider = document.getElementById("rutaSliderFull");
+  const slNormal = document.getElementById("rutaSlider");
   
+  if (!btn || !slider) return;
+
   if (playRutaInterval) {
     clearInterval(playRutaInterval);
     playRutaInterval = null;
     btn.textContent = "▶️";
   } else {
     if (parseInt(slider.value) >= 100) {
-      slider.value = 0; // Si estaba al final, reiniciar
+      slider.value = 0;
+      if(slNormal) slNormal.value = 0;
     }
     btn.textContent = "⏸️";
     
     playRutaInterval = setInterval(() => {
-      let val = parseInt(slider.value);
-      val += 1; // Velocidad: 1% cada 100ms (10 segundos por día completo)
+      let val = parseInt(slider.value) + 1;
       
       if (val >= 100) {
         val = 100;
@@ -1125,8 +1142,8 @@ function togglePlayRuta() {
       }
       
       slider.value = val;
+      if (slNormal) slNormal.value = val; // 👈 KEY: actualizamos también la normal
       
-      // Actualizamos el mapa directamente (sin debounce para que sea fluido)
       const inp = document.getElementById("fechaRutaInput");
       if (inp && inp.value) dibujarRecorridoEnMapa(inp.value);
       

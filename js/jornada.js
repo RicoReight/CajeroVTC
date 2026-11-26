@@ -140,9 +140,33 @@ function guardarJornadaEnHistorial() {
 
 function cambiarEstadoApp(nuevoEstado) {
   const m = document.getElementById("modalEstadoApp"); if(m) m.remove();
-  if(estadoApp === nuevoEstado) return;
+  
+  // =========================================================================
+  // 👇 CASO ESPECIAL: Si ya estamos en "Ocupado" y volvemos a pulsar "Ocupado"
+  // Significa que hemos dejado a un cliente y hemos cogido a otro en el mismo sitio.
+  // =========================================================================
+  if(estadoApp === nuevoEstado) {
+    if (nuevoEstado === 'ocupado' && typeof ultimaPosicion !== 'undefined' && ultimaPosicion) {
+      const hoy = fechaLocalStr();
+      let marcadores = {};
+      try { marcadores = JSON.parse(safeStorage.get("uberCambioMarcadoresViajes") || "{}"); } catch(e){}
+      if(!marcadores[hoy]) marcadores[hoy] = [];
+      
+      // Añadimos un nuevo punto A (Recogida) encima del actual
+      marcadores[hoy].push({ lat: ultimaPosicion.lat, lon: ultimaPosicion.lon, tipo: 'A', time: Date.now() });
+      safeStorage.set("uberCambioMarcadoresViajes", JSON.stringify(marcadores));
+      
+      mostrarToast("🔄 Nuevo cliente en el mismo sitio");
+      
+      if(typeof renderResumenJornada === 'function') renderResumenJornada();
+      if(typeof actualizarMapaVisual === 'function') actualizarMapaVisual();
+    }
+    return; 
+  }
 
-  // 👇 NUEVO: Guardar puntos inteligentes (A y B) 👇
+  // =========================================================================
+  // 👇 GESTIÓN DE PUNTOS (A y B) CUANDO HAY UN CAMBIO DE ESTADO REAL
+  // =========================================================================
   if(typeof ultimaPosicion !== 'undefined' && ultimaPosicion) {
     const hoy = fechaLocalStr();
     let marcadores = {};
@@ -150,36 +174,38 @@ function cambiarEstadoApp(nuevoEstado) {
     if(!marcadores[hoy]) marcadores[hoy] = [];
 
     if (nuevoEstado === 'ocupado' && estadoApp !== 'ocupado') {
-      // Si el último punto es un 'B' (Deje) y estamos muy cerca (menos de 50m)
+      // Vamos a pasar a Ocupado. Miramos si el último punto fue un Deje (B) muy cerca.
       let esMismoSitio = false;
       if (marcadores[hoy].length > 0) {
         const ultimo = marcadores[hoy][marcadores[hoy].length - 1];
         if (ultimo.tipo === 'B') {
           const dist = calcularDistanciaAproxMetros(ultimaPosicion.lat, ultimaPosicion.lon, ultimo.lat, ultimo.lon);
-          if (dist < 50) esMismoSitio = true;
+          if (dist < 50) esMismoSitio = true; // Menos de 50 metros = Mismo sitio
         }
       }
 
       if (esMismoSitio) {
-        // Transformar el último B en A (es el mismo punto físico)
+        // Transformamos el último B en A
         marcadores[hoy][marcadores[hoy].length - 1].tipo = 'A';
         marcadores[hoy][marcadores[hoy].length - 1].time = Date.now(); 
         mostrarToast("📍 Mismo punto: Unificando recogida");
       } else {
-        // Crear A normal
+        // Punto A normal (Recogida)
         marcadores[hoy].push({ lat: ultimaPosicion.lat, lon: ultimaPosicion.lon, tipo: 'A', time: Date.now() });
       }
       safeStorage.set("uberCambioMarcadoresViajes", JSON.stringify(marcadores));
     }
 
     if (estadoApp === 'ocupado' && nuevoEstado !== 'ocupado') {
+      // Venimos de Ocupado y pasamos a otro estado (Libre, Descanso, etc.) -> Punto B (Deje)
       marcadores[hoy].push({ lat: ultimaPosicion.lat, lon: ultimaPosicion.lon, tipo: 'B', time: Date.now() });
       safeStorage.set("uberCambioMarcadoresViajes", JSON.stringify(marcadores));
     }
   }
-  // 👆 FIN DEL NUEVO CÓDIGO 👆
 
-  // 1. Guardar el tiempo que ha pasado en el estado anterior
+  // =========================================================================
+  // 👇 CÁLCULO DE TIEMPOS DEL ESTADO ANTERIOR
+  // =========================================================================
   const ahora = Date.now();
   const segundosTranscurridos = Math.floor((ahora - tiempoInicioEstado) / 1000);
   
@@ -189,7 +215,9 @@ function cambiarEstadoApp(nuevoEstado) {
   if (estadoApp === 'descanso') segundosDescansoHoy += segundosTranscurridos;
   if (estadoApp === 'fuera') segundosFueraHoy += segundosTranscurridos;
 
-  // 2. Guardar en memoria (localStorage)
+  // =========================================================================
+  // 👇 GUARDAR EN MEMORIA (localStorage)
+  // =========================================================================
   const hoy = fechaLocalStr();
   safeStorage.set("uberCambioTiempoLibre_" + hoy, segundosLibreHoy);
   safeStorage.set("uberCambioTiempoOcupado_" + hoy, segundosOcupadoHoy);
@@ -197,7 +225,9 @@ function cambiarEstadoApp(nuevoEstado) {
   safeStorage.set("uberCambioTiempoDescanso_" + hoy, segundosDescansoHoy);
   safeStorage.set("uberCambioTiempoFuera_" + hoy, segundosFueraHoy);
 
-  // 3. Cambiar al nuevo estado
+  // =========================================================================
+  // 👇 CAMBIAR AL NUEVO ESTADO Y ACTUALIZAR UI
+  // =========================================================================
   estadoApp = nuevoEstado;
   tiempoInicioEstado = ahora;
   safeStorage.set("uberCambioEstadoApp", estadoApp);
@@ -206,6 +236,7 @@ function cambiarEstadoApp(nuevoEstado) {
   
   if(typeof actualizarBotonCochePrincipal === 'function') actualizarBotonCochePrincipal();
   if(typeof renderResumenJornada === 'function') renderResumenJornada();
+  if(typeof actualizarMapaVisual === 'function') actualizarMapaVisual();
 }
 /* ==================== CÁLCULOS DE LA JORNADA ==================== */
 
@@ -531,16 +562,12 @@ function renderJornadaHistorial() {
 
 // Fórmula para calcular la distancia en metros entre dos puntos GPS
 function calcularDistanciaAproxMetros(lat1, lon1, lat2, lon2) {
-  const R = 6371e3; // Radio de la Tierra en metros
+  const R = 6371e3; 
   const phi1 = lat1 * Math.PI/180;
   const phi2 = lat2 * Math.PI/180;
   const deltaPhi = (lat2-lat1) * Math.PI/180;
   const deltaLambda = (lon2-lon1) * Math.PI/180;
-
-  const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
-            Math.cos(phi1) * Math.cos(phi2) *
-            Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+  const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) + Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
   return R * c; 
 }

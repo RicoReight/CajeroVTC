@@ -211,13 +211,13 @@ async function abrirMapaPantalla(){
   const p=document.getElementById("mapaPantalla"); if(p)p.style.display="block";
   const cont = document.getElementById("mapaContenido");
   
-  // PANTALLA DE CARGA VISUAL
+  // PANTALLA DE CARGA (Mantenemos tu loading)
   cont.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;text-align:center;">
       <div style="font-size:48px;margin-bottom:16px;animation:spin 2s linear infinite;display:inline-block;">🌍</div>
       <div id="loadingText" style="font-size:16px;color:#38bdf8;font-weight:800;margin-bottom:16px;">Iniciando motor...</div>
       <div style="width:80%;max-width:300px;background:#1e293b;border-radius:10px;height:12px;overflow:hidden;border:1px solid #334155;">
-        <div id="loadingBar" style="width:0%;height:100%;background:linear-gradient(90deg, #0ea5e9, #38bdf8);transition:width 0.5s ease-in-out;"></div>
+        <div id="loadingBar" style="width:0%;height:100%;background:linear-gradient(90deg, #0ea5e9, #38bdf8);transition:width 0.8s ease-in-out;"></div>
       </div>
     </div>
     <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
@@ -229,57 +229,68 @@ async function abrirMapaPantalla(){
     if(b) b.style.width = pct + "%";
   };
 
-  // 👇 CARGA PASO A PASO (Sin solapamientos) 👇
   setLoad("Cargando motor del mapa...", 10);
   try { await cargarLeaflet(); } 
   catch(e){ cont.innerHTML = "<div style='text-align:center;color:#ef4444;padding:30px;background:#1e293b;border-radius:12px;'>❌ Error: "+e.message+"<br><br><button onclick='abrirMapaPantalla()' style='margin-top:12px;padding:10px 20px;border-radius:8px;border:none;background:#334155;color:#fff;font-weight:800;'>Reintentar</button></div>"; return; }
 
   setLoad("Descargando zona AMB...", 30);
   await new Promise(r => setTimeout(r, 600)); 
-
   setLoad("Descargando ZBE (Rondas)...", 50);
   await new Promise(r => setTimeout(r, 600));
-
   setLoad("Descargando provincia...", 70);
   await cargarPoligonos(); 
-  
   setLoad("Dibujando mapa...", 90);
   await new Promise(r => setTimeout(r, 600)); 
-  
   setLoad("¡Listo!", 100);
-  await new Promise(r => setTimeout(r, 500)); // Pausa final
+  await new Promise(r => setTimeout(r, 500)); 
 
   // PANTALLA REAL DEL MAPA
   cont.innerHTML = `
     <div id="geoEstadoBadge" style="text-align:center;margin-bottom:12px;padding:14px;border-radius:12px;border:2px solid #475569;background:linear-gradient(135deg,#1e293b,#0f172a);color:#94a3b8;font-size:15px;font-weight:900;letter-spacing:0.5px;transition:all 0.3s">⚫ RASTREO DETENIDO<div style='font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px'>Pulsa INICIAR para empezar</div></div>
     <div id="resumenJornadaBox" style="display:flex; justify-content:center; gap:8px; margin-bottom:12px;"></div>
-    <div style="position:relative;margin-bottom:12px">
-      <div id="mapa-leaflet" style="width:100%;height:50vh;min-height:300px;border-radius:12px;background:#1e293b;border:1px solid #334155"></div>
+    
+    <!-- WRAPPER DEL MAPA (Aquí va la magia) -->
+    <div id="mapaWrapper" style="position:relative; margin-bottom:12px; transition:all 0.3s;">
+      <div id="mapa-leaflet" style="width:100%;height:50vh;min-height:300px;border-radius:12px;background:#1e293b;border:1px solid #334155;"></div>
+      
+      <!-- BOTÓN PANTALLA COMPLETA -->
+      <button type="button" onclick="toggleFullscreenMapa()" style="position:absolute;right:10px;top:10px;z-index:500;width:40px;height:40px;border-radius:8px;background:rgba(30,41,59,0.8);backdrop-filter:blur(4px);border:1px solid #475569;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;">⛶</button>
+      
+      <!-- BOTÓN MI UBICACIÓN -->
       <button type="button" onclick="centrarEnMiUbicacion()" title="Mi ubicación" style="position:absolute;right:10px;bottom:20px;z-index:500;width:46px;height:46px;border-radius:50%;border:2px solid #0ea5e9;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-size:22px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:0;line-height:1">◎</button>
+      
+      <!-- CONTROLES FLOTANTES DEL REPRODUCTOR (Ocultos por defecto, aparecen en Fullscreen) -->
+      <div id="controlesFlotantes" style="display:none; position:absolute; bottom:0; left:0; right:0; z-index:500; background:linear-gradient(0deg, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0) 100%); padding:20px 15px 15px; border-radius:0 0 12px 12px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button type="button" id="btnPlayRuta" onclick="togglePlayRuta()" style="width:40px;height:40px;border-radius:50%;border:none;background:#38bdf8;color:#0f172a;font-size:18px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">▶️</button>
+          <input type="range" id="rutaSliderFull" min="0" max="100" value="100" oninput="sincronizarSlider()" style="flex:1;accent-color:#38bdf8;cursor:pointer;">
+        </div>
+      </div>
     </div>
+
+    <!-- PANEL DE FILTROS DEBAJO DEL MAPA -->
     <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;margin-bottom:12px;overflow:hidden;">
       <div onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='none'?'block':'none'; this.querySelector('span').textContent = this.nextElementSibling.style.display==='none'?'▼':'▲';" style="padding:12px;background:#0f172a;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
-        <div style="font-size:12px;color:#38bdf8;font-weight:900;letter-spacing:0.5px;">🎛️ FILTROS Y REPRODUCTOR</div>
+        <div style="font-size:12px;color:#38bdf8;font-weight:900;letter-spacing:0.5px;">🎛️ FILTROS</div>
         <span style="color:#64748b;font-size:14px;">▼</span>
       </div>
       <div style="display:none;padding:12px;">
-        <div style="font-size:11px;color:#94a3b8;font-weight:800;margin-bottom:8px;">MOSTRAR COLORES:</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
           <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#fff;background:#0f172a;padding:6px 10px;border-radius:8px;cursor:pointer;"><input type="checkbox" id="filtro_libre" checked onchange="actualizarMapaVisual()"> 🟢 Libre</label>
           <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#fff;background:#0f172a;padding:6px 10px;border-radius:8px;cursor:pointer;"><input type="checkbox" id="filtro_ocupado" checked onchange="actualizarMapaVisual()"> 🔴 Ocupado</label>
           <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#fff;background:#0f172a;padding:6px 10px;border-radius:8px;cursor:pointer;"><input type="checkbox" id="filtro_incidencia" checked onchange="actualizarMapaVisual()"> 🟠 Incid.</label>
           <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#fff;background:#0f172a;padding:6px 10px;border-radius:8px;cursor:pointer;"><input type="checkbox" id="filtro_descanso" checked onchange="actualizarMapaVisual()"> 🟣 Desc.</label>
           <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#fff;background:#0f172a;padding:6px 10px;border-radius:8px;cursor:pointer;"><input type="checkbox" id="filtro_fuera" checked onchange="actualizarMapaVisual()"> ⚫ Fuera</label>
         </div>
-        <div style="font-size:11px;color:#94a3b8;font-weight:800;margin-bottom:8px;">REPRODUCIR RECORRIDO:</div>
-        <input type="range" id="rutaSlider" min="0" max="100" value="100" oninput="actualizarMapaVisual()" style="width:100%;accent-color:#38bdf8;cursor:pointer;">
       </div>
     </div>
+
     <div id="mapaZonaActual" style="text-align:center;margin-bottom:12px;padding:12px;background:#1e293b;border-radius:12px;font-size:15px;font-weight:800;color:#94a3b8;border:1px solid #334155">Zona: —</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <button type="button" id="btnGeoIniciar" onclick="iniciarGeolocalizacion()" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:10px;padding:14px;font-weight:900;font-size:15px;cursor:pointer;letter-spacing:0.5px;box-shadow:0 4px 10px rgba(16,185,129,0.3)">▶ INICIAR</button>
       <button type="button" id="btnGeoDetener" onclick="detenerGeolocalizacion()" style="background:#1e293b;color:#64748b;border:1px solid #334155;border-radius:10px;padding:14px;font-weight:900;font-size:15px;cursor:not-allowed;letter-spacing:0.5px">⏹ DETENER</button>
     </div>
+    
     <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:14px; margin-bottom:12px;">
       <div onclick="toggleHistorialRutas()" style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;">
         <div style="font-size:11px; color:#94a3b8; font-weight:800; letter-spacing:0.5px;">🗺️ HISTORIAL DE RUTAS</div>
@@ -290,6 +301,7 @@ async function abrirMapaPantalla(){
         <div id="listaRutasHistorial" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
       </div>
     </div>
+    
     <div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:12px;margin-bottom:12px">
       <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px">📖 LEYENDA</div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:20px;height:6px;background:#4ade80;border-radius:3px"></div><span style="font-size:13px;color:#e2e8f0;font-weight:600">Zona de trabajo</span></div>
@@ -297,6 +309,7 @@ async function abrirMapaPantalla(){
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:20px;height:6px;background:#fb923c;border-radius:3px"></div><span style="font-size:13px;color:#e2e8f0;font-weight:600">Zona Interurbana</span></div>
       <div style="display:flex;align-items:center;gap:10px"><div style="width:20px;height:6px;background:#ef4444;border-radius:3px"></div><span style="font-size:13px;color:#e2e8f0;font-weight:600">Fuera Provincia</span></div>
     </div>
+
     <div style="text-align:center;margin-top:10px;margin-bottom:20px"><button type="button" onclick="toggleDebugCoords()" style="background:transparent;color:#64748b;border:1px dashed #475569;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">🐞 Probar coordenadas</button></div>
     <div id="debugCoordsBox" style="display:none;margin-top:10px;padding:12px;background:#1e293b;border:1px dashed #475569;border-radius:10px">
       <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px;letter-spacing:0.5px">DEBUG · PRUEBA RÁPIDA</div>
@@ -331,6 +344,7 @@ async function abrirMapaPantalla(){
   if(inpFecha) inpFecha.value = fechaLocalStr();
   
   const sl = document.getElementById("rutaSlider"); if(sl) sl.value = 100;
+  const slF = document.getElementById("rutaSliderFull"); if(slF) slF.value = 100;
 
   renderListaRutasHistorial();
   aplicarEstadoHistorialRutas();
@@ -657,30 +671,42 @@ function dibujarRecorridoEnMapa(fechaStr) {
     }
   });
 
-  // ICONOS CON NÚMERO DE VIAJE
+  // ICONOS CON NÚMERO DE VIAJE Y DESCANSO
   let marcadoresViajes = {};
   try { marcadoresViajes = JSON.parse(safeStorage.get("uberCambioMarcadoresViajes") || "{}"); } catch(e){}
   
-  if (marcadoresViajes[fechaStr]) {
+    if (marcadoresViajes[fechaStr]) {
     let contadorViaje = 0;
     
     marcadoresViajes[fechaStr].forEach(punto => {
       const esA = punto.tipo === 'A';
-      if (!filtros.ocupado) return; 
-      
+      const esB = punto.tipo === 'B';
+      const esD = punto.tipo === 'D';
+      const esI = punto.tipo === 'I';
+
+      if (esA && !filtros.ocupado) return; 
+      if (esB && !filtros.ocupado) return; 
+      if (esD && !filtros.descanso) return;
+      if (esI && !filtros.incidencia) return;
+
       if (esA) contadorViaje++;
 
       if (pct < 100 && punto.time && punto.time > timeActual) return;
 
-      const color = esA ? '#10b981' : '#ef4444'; 
-      const emoji = esA ? '🙋‍♂️' : '🏁'; 
+      let color = "#ef4444"; 
+      let emoji = '🏁'; 
+      let numBadge = contadorViaje;
+
+      if (esA) { color = '#10b981'; emoji = '🙋‍♂️'; }
+      if (esD) { color = '#a855f7'; emoji = '☕'; numBadge = ''; } 
+      if (esI) { color = '#f59e0b'; emoji = '⛽'; numBadge = ''; } // Icono de gasolinera
       
       const icono = L.divIcon({
         className: 'custom-marker',
         html: `
           <div style="position:relative; width:34px; height:34px;">
             <div style="background:${color}; width:100%; height:100%; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; border:2px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,0.6);">${emoji}</div>
-            <div style="position:absolute; top:-6px; right:-6px; background:#0f172a; color:#fff; font-size:11px; font-weight:900; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:1.5px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,0.5);">${contadorViaje}</div>
+            ${numBadge ? `<div style="position:absolute; top:-6px; right:-6px; background:#0f172a; color:#fff; font-size:11px; font-weight:900; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:1.5px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,0.5);">${numBadge}</div>` : ''}
           </div>
         `,
         iconSize: [34, 34],
@@ -690,13 +716,6 @@ function dibujarRecorridoEnMapa(fechaStr) {
       const marcador = L.marker([punto.lat, punto.lon], { icon: icono }).addTo(grupoRutaActual);
       capasSegmentosRuta.push(marcador);
     });
-  }
-  
-  // 👇 ZOOM ARREGLADO (Ahora es 14, más abierto) 👇
-  if (pct < 100 && puntoActual) {
-    mapaInstance.setView([puntoActual.lat, puntoActual.lon], 10, { animate: true });
-  } else if (grupoRutaActual.getLayers().length > 0) {
-    mapaInstance.fitBounds(grupoRutaActual.getBounds(), { padding: [30, 30], maxZoom: 10 });
   }
 }
 
@@ -1030,4 +1049,87 @@ function limpiarRutasAntiguas(diasAConservar = 3) {
 
 function limpiarTodasLasRutas(dias) {
   limpiarRutasAntiguas(dias);
+}
+
+// 1. Botón de Pantalla Completa
+function toggleFullscreenMapa() {
+  const wrapper = document.getElementById("mapaWrapper");
+  const controles = document.getElementById("controlesFlotantes");
+  const mapa = document.getElementById("mapa-leaflet");
+  
+  if (!wrapper.classList.contains("fullscreen-active")) {
+    wrapper.classList.add("fullscreen-active");
+    wrapper.style.position = "fixed";
+    wrapper.style.inset = "0";
+    wrapper.style.zIndex = "99999";
+    wrapper.style.margin = "0";
+    wrapper.style.borderRadius = "0";
+    mapa.style.height = "100vh";
+    mapa.style.borderRadius = "0";
+    controles.style.display = "block"; // Mostrar controles de play
+    
+    // Forzar redibujado
+    if(mapaInstance) setTimeout(() => mapaInstance.invalidateSize(), 200);
+  } else {
+    wrapper.classList.remove("fullscreen-active");
+    wrapper.style.position = "relative";
+    wrapper.style.inset = "auto";
+    wrapper.style.zIndex = "1";
+    wrapper.style.margin = "0 0 12px 0";
+    mapa.style.height = "50vh";
+    mapa.style.borderRadius = "12px";
+    controles.style.display = "none"; // Ocultar
+    
+    if(mapaInstance) setTimeout(() => mapaInstance.invalidateSize(), 200);
+  }
+}
+
+// 2. Sincronizar la barra flotante con el dibujado
+function sincronizarSlider() {
+  const val = document.getElementById("rutaSliderFull").value;
+  const slNormal = document.getElementById("rutaSlider");
+  if(slNormal) slNormal.value = val; // Sincronizamos por si acaso
+  
+  clearTimeout(timeoutMapaVisual);
+  timeoutMapaVisual = setTimeout(() => {
+    const inp = document.getElementById("fechaRutaInput");
+    if (inp && inp.value) dibujarRecorridoEnMapa(inp.value);
+  }, 30);
+}
+
+// 3. Reproducción automática (tipo vídeo)
+let playRutaInterval = null;
+function togglePlayRuta() {
+  const btn = document.getElementById("btnPlayRuta");
+  const slider = document.getElementById("rutaSliderFull");
+  
+  if (playRutaInterval) {
+    clearInterval(playRutaInterval);
+    playRutaInterval = null;
+    btn.textContent = "▶️";
+  } else {
+    if (parseInt(slider.value) >= 100) {
+      slider.value = 0; // Si estaba al final, reiniciar
+    }
+    btn.textContent = "⏸️";
+    
+    playRutaInterval = setInterval(() => {
+      let val = parseInt(slider.value);
+      val += 1; // Velocidad: 1% cada 100ms (10 segundos por día completo)
+      
+      if (val >= 100) {
+        val = 100;
+        clearInterval(playRutaInterval);
+        playRutaInterval = null;
+        btn.textContent = "▶️";
+      }
+      
+      slider.value = val;
+      
+      // Actualizamos el mapa directamente (sin debounce para que sea fluido)
+      const inp = document.getElementById("fechaRutaInput");
+      if (inp && inp.value) dibujarRecorridoEnMapa(inp.value);
+      
+    }, 100);
+  }
 }

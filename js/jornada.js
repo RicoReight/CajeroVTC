@@ -192,6 +192,17 @@ function cambiarEstadoApp(nuevoEstado) {
       marcadores[hoy].push({ lat: ultimaPosicion.lat, lon: ultimaPosicion.lon, tipo: 'B', time: Date.now() });
       safeStorage.set("uberCambioMarcadoresViajes", JSON.stringify(marcadores));
     }
+
+    // 👇 NUEVO: Guardar punto de Descanso (D) AL SALIR del descanso (donde has aparcado) 👇
+    if (estadoApp === 'descanso' && nuevoEstado !== 'descanso') {
+      marcadores[hoy].push({ lat: ultimaPosicion.lat, lon: ultimaPosicion.lon, tipo: 'D', time: Date.now() });
+      safeStorage.set("uberCambioMarcadoresViajes", JSON.stringify(marcadores));
+    }
+    // Lo mismo para Incidencia (Repostar)
+    if (estadoApp === 'incidencia' && nuevoEstado !== 'incidencia') {
+      marcadores[hoy].push({ lat: ultimaPosicion.lat, lon: ultimaPosicion.lon, tipo: 'I', time: Date.now() });
+      safeStorage.set("uberCambioMarcadoresViajes", JSON.stringify(marcadores));
+    }
   }
 
   const ahora = Date.now();
@@ -210,7 +221,6 @@ function cambiarEstadoApp(nuevoEstado) {
   safeStorage.set("uberCambioTiempoDescanso_" + hoy, segundosDescansoHoy);
   safeStorage.set("uberCambioTiempoFuera_" + hoy, segundosFueraHoy);
 
-  // LÓGICA DE AVISOS (6 Horas y 30 min)
   if (nuevoEstado === 'descanso') {
     tiempoInicioTramoContinuo = Date.now();
     notificado6h = false;

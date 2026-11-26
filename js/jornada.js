@@ -90,52 +90,64 @@ function abrirMenuEstado() {
 }
 
 function guardarJornadaEnHistorial() {
-  const hoy = fechaLocalStr();
-  
-  let sLibre = parseInt(safeStorage.get("uberCambioTiempoLibre_" + hoy)) || 0;
-  let sOcupado = parseInt(safeStorage.get("uberCambioTiempoOcupado_" + hoy)) || 0;
-  let sIncidencia = parseInt(safeStorage.get("uberCambioTiempoIncidencia_" + hoy)) || 0;
-  let sDescanso = parseInt(safeStorage.get("uberCambioTiempoDescanso_" + hoy)) || 0;
-  let sFuera = parseInt(safeStorage.get("uberCambioTiempoFuera_" + hoy)) || 0;
-
-  let efectivoHoy = 0, propinasHoy = 0;
   try {
-    const ops = loadHistorialOps() || [];
-    ops.forEach(op => {
-      if (op.fecha && op.fecha.startsWith(hoy)) {
-        efectivoHoy += (op.precio || 0);
-        propinasHoy += (op.propina || 0);
+    const hoy = fechaLocalStr();
+    
+    let sLibre = parseInt(safeStorage.get("uberCambioTiempoLibre_" + hoy)) || 0;
+    let sOcupado = parseInt(safeStorage.get("uberCambioTiempoOcupado_" + hoy)) || 0;
+    let sIncidencia = parseInt(safeStorage.get("uberCambioTiempoIncidencia_" + hoy)) || 0;
+    let sDescanso = parseInt(safeStorage.get("uberCambioTiempoDescanso_" + hoy)) || 0;
+    let sFuera = parseInt(safeStorage.get("uberCambioTiempoFuera_" + hoy)) || 0;
+
+    let efectivoHoy = 0, propinasHoy = 0;
+    try {
+      // Comprobamos que la función existe antes de usarla
+      const ops = (typeof loadHistorialOps === 'function') ? loadHistorialOps() : [];
+      if (Array.isArray(ops)) {
+        ops.forEach(op => {
+          if (op && op.fecha && op.fecha.startsWith(hoy)) {
+            efectivoHoy += (op.precio || 0);
+            propinasHoy += (op.propina || 0);
+          }
+        });
       }
-    });
-  } catch(e) {}
+    } catch(e) { console.warn("Error leyendo historial ops", e); }
 
-  const kms = typeof calcularKmsTotales === "function" ? calcularKmsTotales(hoy) : "0.00";
-  const totalUberOn = sLibre + sOcupado;
-  const totalJornada = totalUberOn + sIncidencia + sDescanso + sFuera;
+    const kms = (typeof calcularKmsTotales === "function") ? calcularKmsTotales(hoy) : "0.00";
+    const totalUberOn = sLibre + sOcupado;
+    const totalJornada = totalUberOn + sIncidencia + sDescanso + sFuera;
 
-  const registroHoy = {
-    fecha: hoy,
-    kms: parseFloat(kms),
-    efectivo: efectivoHoy,
-    propinas: propinasHoy,
-    totalUberOn,
-    totalJornada,
-    sLibre, sOcupado, sIncidencia, sDescanso, sFuera
-  };
+    const registroHoy = {
+      fecha: hoy,
+      kms: parseFloat(kms),
+      efectivo: efectivoHoy,
+      propinas: propinasHoy,
+      totalUberOn,
+      totalJornada,
+      sLibre, sOcupado, sIncidencia, sDescanso, sFuera
+    };
 
-  // Leemos el historial actual y lo guardamos
-  let historial = [];
-  try { historial = JSON.parse(safeStorage.get("uberCambioHistorialJornadas") || "[]"); } catch(e) {}
-  
-  // Si ya existe un registro de hoy, lo actualizamos (por si liberas el coche dos veces)
-  const idx = historial.findIndex(h => h.fecha === hoy);
-  if (idx >= 0) historial[idx] = registroHoy;
-  else historial.push(registroHoy);
+    // Leemos el historial con protección
+    let historial = [];
+    try { 
+      const raw = safeStorage.get("uberCambioHistorialJornadas");
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) historial = parsed;
+    } catch(e) { historial = []; }
+    
+    // Actualizamos o añadimos el día
+    const idx = historial.findIndex(h => h && h.fecha === hoy);
+    if (idx >= 0) historial[idx] = registroHoy;
+    else historial.push(registroHoy);
 
-  // Borrado automático: mantenemos solo los últimos 31 días
-  if (historial.length > 31) historial = historial.slice(-31);
+    // Límite de 31 días
+    if (historial.length > 31) historial = historial.slice(-31);
 
-  safeStorage.set("uberCambioHistorialJornadas", JSON.stringify(historial));
+    safeStorage.set("uberCambioHistorialJornadas", JSON.stringify(historial));
+    
+  } catch(err) {
+    console.error("Error al guardar jornada:", err);
+  }
 }
 
 function cambiarEstadoApp(nuevoEstado) {
@@ -237,6 +249,8 @@ function cambiarEstadoApp(nuevoEstado) {
   if(typeof actualizarBotonCochePrincipal === 'function') actualizarBotonCochePrincipal();
   if(typeof renderResumenJornada === 'function') renderResumenJornada();
   if(typeof actualizarMapaVisual === 'function') actualizarMapaVisual();
+
+  if(typeof guardarJornadaEnHistorial === 'function') guardarJornadaEnHistorial();
 }
 /* ==================== CÁLCULOS DE LA JORNADA ==================== */
 
@@ -491,7 +505,13 @@ function renderJornadaHistorial() {
   if(!cont) return;
 
   let historial = [];
-  try { historial = JSON.parse(safeStorage.get("uberCambioHistorialJornadas") || "[]"); } catch(e) {}
+  try { 
+    const raw = safeStorage.get("uberCambioHistorialJornadas");
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(parsed)) historial = parsed;
+  } catch(e) { 
+    historial = []; 
+  }
 
   let html = `<div style="text-align:center;margin-bottom:16px;">
     <div style="font-size:32px;margin-bottom:8px;">📅</div>
@@ -500,14 +520,12 @@ function renderJornadaHistorial() {
   </div>`;
 
   if (historial.length === 0) {
-    html += `<div style="text-align:center;color:#64748b;font-size:14px;padding:20px;background:#1e293b;border-radius:12px;">Aún no hay jornadas guardadas.<br>Libera el coche para guardar tu primer día.</div>`;
+    html += `<div style="text-align:center;color:#64748b;font-size:14px;padding:20px;background:#1e293b;border-radius:12px;">No hay jornadas guardadas todavía.</div>`;
   } else {
-    // Ordenar del más reciente al más antiguo
-    historial.sort((a,b) => b.fecha.localeCompare(a.fecha));
-
+    historial.sort((a,b) => (b.fecha || "").localeCompare(a.fecha || ""));
     const formatT = (segs) => {
-      const h = Math.floor(segs / 3600);
-      const m = Math.floor((segs % 3600) / 60);
+      const h = Math.floor((segs || 0) / 3600);
+      const m = Math.floor(((segs || 0) % 3600) / 60);
       return `${h}h ${m}m`;
     };
 
@@ -571,3 +589,15 @@ function calcularDistanciaAproxMetros(lat1, lon1, lat2, lon2) {
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return R * c; 
 }
+
+// Auto-guardado de seguridad cada 5 minutos
+setInterval(() => {
+  if (typeof guardarJornadaEnHistorial === 'function') guardarJornadaEnHistorial();
+}, 5 * 60 * 1000);
+
+// Guardar al cerrar o minimizar la app
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    if (typeof guardarJornadaEnHistorial === 'function') guardarJornadaEnHistorial();
+  }
+});

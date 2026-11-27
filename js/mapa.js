@@ -276,9 +276,6 @@ async function abrirMapaPantalla(){
         </div>
         <div style="font-size:11px;color:#94a3b8;font-weight:800;margin-bottom:8px;">REPRODUCIR RECORRIDO:</div>
         <input type="range" id="rutaSlider" min="0" max="100" value="100" oninput="actualizarMapaVisual()" style="width:100%;accent-color:#38bdf8;cursor:pointer;">
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:#64748b;margin-top:4px;font-weight:700;">
-          <span>Inicio</span><span>Final</span>
-        </div>
       </div>
     </div>
 
@@ -298,14 +295,6 @@ async function abrirMapaPantalla(){
       </div>
     </div>
     
-    <div style="padding:12px;background:#1e293b;border:1px solid #334155;border-radius:12px;margin-bottom:12px">
-      <div style="font-size:12px;color:#94a3b8;font-weight:800;letter-spacing:0.5px;margin-bottom:10px">📖 LEYENDA</div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:20px;height:6px;background:#4ade80;border-radius:3px"></div><span style="font-size:13px;color:#e2e8f0;font-weight:600">Zona de trabajo</span></div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:20px;height:6px;background:#38bdf8;border-radius:3px"></div><span style="font-size:13px;color:#e2e8f0;font-weight:600">Zona AMB</span></div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:20px;height:6px;background:#fb923c;border-radius:3px"></div><span style="font-size:13px;color:#e2e8f0;font-weight:600">Zona Interurbana</span></div>
-      <div style="display:flex;align-items:center;gap:10px"><div style="width:20px;height:6px;background:#ef4444;border-radius:3px"></div><span style="font-size:13px;color:#e2e8f0;font-weight:600">Fuera Provincia</span></div>
-    </div>
-
     <div style="text-align:center;margin-top:10px;margin-bottom:20px"><button type="button" onclick="toggleDebugCoords()" style="background:transparent;color:#64748b;border:1px dashed #475569;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">🐞 Probar coordenadas</button></div>
     <div id="debugCoordsBox" style="display:none;margin-top:10px;padding:12px;background:#1e293b;border:1px dashed #475569;border-radius:10px">
       <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px;letter-spacing:0.5px">DEBUG · PRUEBA RÁPIDA</div>
@@ -336,7 +325,6 @@ async function abrirMapaPantalla(){
     } catch(e){ console.error("Error montando el mapa:", e); }
   }, 100);
   
-  // 👇 CLAVE: Vaciamos caché para que no se recuerde nada
   const inpFecha = document.getElementById("fechaRutaInput");
   if(inpFecha) inpFecha.value = ""; 
   puntosRutaActualGlobal = [];
@@ -584,7 +572,6 @@ let puntosRutaFechaCache = null;
 let playRutaInterval = null; 
 let timeoutMapaVisual = null;
 function actualizarMapaVisual() {
-  // Sincroniza la barra normal con la de pantalla completa
   const slFull = document.getElementById("rutaSliderFull");
   const slNormal = document.getElementById("rutaSlider");
   if (slFull && slNormal) slFull.value = slNormal.value;
@@ -600,15 +587,13 @@ function dibujarRecorridoEnMapa(fechaStr) {
   if (!mapaInstance) return;
   
   let puntos;
-  if (puntosRutaActualGlobal && 
-      puntosRutaActualGlobal.length > 0 && 
-      puntosRutaFechaCache === fechaStr) {
+  if (puntosRutaActualGlobal && puntosRutaActualGlobal.length > 0 && puntosRutaFechaCache === fechaStr) {
     puntos = puntosRutaActualGlobal;
   } else {
     const claveMatched = "uberCambioRecorridoMatched_" + fechaStr;
     let puntosStr = safeStorage.get(claveMatched);
     puntos = puntosStr ? JSON.parse(puntosStr) : obtenerRecorrido(fechaStr);
-    puntosRutaFechaCache = fechaStr; // 👈 Guardamos la fecha del caché
+    puntosRutaFechaCache = fechaStr; 
   }
   
   if (!puntos || puntos.length < 2) return;
@@ -679,11 +664,10 @@ function dibujarRecorridoEnMapa(fechaStr) {
     }
   });
 
-  // ICONOS CON NÚMERO DE VIAJE Y DESCANSO
   let marcadoresViajes = {};
   try { marcadoresViajes = JSON.parse(safeStorage.get("uberCambioMarcadoresViajes") || "{}"); } catch(e){}
   
-    if (marcadoresViajes[fechaStr]) {
+  if (marcadoresViajes[fechaStr]) {
     let contadorViaje = 0;
     
     marcadoresViajes[fechaStr].forEach(punto => {
@@ -707,7 +691,7 @@ function dibujarRecorridoEnMapa(fechaStr) {
 
       if (esA) { color = '#10b981'; emoji = '🙋‍♂️'; }
       if (esD) { color = '#a855f7'; emoji = '☕'; numBadge = ''; } 
-      if (esI) { color = '#f59e0b'; emoji = '⛽'; numBadge = ''; } // Icono de gasolinera
+      if (esI) { color = '#f59e0b'; emoji = '⛽'; numBadge = ''; }
       
       const icono = L.divIcon({
         className: 'custom-marker',
@@ -724,6 +708,12 @@ function dibujarRecorridoEnMapa(fechaStr) {
       const marcador = L.marker([punto.lat, punto.lon], { icon: icono }).addTo(grupoRutaActual);
       capasSegmentosRuta.push(marcador);
     });
+  }
+  
+  if (pct < 100 && puntoActual) {
+    mapaInstance.setView([puntoActual.lat, puntoActual.lon], 10, { animate: true });
+  } else if (grupoRutaActual.getLayers().length > 0) {
+    mapaInstance.fitBounds(grupoRutaActual.getBounds(), { padding: [30, 30], maxZoom: 10 });
   }
 }
 
@@ -765,8 +755,6 @@ function renderListaRutasHistorial() {
 
   fechas.forEach(f => {
     const tieneMatched = localStorage.getItem("uberCambioRecorridoMatched_" + f);
-    
-    // 👇 Activo solo si tiene la misma fecha Y hay un grupo en el mapa
     const esActual = (f === fechaActual && grupoRutaActual !== null && grupoRutaActual !== undefined); 
     
     const p = f.split("-"), dateObj = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
@@ -805,7 +793,6 @@ function verRutaHistorial(fechaStr) {
   const inp = document.getElementById("fechaRutaInput"); if (!inp || !mapaInstance) return;
   
   if (inp.value === fechaStr && grupoRutaActual) { 
-    // Deseleccionar
     inp.value = ""; 
     if (grupoRutaActual) { mapaInstance.removeLayer(grupoRutaActual); grupoRutaActual = null; }
     capasSegmentosRuta = [];
@@ -815,7 +802,6 @@ function verRutaHistorial(fechaStr) {
     const sl = document.getElementById("rutaSlider"); if(sl) sl.value = 100;
     const slF = document.getElementById("rutaSliderFull"); if(slF) slF.value = 100;
   } else { 
-    // Seleccionar nueva
     inp.value = fechaStr; 
     puntosRutaActualGlobal = [];
     puntosRutaFechaCache = null;
@@ -1079,9 +1065,8 @@ function toggleFullscreenMapa() {
     wrapper.style.borderRadius = "0";
     mapa.style.height = "100vh";
     mapa.style.borderRadius = "0";
-    controles.style.display = "block"; // Mostrar controles de play
+    controles.style.display = "block"; 
     
-    // Forzar redibujado
     if(mapaInstance) setTimeout(() => mapaInstance.invalidateSize(), 200);
   } else {
     wrapper.classList.remove("fullscreen-active");
@@ -1091,7 +1076,7 @@ function toggleFullscreenMapa() {
     wrapper.style.margin = "0 0 12px 0";
     mapa.style.height = "50vh";
     mapa.style.borderRadius = "12px";
-    controles.style.display = "none"; // Ocultar
+    controles.style.display = "none"; 
     
     if(mapaInstance) setTimeout(() => mapaInstance.invalidateSize(), 200);
   }
@@ -1099,7 +1084,6 @@ function toggleFullscreenMapa() {
 
 // 2. Sincronizar la barra flotante con el dibujado
 function sincronizarSlider() {
-  // Sincroniza la barra de pantalla completa con la normal
   const slFull = document.getElementById("rutaSliderFull");
   const slNormal = document.getElementById("rutaSlider");
   if (slFull && slNormal) slNormal.value = slFull.value;
@@ -1142,7 +1126,7 @@ function togglePlayRuta() {
       }
       
       slider.value = val;
-      if (slNormal) slNormal.value = val; // 👈 KEY: actualizamos también la normal
+      if (slNormal) slNormal.value = val;
       
       const inp = document.getElementById("fechaRutaInput");
       if (inp && inp.value) dibujarRecorridoEnMapa(inp.value);

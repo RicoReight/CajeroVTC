@@ -348,7 +348,22 @@ async function crearCanalRecordatorios(){
   const Cap = window.Capacitor;
   if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
   const LN = Cap.Plugins.LocalNotifications;
-  try { await LN.createChannel({ id: 'recordatorios-alta', name: 'Avisos y Recordatorios', description: 'Avisos de festivos, depósitos de caja y resets', importance: 5, visibility: 1, sound: 'default', vibration: true, lights: true }); } catch(e){}
+  try { 
+    await LN.createChannel({ 
+      id: 'recordatorios-alta', 
+      name: 'Avisos y Recordatorios', 
+      description: 'Avisos de jornada, depósitos, resets', 
+      importance: 5, 
+      visibility: 1, 
+      sound: 'default', 
+      vibration: true, 
+      lights: true,
+      actions: [
+        { id: 'libre', title: '🟢 Modo Libre' },
+        { id: 'fuera', title: '⚫ Fuera APP' }
+      ]
+    }); 
+  } catch(e){ console.warn("Error creando canal", e); }
 }
 
 function calcularProximoAviso(){
@@ -1027,3 +1042,25 @@ function calcularProximoReset(){
 
   return candidato;
 }
+
+// Detector de deslizamiento desde el borde izquierdo
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', e => {
+  touchStartX = e.changedTouches[0].screenX;
+  touchStartY = e.changedTouches[0].screenY;
+}, { passive: true });
+
+document.addEventListener('touchend', e => {
+  let touchEndX = e.changedTouches[0].screenX;
+  let touchEndY = e.changedTouches[0].screenY;
+  
+  // Si empieza cerca del borde izquierdo (menos de 40px) y se desliza más de 80px a la derecha
+  if (touchStartX < 40 && (touchEndX - touchStartX) > 80 && Math.abs(touchEndY - touchStartY) < 60) {
+    const drawer = document.getElementById("drawer");
+    if (drawer && !drawer.classList.contains("active")) {
+      toggleMenu(); // Abre el menú
+    }
+  }
+}, { passive: true });

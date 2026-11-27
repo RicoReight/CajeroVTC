@@ -210,8 +210,12 @@ function cambiarEstadoApp(nuevoEstado) {
     }
     // Lo mismo para Incidencia (Repostar)
     if (estadoApp === 'incidencia' && nuevoEstado !== 'incidencia') {
-      marcadores[hoy].push({ lat: ultimaPosicion.lat, lon: ultimaPosicion.lon, tipo: 'I', time: Date.now() });
-      safeStorage.set("uberCambioMarcadoresViajes", JSON.stringify(marcadores));
+      // 👇 Solo guardamos el punto si ha durado MÁS de 10 minutos (600 segundos)
+      const duracion = Math.floor((Date.now() - tiempoInicioEstado) / 1000);
+      if (duracion >= 600) {
+        marcadores[hoy].push({ lat: ultimaPosicion.lat, lon: ultimaPosicion.lon, tipo: 'I', time: Date.now() });
+        safeStorage.set("uberCambioMarcadoresViajes", JSON.stringify(marcadores));
+      }
     }
   }
 
@@ -558,28 +562,90 @@ function renderJornadaHistorial() {
     historial.forEach(dia => {
       const p = (dia.fecha || "").split("-");
       const fechaBonita = p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : dia.fecha;
+      
+      // 👇 NUEVO DISEÑO MÁS LIMPIO Y CLICLEABLE 👇
       html += `
-      <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <div style="font-size:15px;font-weight:900;color:#38bdf8;">📅 ${fechaBonita}</div>
-          <div style="display:flex; gap:6px;">
+      <div onclick="abrirDetalleJornada('${dia.fecha}')" style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:14px; margin-bottom:12px; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.borderColor='#38bdf8'" onmouseout="this.style.borderColor='#334155'">
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:10px; margin-bottom:10px;">
+          <div style="font-size:16px;font-weight:900;color:#38bdf8;">📅 ${fechaBonita}</div>
           <div style="font-size:12px;font-weight:800;color:#4ade80;background:#064e3b;padding:4px 8px;border-radius:6px;">🛣️ ${dia.kms || 0} km</div>
-          <div style="font-size:12px;font-weight:800;color:#38bdf8;background:#1e3a8a;padding:4px 8px;border-radius:6px;">📍 ${dia.viajes || 0} viajes</div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-          <div style="background:#0f172a;padding:8px;border-radius:8px;text-align:center;"><div style="font-size:10px;color:#94a3b8;font-weight:700;">EFECTIVO</div><div style="font-size:16px;color:#fff;font-weight:900;">${typeof moneyText === 'function' ? moneyText(dia.efectivo || 0) : dia.efectivo}</div></div>
-          <div style="background:#0f172a;padding:8px;border-radius:8px;text-align:center;"><div style="font-size:10px;color:#94a3b8;font-weight:700;">PROPINAS</div><div style="font-size:16px;color:#fbbf24;font-weight:900;">${typeof moneyText === 'function' ? moneyText(dia.propinas || 0) : dia.propinas}</div></div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div style="background:#0f172a; padding:10px; border-radius:8px;">
+            <div style="font-size:10px; color:#94a3b8; font-weight:700; margin-bottom:4px;">💶 EFECTIVO</div>
+            <div style="font-size:15px; color:#fff; font-weight:900;">${typeof moneyText === 'function' ? moneyText(dia.efectivo || 0) : dia.efectivo}</div>
+          </div>
+          <div style="background:#0f172a; padding:10px; border-radius:8px;">
+            <div style="font-size:10px; color:#94a3b8; font-weight:700; margin-bottom:4px;">💶 PROPINAS</div>
+            <div style="font-size:15px; color:#fbbf24; font-weight:900;">${typeof moneyText === 'function' ? moneyText(dia.propinas || 0) : dia.propinas}</div>
+          </div>
         </div>
-        <div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid #334155;"><span style="font-size:12px;color:#4ade80;font-weight:700;">💼 Horas APP:</span><span style="font-size:12px;color:#fff;font-weight:800;">${formatT(dia.totalUberOn || 0)}</span></div>
-        <div style="display:flex;justify-content:space-between;padding:4px 0;"><span style="font-size:12px;color:#fbbf24;font-weight:700;">🟠 Incidencia:</span><span style="font-size:12px;color:#fff;font-weight:800;">${formatT(dia.sIncidencia || 0)}</span></div>
-        <div style="display:flex;justify-content:space-between;padding:4px 0;"><span style="font-size:12px;color:#94a3b8;font-weight:700;">⚫ Fuera App:</span><span style="font-size:12px;color:#fff;font-weight:800;">${formatT(dia.sFuera || 0)}</span></div>
-        <div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid #334155;margin-top:4px;"><span style="font-size:13px;color:#38bdf8;font-weight:800;">⏱️ TOTAL JORNADA:</span><span style="font-size:13px;color:#38bdf8;font-weight:900;">${formatT(dia.totalJornada || 0)}</span></div>
+        
+        <div style="display:flex; justify-content:space-between; margin-top:10px;">
+          <div style="font-size:12px; color:#38bdf8; font-weight:800;">💼 Horas APP: <span style="color:#fff;">${formatT(dia.totalUberOn || 0)}</span></div>
+          <div style="font-size:12px; color:#fbbf24; font-weight:800;">📍 Viajes: <span style="color:#fff;">${dia.viajes || 0}</span></div>
+        </div>
+        
+        <div style="text-align:center; font-size:11px; color:#64748b; margin-top:12px; font-weight:700;">Pulsa para ver el desglose completo ›</div>
       </div>`;
     });
     html += `<button onclick="if(confirm('¿Borrar todo el historial de jornadas?')){ safeStorage.set('uberCambioHistorialJornadas', '[]'); renderJornadaHistorial(); }" style="width:100%;padding:12px;border-radius:10px;border:none;background:#7f1d1d;color:#fca5a5;font-weight:800;font-size:14px;cursor:pointer;margin-bottom:12px;">🗑️ Borrar historial completo</button>`;
   }
   html += `<button onclick="cerrarJornadaPantalla()" style="width:100%;padding:14px;border-radius:10px;border:none;background:#334155;color:#fff;font-weight:900;font-size:15px;cursor:pointer;">✖ Volver</button>`;
   cont.innerHTML = html;
+}
+
+// 👇 FUNCIÓN NUEVA PARA VER EL DETALLE 👇
+function abrirDetalleJornada(fechaStr) {
+  let historial = [];
+  try { historial = JSON.parse(safeStorage.get("uberCambioHistorialJornadas") || "[]"); } catch(e){}
+  const dia = historial.find(h => h.fecha === fechaStr);
+  if (!dia) return;
+
+  const formatT = (segs) => `${Math.floor((segs || 0) / 3600)}h ${Math.floor(((segs || 0) % 3600) / 60)}m`;
+  const p = fechaStr.split("-");
+  const fechaBonita = `${p[2]}/${p[1]}/${p[0]}`;
+
+  const m = document.createElement("div");
+  m.id = "modalDetalleJornada";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;";
+  m.innerHTML = `
+    <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:340px;width:100%;border:1px solid #334155;max-height:90vh;overflow-y:auto;">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:24px;margin-bottom:4px;">📅</div>
+        <div style="font-size:16px;font-weight:900;color:#38bdf8;">${fechaBonita}</div>
+      </div>
+      
+      <div style="background:#0f172a; border:1px solid #334155; border-radius:12px; padding:14px; text-align:center; margin-bottom:16px;">
+        <div style="font-size:12px; color:#94a3b8; font-weight:800; margin-bottom:4px;">⏱️ JORNADA TOTAL</div>
+        <div style="font-size:28px; color:#fff; font-weight:900;">${formatT(dia.totalJornada)}</div>
+      </div>
+
+      <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; padding:14px; margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #334155;"><span style="color:#4ade80; font-weight:700;">🟢 Libre</span><span style="color:#fff; font-weight:800;">${formatT(dia.sLibre)}</span></div>
+        <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #334155;"><span style="color:#f87171; font-weight:700;">🔴 Ocupado</span><span style="color:#fff; font-weight:800;">${formatT(dia.sOcupado)}</span></div>
+        <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #334155;"><span style="color:#fbbf24; font-weight:700;">🟠 Incidencia</span><span style="color:#fff; font-weight:800;">${formatT(dia.sIncidencia)}</span></div>
+        <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #334155;"><span style="color:#c084fc; font-weight:700;">🟣 Descanso</span><span style="color:#fff; font-weight:800;">${formatT(dia.sDescanso)}</span></div>
+        <div style="display:flex; justify-content:space-between; padding:6px 0;"><span style="color:#94a3b8; font-weight:700;">⚫ Fuera App</span><span style="color:#fff; font-weight:800;">${formatT(dia.sFuera)}</span></div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px;">
+        <div style="background:#0f172a; padding:10px; border-radius:8px; text-align:center;">
+          <div style="font-size:10px; color:#94a3b8; font-weight:700;">EFECTIVO</div>
+          <div style="font-size:16px; color:#fff; font-weight:900;">${typeof moneyText === 'function' ? moneyText(dia.efectivo || 0) : dia.efectivo}</div>
+        </div>
+        <div style="background:#0f172a; padding:10px; border-radius:8px; text-align:center;">
+          <div style="font-size:10px; color:#94a3b8; font-weight:700;">PROPINAS</div>
+          <div style="font-size:16px; color:#fbbf24; font-weight:900;">${typeof moneyText === 'function' ? moneyText(dia.propinas || 0) : dia.propinas}</div>
+        </div>
+      </div>
+
+      <button onclick="document.getElementById('modalDetalleJornada').remove()" style="width:100%;padding:12px;border-radius:10px;border:none;background:#334155;color:#fff;font-weight:900;font-size:14px;cursor:pointer;">Cerrar</button>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener("click", e => { if(e.target === m) m.remove(); });
 }
 
 setInterval(() => {
@@ -601,3 +667,34 @@ setInterval(() => { if (typeof guardarJornadaEnHistorial === 'function') guardar
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') { if (typeof guardarJornadaEnHistorial === 'function') guardarJornadaEnHistorial(); }
 });
+
+let notificado6h40m = false;
+
+setInterval(() => {
+  if (estadoApp !== 'offline' && !notificado6h40m) {
+    // Calculamos la jornada total en vivo
+    let sLibre = segundosLibreHoy, sOcupado = segundosOcupadoHoy, sIncidencia = segundosIncidenciaHoy, sDescanso = segundosDescansoHoy, sFuera = segundosFueraHoy;
+    const segsActuales = Math.floor((Date.now() - tiempoInicioEstado) / 1000);
+    
+    if (estadoApp === 'libre') sLibre += segsActuales;
+    if (estadoApp === 'ocupado') sOcupado += segsActuales;
+    if (estadoApp === 'incidencia') sIncidencia += segsActuales;
+    if (estadoApp === 'descanso') sDescanso += segsActuales;
+    if (estadoApp === 'fuera') sFuera += segsActuales;
+
+    const totalJornada = sLibre + sOcupado + sIncidencia + sDescanso + sFuera;
+
+    if (totalJornada >= 24000) { // 24000 segundos = 6 horas y 40 minutos
+      notificado6h40m = true;
+      lanzarNotificacionJornada("⏰ Quedan 20 min de jornada", "Llevas más de 6h y 40m de jornada total. Ve pensando en ir a incidencias y cerrar el día.");
+    }
+  }
+}, 60000); // Revisa cada minuto
+
+// Reiniciar el aviso al empezar un día nuevo (a las 00:00)
+setInterval(() => {
+  const hoy = fechaLocalStr();
+  if (hoy !== fechaJornadaActual) {
+    notificado6h40m = false;
+  }
+}, 60000);

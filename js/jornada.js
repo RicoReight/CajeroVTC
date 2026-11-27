@@ -390,13 +390,13 @@ function renderResumenJornada() {
 }
 
 function obtenerBotonEstadoHTML() {
-  let color = "#475569", texto = "⚫ FUERA APP";
-  if (estadoApp === 'libre') { color = "#10b981"; texto = "🟢 LIBRE"; }
-  if (estadoApp === 'ocupado') { color = "#ef4444"; texto = "🔴 OCUPADO"; }
-  if (estadoApp === 'incidencia') { color = "#f59e0b"; texto = "🟠 INCIDENCIA"; }
-  if (estadoApp === 'descanso') { color = "#a855f7"; texto = "🟣 DESCANSO"; }
+  let color = "#475569", texto = "⚫ FUERA APP", colorFondo = "linear-gradient(135deg, #334155, #1e293b)";
+  if (estadoApp === 'libre') { texto = "🟢 LIBRE"; colorFondo = "linear-gradient(135deg, #10b981, #059669)"; }
+  if (estadoApp === 'ocupado') { texto = "🔴 OCUPADO"; colorFondo = "linear-gradient(135deg, #ef4444, #dc2626)"; }
+  if (estadoApp === 'incidencia') { texto = "🟠 INCIDENCIA"; colorFondo = "linear-gradient(135deg, #f59e0b, #d97706)"; }
+  if (estadoApp === 'descanso') { texto = "🟣 DESCANSO"; colorFondo = "linear-gradient(135deg, #a855f7, #7e22ce)"; }
 
-  let crono = "";
+  let crono = "00:00";
   const tieneCoche = (typeof cocheActual !== 'undefined' && cocheActual);
   
   if (estadoApp !== 'offline' && tieneCoche) {
@@ -406,10 +406,39 @@ function obtenerBotonEstadoHTML() {
     crono = `${h}:${m}`; 
   }
 
+  // 👇 INFO EXTRA: Cuánto queda para las 6 horas o último estado 👇
+  let infoExtra = "Pulsa aquí para cambiar de estado";
+  
+  if (estadoApp === 'libre' || estadoApp === 'ocupado') {
+    const ahora = Date.now();
+    const tiempoTrabajadoContinuo = (ahora - tiempoInicioTramoContinuo) / 1000;
+    const restante6h = (6 * 3600) - tiempoTrabajadoContinuo;
+    
+    if (restante6h > 0) {
+      const rh = Math.floor(restante6h / 3600);
+      const rm = Math.floor((restante6h % 3600) / 60);
+      infoExtra = `⏳ Te quedan ${rh}h ${rm}m para el descanso obligatorio`;
+    } else {
+      infoExtra = `⚠️ ¡Has superado las 6h! Deberías descansar.`;
+    }
+  } else if (estadoApp === 'descanso') {
+    infoExtra = `☕ Aprovecha para estirar las piernas`;
+  } else if (estadoApp === 'fuera') {
+    infoExtra = `🚗 Limpiando, repostando o en la base`;
+  }
+
   return `
-    <div onclick="abrirMenuEstado()" style="flex: 1; background:${color}; border:1px solid rgba(255,255,255,0.2); border-radius:20px; padding:6px 12px; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.3); transition:all 0.2s; min-width:0; overflow:hidden;">
-      <span style="font-size:12px; font-weight:900; color:#fff; letter-spacing:0.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;">${texto}</span>
-      ${crono ? `<span style="font-size:11px; font-weight:800; color:rgba(255,255,255,0.9); white-space:nowrap; font-variant-numeric: tabular-nums; flex-shrink: 0;">· ${crono}</span>` : ''}
+    <div onclick="abrirMenuEstado()" style="width: 100%; background: ${colorFondo}; border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: all 0.2s; min-width: 0;">
+      
+      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <span style="font-size: 16px; font-weight: 900; color: #fff; letter-spacing: 0.5px; white-space: nowrap;">${texto}</span>
+        <span style="font-size: 18px; font-weight: 900; color: #fff; font-variant-numeric: tabular-nums; background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 8px;">${crono}</span>
+      </div>
+      
+      <div style="font-size: 11px; color: rgba(255,255,255,0.9); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;">
+        ${infoExtra}
+      </div>
+
     </div>`;
 }
 

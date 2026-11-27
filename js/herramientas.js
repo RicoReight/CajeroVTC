@@ -484,57 +484,49 @@ function actualizarBotonCochePrincipal(){
     target.parentNode.insertBefore(widget, target);
   }
 
-  // --- FILA SUPERIOR: COCHE Y CAMPANA ---
+  // --- COCHE ---
   let carHtml = "";
   if(cocheActual){
-    const cocheData = pinesLista.find(x => x.mat === cocheActual);
-    const cb = cocheData ? cocheData.combustible : false, pb = cocheData ? cocheData.pinturaBarca : false, sp = cocheData ? cocheData.sinPeaje : false;
-    const svgCombustible = !cb ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"/><path d="M3 13h10"/><path d="M13 8h2a2 2 0 0 1 2 2v6a2 2 0 0 0 4 0V9l-3-3"/></svg>` : "";
-    const svgBarca = pb ? `<svg viewBox="0 0 20 13" width="14" height="10" style="vertical-align:middle; border-radius:2px; box-shadow:0 0 0 1px rgba(255,255,255,0.35);"><rect width="20" height="13" fill="#004d98"/><rect x="4" width="4" height="13" fill="#a50044"/><rect x="12" width="4" height="13" fill="#a50044"/></svg>` : "";
-    const svgSinPeaje = sp ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M2 20 V10 L6 6 L10 10 V20"/><path d="M14 20 V9"/><path d="M14 9 L22 5"/><path d="M1 20 H23"/></svg>` : "";
-    let iconosHtml = "";
-    if(!cb || pb || sp) iconosHtml = `<div style="display: flex; gap: 6px; align-items: center; border-left: 1px solid rgba(255,255,255,0.2); padding-left: 8px; margin-left: 2px;">${svgCombustible}${svgBarca}${svgSinPeaje}</div>`;
     carHtml = `
-      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="flex: 1; background: linear-gradient(135deg, #064e3b, #065f46); border: 1px solid #10b981; border-radius: 20px; padding: 6px 12px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 2px 8px rgba(16,185,129,0.2); cursor: pointer;">
-        <span style="font-size: 14px;">🚗</span>
-        <span style="font-size: 14px; font-weight: 900; color: #fff; letter-spacing: 1px;">${cocheActual}</span>
-        ${iconosHtml}
-        <span style="font-size: 14px; color: #4ade80; font-weight: 900;">›</span>
+      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="flex: 1; min-width: 0; background: linear-gradient(135deg, #064e3b, #065f46); border: 1px solid #10b981; border-radius: 10px; padding: 8px 12px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;">
+        <span style="font-size: 16px;">🚗</span>
+        <span style="font-size: 14px; font-weight: 900; color: #fff; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cocheActual}</span>
       </div>`;
   } else {
     carHtml = `
-      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="flex: 1; background: #1e293b; border: 1px dashed #475569; border-radius: 20px; padding: 6px 12px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;">
-        <span style="font-size: 14px;">🚗</span>
-        <span style="font-size: 13px; font-weight: 700; color: #94a3b8;">Asignar coche</span>
-        <span style="font-size: 14px; color: #94a3b8; font-weight: 900;">›</span>
+      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="flex: 1; min-width: 0; background: #1e293b; border: 1px dashed #475569; border-radius: 10px; padding: 8px 12px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;">
+        <span style="font-size: 16px;">🚗</span>
+        <span style="font-size: 13px; font-weight: 700; color: #94a3b8; white-space: nowrap;">Asignar coche</span>
       </div>`;
   }
 
+  // --- MAPA, AUDIO Y CAMPANA (Mismo tamaño) ---
+  const btnStyle = "width: 44px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; flex-shrink: 0;";
+  
+  const mapaHtml = `<button onclick="abrirMapaPantalla()" style="${btnStyle} background:#1e293b; border:1px solid #475569; color:#38bdf8;">🗺️</button>`;
+  const audioHtml = `<button onclick="abrirSonidosPantalla()" style="${btnStyle} background:#1e293b; border:1px solid #475569; color:#fbbf24;">🔊</button>`;
+  
   const avisos = obtenerAvisos();
-  let alertHtml = "";
-  if(avisos.length > 0){
+  let campanaColor = "#475569", campanaBg = "#1e293b";
+  if(avisos.length > 0) {
     const urgente = avisos.some(a => a.tipo === "urgente");
-    const colorBg = urgente ? "linear-gradient(135deg,#7f1d1d,#991b1b)" : "linear-gradient(135deg,#7c2d12,#9a3412)";
-    const colorBorder = urgente ? "#ef4444" : "#ea580c", colorIcon = urgente ? "#fca5a5" : "#fed7aa", shadow = urgente ? "rgba(239,68,68,0.45)" : "rgba(234,88,12,0.35)";
-    alertHtml = `<div onclick="abrirModalAvisos()" title="${avisos.length} aviso${avisos.length !== 1 ? 's' : ''}" style="background:${colorBg}; border:1px solid ${colorBorder}; border-radius:20px; padding:6px 16px; display:flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 2px 8px ${shadow}; flex-shrink: 0;"><span style="font-size:18px;">🔔</span><span style="font-size:15px; font-weight:900; color:${colorIcon}; letter-spacing:0.5px;">${avisos.length}</span></div>`;
-  } else {
-    // Si no hay avisos, mostramos la campana apagada igualmente para mantener el diseño
-    alertHtml = `<div onclick="abrirModalAvisos()" style="background:#1e293b; border:1px solid #334155; border-radius:20px; padding:6px 16px; display:flex; align-items:center; gap:8px; cursor:pointer; flex-shrink: 0;"><span style="font-size:18px; opacity:0.5;">🔔</span></div>`;
+    campanaColor = urgente ? "#fca5a5" : "#fed7aa";
+    campanaBg = urgente ? "#7f1d1d" : "#7c2d12";
   }
+  const campanaHtml = `<button onclick="abrirModalAvisos()" style="${btnStyle} background:${campanaBg}; border:1px solid ${campanaColor}; color:#fff; position:relative;">🔔${avisos.length > 0 ? `<span style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;font-size:10px;font-weight:900;padding:2px 5px;border-radius:10px;">${avisos.length}</span>` : ''}</button>`;
 
-  // --- FILA INFERIOR: EL ESTADO (ANCHO COMPLETO) ---
+  // --- ESTADO (ANCHO COMPLETO) ---
   let estadoHtml = (typeof obtenerBotonEstadoHTML === "function") ? obtenerBotonEstadoHTML() : "";
-
-  // Envolvemos el estado en un contenedor ancho
-  let estadoWrapper = `<div style="width: 100%;">${estadoHtml}</div>`;
 
   // Pintamos todo
   widget.innerHTML = `
     <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%;">
       ${carHtml}
-      ${alertHtml}
+      ${mapaHtml}
+      ${audioHtml}
+      ${campanaHtml}
     </div>
-    ${estadoWrapper}
+    ${estadoHtml}
   `;
 
   return true;

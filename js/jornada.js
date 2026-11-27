@@ -408,6 +408,9 @@ function iniciarJornada() {
   if(estadoApp === 'offline') { cambiarEstadoApp('fuera'); }
   tiempoInicioEstado = Date.now();
   mostrarToast("⏱️ Jornada iniciada con el coche");
+
+  notificado6h40m = false;
+  safeStorage.set("uberCambioNotificado6h40m", "0");
 }
 
 function detenerJornada() {
@@ -432,6 +435,8 @@ function detenerJornada() {
     if(typeof actualizarBotonCochePrincipal === 'function') actualizarBotonCochePrincipal();
     mostrarToast("🛑 Jornada finalizada");
     setTimeout(() => { mostrarResumenFinJornada(); }, 500);
+    notificado6h40m = false;
+    safeStorage.set("uberCambioNotificado6h40m", "0");
   }
 }
 
@@ -657,6 +662,7 @@ setInterval(() => {
     segundosIncidenciaHoy = parseInt(safeStorage.get("uberCambioTiempoIncidencia_" + hoy)) || 0;
     segundosDescansoHoy = parseInt(safeStorage.get("uberCambioTiempoDescanso_" + hoy)) || 0;
     segundosFueraHoy = parseInt(safeStorage.get("uberCambioTiempoFuera_" + hoy)) || 0;
+    notificado6h40m = false;safeStorage.set("uberCambioNotificado6h40m", "0");
   }
 }, 60000);
 
@@ -671,7 +677,10 @@ document.addEventListener('visibilitychange', () => {
 let notificado6h40m = false;
 
 setInterval(() => {
-  if (estadoApp !== 'offline' && !notificado6h40m) {
+  // 👇 Solo avisamos si hay coche asignado, no estamos offline, y no hemos avisado ya
+  const tieneCoche = (typeof cocheActual !== 'undefined' && cocheActual);
+  
+  if (tieneCoche && estadoApp !== 'offline' && !notificado6h40m) {
     // Calculamos la jornada total en vivo
     let sLibre = segundosLibreHoy, sOcupado = segundosOcupadoHoy, sIncidencia = segundosIncidenciaHoy, sDescanso = segundosDescansoHoy, sFuera = segundosFueraHoy;
     const segsActuales = Math.floor((Date.now() - tiempoInicioEstado) / 1000);
@@ -684,12 +693,13 @@ setInterval(() => {
 
     const totalJornada = sLibre + sOcupado + sIncidencia + sDescanso + sFuera;
 
-    if (totalJornada >= 24000) { // 24000 segundos = 6 horas y 40 minutos
+    if (totalJornada >= 24000) { // 6 horas y 40 minutos
       notificado6h40m = true;
+      safeStorage.set("uberCambioNotificado6h40m", "1");
       lanzarNotificacionJornada("⏰ Quedan 20 min de jornada", "Llevas más de 6h y 40m de jornada total. Ve pensando en ir a incidencias y cerrar el día.");
     }
   }
-}, 60000); // Revisa cada minuto
+}, 60000);  // Revisa cada minuto
 
 // Reiniciar el aviso al empezar un día nuevo (a las 00:00)
 setInterval(() => {

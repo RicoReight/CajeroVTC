@@ -1056,8 +1056,13 @@ document.addEventListener('touchend', e => {
   let touchEndX = e.changedTouches[0].screenX;
   let touchEndY = e.changedTouches[0].screenY;
   
-  // Si empieza cerca del borde izquierdo (menos de 40px) y se desliza más de 80px a la derecha
-  if (touchStartX < 40 && (touchEndX - touchStartX) > 80 && Math.abs(touchEndY - touchStartY) < 60) {
+  const deltaX = touchEndX - touchStartX;
+  const deltaY = Math.abs(touchEndY - touchStartY);
+
+  // 1. Que empiece en el primer 150px (para esquivar el botón "Atrás" de Android)
+  // 2. Que se deslice al menos 70px hacia la derecha
+  // 3. Que no sea un scroll vertical (deltaY menor a 50px)
+  if (touchStartX < 150 && deltaX > 70 && deltaY < 50) {
     const drawer = document.getElementById("drawer");
     if (drawer && !drawer.classList.contains("active")) {
       toggleMenu(); // Abre el menú

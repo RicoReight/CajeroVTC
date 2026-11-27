@@ -767,12 +767,39 @@ function abrirGeotabDrive(){ try { detenerAudioActual(); } catch(e){} try { wind
 function detenerAudioActual(){ if(audioActual){ try { audioActual.pause(); audioActual.currentTime = 0; audioActual.src = ""; audioActual.load(); } catch(e){} audioActual = null; } try { if(window.AndroidAudio && window.AndroidAudio.abandonAudioFocus) window.AndroidAudio.abandonAudioFocus(); } catch(e){} }
 function reanudarMusica(){ if(window.AndroidAudio && window.AndroidAudio.reanudarMusica){ try { window.AndroidAudio.reanudarMusica(); mostrarToast('▶️ Música reanudada'); } catch(e){ mostrarToast('⚠️ No se pudo reanudar'); } } else { mostrarToast('⚠️ No disponible en esta versión'); } }
 
+// Añade esto arriba del todo en sistema.js o junto a las variables globales
+window.manifestAudios = null;
+
+async function cargarManifestAudios() {
+  if (window.manifestAudios) return window.manifestAudios;
+  try {
+    const r = await fetch("audios/manifest.json");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    window.manifestAudios = await r.json();
+    console.log("✅ Audios precargados");
+    return window.manifestAudios;
+  } catch(e) { 
+    console.warn("No se pudo cargar audios/manifest.json:", e); 
+    return null;
+  }
+}
+
 async function renderSonidosPanel(){
   const cont = document.getElementById("sonidosContenido"); if(!cont) return;
-  cont.innerHTML = `<div style="text-align:center;color:#94a3b8;padding:24px">Cargando audios…</div>`;
-  let manifest = null;
-  try { const r = await fetch("audios/manifest.json"); if(!r.ok) throw new Error("HTTP " + r.status); manifest = await r.json(); } catch(e){ console.warn("No se pudo cargar audios/manifest.json:", e); }
-  if(!manifest || typeof manifest !== "object" || Array.isArray(manifest)){ cont.innerHTML = `<div class="card" style="background:#78350f;border:1px solid #b45309"><div style="font-size:14px;color:#fbbf24;font-weight:800;margin-bottom:6px">⚠️ No se pudo leer audios/manifest.json</div><button type="button" onclick="renderSonidosPanel()" style="width:100%;margin-top:12px;background:#334155;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer">🔄 Reintentar</button></div>`; return; }
+  
+  // Si no tenemos los audios, mostramos "Cargando..." solo la primera vez
+  if (!window.manifestAudios) {
+    cont.innerHTML = `<div style="text-align:center;color:#94a3b8;padding:24px">Cargando audios…</div>`;
+    await cargarManifestAudios();
+  }
+
+  const manifest = window.manifestAudios;
+  if(!manifest || typeof manifest !== "object" || Array.isArray(manifest)){ 
+    cont.innerHTML = `<div class="card" style="background:#78350f;border:1px solid #b45309"><div style="font-size:14px;color:#fbbf24;font-weight:800;margin-bottom:6px">⚠️ No se pudieron cargar los audios</div><button type="button" onclick="window.manifestAudios=null; renderSonidosPanel()" style="width:100%;margin-top:12px;background:#334155;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer">🔄 Reintentar</button></div>`; 
+    return; 
+  }
+  
+  // ... A partir de aquí, deja el resto del código de renderSonidosPanel tal como lo tenías ...
   const idiomas = [{code:"ESP",titulo:"🇪🇸 Español"},{code:"ENG",titulo:"🇬🇧 English"},{code:"FRA",titulo:"🇫🇷 Français"},{code:"ITA",titulo:"🇮🇹 Italiano"},{code:"DEU",titulo:"🇩🇪 Deutsch"},{code:"POR",titulo:"🇵🇹 Português"},{code:"CAT",titulo:"🟡 Català"}];
   const detectarIdioma = n => { const u = n.toUpperCase(); for(const i of idiomas){ if(u.includes(i.code)) return i; } return { code: "OTROS", titulo: "🌐 Otros" }; };
   const grupos = {};
@@ -780,6 +807,7 @@ async function renderSonidosPanel(){
   const ordenFinal = [...idiomas.map(i => i.code), "OTROS"];
   const gruposOrdenados = ordenFinal.filter(c => grupos[c]).map(c => ({ code: c, ...grupos[c] }));
   if(gruposOrdenados.length === 0){ cont.innerHTML = `<div class="card" style="text-align:center;color:#94a3b8;padding:30px">Sin audios configurados.</div>`; return; }
+  
   let html = `<button type="button" onclick="abrirGeotabDrive()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(135deg,#0c4a6e,#075985);border:2px solid #0ea5e9;border-radius:14px;padding:16px;color:#7dd3fc;font-size:16px;font-weight:900;letter-spacing:0.5px;cursor:pointer;margin-bottom:10px"><span style="font-size:22px">🚗</span><span>ABRIR GEOTAB DRIVE</span></button><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px"><button type="button" onclick="reanudarMusica()" style="display:flex;align-items:center;justify-content:center;gap:6px;background:linear-gradient(135deg,#1db954,#168f40);border:2px solid #1ed760;border-radius:12px;padding:14px 6px;color:#fff;font-size:14px;font-weight:900;cursor:pointer"><span style="font-size:20px">▶️</span><span>REANUDAR</span></button><button type="button" onclick="detenerAudioActual()" style="display:flex;align-items:center;justify-content:center;gap:6px;background:linear-gradient(135deg,#7f1d1d,#991b1b);border:2px solid #ef4444;border-radius:12px;padding:14px 6px;color:#fca5a5;font-size:14px;font-weight:900;cursor:pointer"><span style="font-size:20px">⏹</span><span>PARAR</span></button></div>`;
   gruposOrdenados.forEach(grupo => {
     html += `<div style="font-size:13px;color:#38bdf8;font-weight:900;letter-spacing:0.5px;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid #334155">${grupo.titulo}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">`;
@@ -788,7 +816,6 @@ async function renderSonidosPanel(){
   });
   cont.innerHTML = html;
 }
-
 function reproducirAudio(url, boton){
   detenerAudioActual();
   try { if(window.AndroidAudio && window.AndroidAudio.requestAudioFocus) window.AndroidAudio.requestAudioFocus(); } catch(e){}
@@ -939,7 +966,26 @@ document.addEventListener('visibilitychange', () => { if(document.visibilityStat
 window.addEventListener('focus', () => { activarPantallaSiempreActiva(); });
 
 /* ==================== INIT (ARRANQUE) ==================== */
-function init(){
+async function init(){
+  const splashText = document.querySelector('.splash-sub');
+  const updateSplash = (txt) => { if(splashText) splashText.textContent = txt; };
+
+  try {
+    // 1. Precargar Audios
+    updateSplash("Cargando audios...");
+    await cargarManifestAudios();
+
+    // 2. Precargar Mapa y Polígonos
+    updateSplash("Preparando mapas...");
+    if (typeof cargarLeaflet === 'function') await cargarLeaflet();
+    updateSplash("Descargando zonas...");
+    if (typeof cargarPoligonos === 'function') await cargarPoligonos();
+
+  } catch(e) {
+    console.warn("Error en precarga inicial:", e);
+  }
+
+  // 3. Inicializaciones normales (las que ya tenías)
   try { solicitarPermisoNotificaciones(); } catch(e){}
   setTimeout(() => { activarPantallaSiempreActiva(); }, 600);
   setTimeout(() => { crearCanalNotificacionesZona(); }, 500);
@@ -949,6 +995,7 @@ function init(){
   setTimeout(() => { programarAvisosDeposito(); }, 2400);
   setTimeout(() => { asegurarAlarmasExactas(); }, 1000);
   setTimeout(() => { try{ if(archivarAniosAntiguos()) renderDiasTrabajo(); }catch(e){} }, 2600);
+  
   if(safeStorage.get("uberCambioDebug") === "1"){ cargarEruda().catch(e => console.warn("Eruda no cargó:", e)); }
   
   try{ drawerTab(safeStorage.get("uberCambioDrawerTab") || "caja"); }catch(e){}
@@ -976,6 +1023,7 @@ function init(){
     } catch(e){ clearInterval(intervaloCoche); }
   }, 500);
 
+  // El resto de tus setTimeouts (depManualFecha, precalentarOCR, etc.)
   setTimeout(() => {
     const fD = document.getElementById("depManualFecha"), fT = document.getElementById("depManualFechaTxt");
     if(fD && fT){ fD.addEventListener("change", () => { fT.value = fD.value || ""; }); fT.addEventListener("input", () => { const v = fT.value.trim(); if(/^\d{4}-\d{2}-\d{2}$/.test(v)) fD.value = v; }); }
@@ -985,8 +1033,17 @@ function init(){
 
   setTimeout(() => { try { precalentarOCR(); } catch(e){} }, 800);
 
-  const s = document.getElementById("splash");
-  if(s){ setTimeout(()=>{ s.classList.add("oculto"); document.body.classList.remove("splash-active"); setTimeout(()=>{ if(s.parentNode) s.parentNode.removeChild(s); },500); },2500); }
+  // 👇 OCULTAR SPLASH
+  updateSplash("¡Listo!");
+  // Damos medio segundo extra para que el usuario lea "¡Listo!" y no sea un parpadeo
+  setTimeout(() => {
+    const s = document.getElementById("splash");
+    if(s){ 
+      s.classList.add("oculto"); 
+      document.body.classList.remove("splash-active"); 
+      setTimeout(()=>{ if(s.parentNode) s.parentNode.removeChild(s); },500); 
+    }
+  }, 500);
 }
 
 /* ==================== ARRANQUE ==================== */
@@ -1044,10 +1101,10 @@ function calcularProximoReset(){
 }
 
 // Detector de deslizamiento desde el borde izquierdo
-/* ==================== GESTOS TÁCTILES (SWIPE) ==================== */
+/* ==================== GESTOS TÁCTILES (SWIPE MEJORADO) ==================== */
 let touchStartX = 0;
 let touchStartY = 0;
-const umbralDeslizamiento = 80; // Píxeles mínimos para considerar que es un deslizamiento
+const umbralDeslizamiento = 60; // Un poco más sensible
 
 document.addEventListener('touchstart', e => {
   touchStartX = e.changedTouches[0].screenX;
@@ -1059,29 +1116,32 @@ document.addEventListener('touchend', e => {
   const touchEndY = e.changedTouches[0].screenY;
   
   const deltaX = touchEndX - touchStartX;
-  const deltaY = Math.abs(touchEndY - touchStartY);
+  const deltaY = touchEndY - touchStartY;
+  const absX = Math.abs(deltaX);
+  const absY = Math.abs(deltaY);
 
-  // Si el movimiento es muy vertical, ignoramos (es un scroll)
-  if (deltaY > 60) return; 
+  // 👇 CLAVE: Si el movimiento horizontal es mayor que el vertical, es un swipe.
+  // Si haces una diagonal perfecta (X=60, Y=60), no saltará (evita conflictos con el scroll).
+  // Pero si es X=80, Y=30 (diagonal suave), SÍ saltará.
+  if (absX > absY) {
+    const mitadPantalla = window.innerWidth / 2;
 
-  const mitadPantalla = window.innerWidth / 2;
-
-  // 1. Deslizar de IZQUIERDA a DERECHA (Empieza en la mitad izquierda) -> Menú de ESTADOS
-  // Si el usuario empieza en la mitad izquierda y mueve el dedo a la derecha
-  if (touchStartX < mitadPantalla && deltaX > umbralDeslizamiento) {
-    if (typeof abrirMenuEstado === 'function') {
-      abrirMenuEstado(); 
+    // 1. Deslizar de IZQUIERDA a DERECHA (Estados)
+    if (deltaX > umbralDeslizamiento && touchStartX < mitadPantalla) {
+      if (typeof abrirMenuEstado === 'function') {
+        abrirMenuEstado(); 
+      }
     }
-  }
 
-  // 2. Deslizar de DERECHA a IZQUIERDA (Empieza en la mitad derecha) -> Menú de CAJA/HERRAMIENTAS
-  const touchInInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
-  const touchInMap = e.target.closest('#mapa-leaflet');
-  
-  if (!touchInInput && !touchInMap && touchStartX > mitadPantalla && deltaX < -umbralDeslizamiento) {
-    const drawer = document.getElementById("drawer");
-    if (drawer && !drawer.classList.contains("active")) {
-      toggleMenu(); 
+    // 2. Deslizar de DERECHA a IZQUIERDA (Cajas)
+    const touchInInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
+    const touchInMap = e.target.closest('#mapa-leaflet');
+    
+    if (!touchInInput && !touchInMap && deltaX < -umbralDeslizamiento && touchStartX > mitadPantalla) {
+      const drawer = document.getElementById("drawer");
+      if (drawer && !drawer.classList.contains("active")) {
+        toggleMenu(); 
+      }
     }
   }
 }, { passive: true });

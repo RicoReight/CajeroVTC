@@ -569,7 +569,6 @@ function obtenerRecorrido(fechaStr) {
 
 let puntosRutaActualGlobal = [];
 let puntosRutaFechaCache = null;
-let playRutaInterval = null; 
 let timeoutMapaVisual = null;
 function actualizarMapaVisual() {
   const slFull = document.getElementById("rutaSliderFull");

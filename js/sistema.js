@@ -1044,8 +1044,11 @@ function calcularProximoReset(){
 }
 
 // Detector de deslizamiento desde el borde izquierdo
+/* ==================== GESTOS TÁCTILES (SWIPE) ==================== */
 let touchStartX = 0;
 let touchStartY = 0;
+const umbralDeslizamiento = 80; // Píxeles mínimos para considerar que es un deslizamiento
+const margenBorde = 40; // Píxeles desde el borde (un poco más adentro para no activar el "Atrás" de Android)
 
 document.addEventListener('touchstart', e => {
   touchStartX = e.changedTouches[0].screenX;
@@ -1053,19 +1056,31 @@ document.addEventListener('touchstart', e => {
 }, { passive: true });
 
 document.addEventListener('touchend', e => {
-  let touchEndX = e.changedTouches[0].screenX;
-  let touchEndY = e.changedTouches[0].screenY;
+  const touchEndX = e.changedTouches[0].screenX;
+  const touchEndY = e.changedTouches[0].screenY;
   
   const deltaX = touchEndX - touchStartX;
   const deltaY = Math.abs(touchEndY - touchStartY);
 
-  // 1. Que empiece en el primer 150px (para esquivar el botón "Atrás" de Android)
-  // 2. Que se deslice al menos 70px hacia la derecha
-  // 3. Que no sea un scroll vertical (deltaY menor a 50px)
-  if (touchStartX < 150 && deltaX > 70 && deltaY < 50) {
+  // Si el movimiento es más vertical que horizontal, ignoramos (es un scroll)
+  if (deltaY > 60) return; 
+
+  // 1. Deslizar de IZQUIERDA a DERECHA (Empieza cerca del borde izquierdo) -> Menú de ESTADOS
+  if (touchStartX < margenBorde && deltaX > umbralDeslizamiento) {
+    if (typeof abrirMenuEstado === 'function') {
+      abrirMenuEstado(); 
+    }
+  }
+
+  // 2. Deslizar de DERECHA a IZQUIERDA (Empieza cerca del borde derecho) -> Menú de CAJA/HERRAMIENTAS
+  const touchInInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
+  const touchInMap = e.target.closest('#mapa-leaflet');
+
+  // Evitamos que salte si estamos en un input o en el mapa
+  if (!touchInInput && !touchInMap && touchStartX > (window.innerWidth - margenBorde) && deltaX < -umbralDeslizamiento) {
     const drawer = document.getElementById("drawer");
     if (drawer && !drawer.classList.contains("active")) {
-      toggleMenu(); // Abre el menú
+      toggleMenu(); 
     }
   }
 }, { passive: true });

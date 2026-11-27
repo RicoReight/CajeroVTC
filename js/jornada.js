@@ -60,6 +60,24 @@ try {
 /* ==================== CONTROL DE ESTADOS ==================== */
 
 function abrirMenuEstado() {
+  let drawer = document.getElementById("drawerEstado");
+  let overlay = document.getElementById("overlayEstado");
+
+  // Si no existe, lo creamos
+  if (!drawer) {
+    overlay = document.createElement("div");
+    overlay.id = "overlayEstado";
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99998;display:none;opacity:0;transition:opacity 0.3s;";
+    overlay.onclick = cerrarMenuEstado;
+    document.body.appendChild(overlay);
+
+    drawer = document.createElement("div");
+    drawer.id = "drawerEstado";
+    drawer.style.cssText = "position:fixed;top:0;left:0;bottom:0;width:85%;max-width:340px;background:#1e293b;z-index:99999;transform:translateX(-100%);transition:transform 0.3s ease-in-out;display:flex;flex-direction:column;box-shadow:2px 0 10px rgba(0,0,0,0.5);";
+    document.body.appendChild(drawer);
+  }
+
+  // Calculamos los tiempos
   let sLibre = segundosLibreHoy, sOcupado = segundosOcupadoHoy, sIncidencia = segundosIncidenciaHoy, sDescanso = segundosDescansoHoy, sFuera = segundosFueraHoy;
   const segsActuales = Math.floor((Date.now() - tiempoInicioEstado) / 1000);
   
@@ -78,37 +96,21 @@ function abrirMenuEstado() {
   const horasApp = sLibre + sOcupado;
   const jornadaTotal = horasApp + sIncidencia + sDescanso + sFuera;
 
-  const m = document.createElement("div");
-  m.id = "modalEstadoApp";
-  m.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;";
-  
-  m.innerHTML = `
-    <div style="background:#1e293b;border-radius:16px;padding:20px;max-width:340px;width:100%;border:1px solid #334155;">
-      
-      <!-- MINI RESUMEN DEL DÍA -->
-      <div style="background:#0f172a; border:1px solid #334155; border-radius:12px; padding:12px; margin-bottom:16px;">
+  drawer.innerHTML = `
+    <div style="padding:20px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center; background:#0f172a;">
+      <div style="font-size:16px;font-weight:900;color:#fff;">ESTADO DE LA JORNADA</div>
+      <button onclick="cerrarMenuEstado()" style="background:none;border:none;color:#94a3b8;font-size:24px;cursor:pointer;">✕</button>
+    </div>
+    
+    <div style="padding:20px; overflow-y:auto; flex:1;">
+      <div style="background:#0f172a; border:1px solid #334155; border-radius:12px; padding:12px; margin-bottom:20px;">
         <div style="font-size:11px; color:#94a3b8; font-weight:800; text-align:center; margin-bottom:8px;">RESUMEN DE HOY</div>
         
-        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-          <span style="font-size:12px; color:#4ade80; font-weight:700;">🟢 Libre:</span>
-          <span style="font-size:12px; color:#fff; font-weight:900;">${formatT(sLibre)}</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-          <span style="font-size:12px; color:#f87171; font-weight:700;">🔴 Ocupado:</span>
-          <span style="font-size:12px; color:#fff; font-weight:900;">${formatT(sOcupado)}</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-          <span style="font-size:12px; color:#fbbf24; font-weight:700;">🟠 Incidencia:</span>
-          <span style="font-size:12px; color:#fff; font-weight:900;">${formatT(sIncidencia)}</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-          <span style="font-size:12px; color:#c084fc; font-weight:700;">🟣 Descanso:</span>
-          <span style="font-size:12px; color:#fff; font-weight:900;">${formatT(sDescanso)}</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-          <span style="font-size:12px; color:#94a3b8; font-weight:700;">⚫ Fuera App:</span>
-          <span style="font-size:12px; color:#fff; font-weight:900;">${formatT(sFuera)}</span>
-        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="font-size:12px; color:#4ade80; font-weight:700;">🟢 Libre:</span><span style="font-size:12px; color:#fff; font-weight:900;">${formatT(sLibre)}</span></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="font-size:12px; color:#f87171; font-weight:700;">🔴 Ocupado:</span><span style="font-size:12px; color:#fff; font-weight:900;">${formatT(sOcupado)}</span></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="font-size:12px; color:#fbbf24; font-weight:700;">🟠 Incidencia:</span><span style="font-size:12px; color:#fff; font-weight:900;">${formatT(sIncidencia)}</span></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="font-size:12px; color:#c084fc; font-weight:700;">🟣 Descanso:</span><span style="font-size:12px; color:#fff; font-weight:900;">${formatT(sDescanso)}</span></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="font-size:12px; color:#94a3b8; font-weight:700;">⚫ Fuera App:</span><span style="font-size:12px; color:#fff; font-weight:900;">${formatT(sFuera)}</span></div>
 
         <div style="display:flex; justify-content:space-between; border-top:1px solid #334155; padding-top:6px; margin-top:6px;">
           <span style="font-size:12px; color:#38bdf8; font-weight:800;">💼 Horas APP:</span>
@@ -127,11 +129,22 @@ function abrirMenuEstado() {
       <button onclick="cambiarEstadoApp('incidencia')" style="width:100%;padding:14px;margin-bottom:8px;border-radius:10px;border:none;background:#f59e0b;color:#fff;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 4px 10px rgba(245,158,11,0.3);">🟠 INCIDENCIA (Repostar)</button>
       <button onclick="cambiarEstadoApp('descanso')" style="width:100%;padding:14px;margin-bottom:8px;border-radius:10px;border:none;background:#a855f7;color:#fff;font-weight:900;font-size:15px;cursor:pointer;box-shadow:0 4px 10px rgba(168,85,247,0.3);">🟣 DESCANSO (Pausa)</button>
       <button onclick="cambiarEstadoApp('fuera')" style="width:100%;padding:14px;margin-bottom:16px;border-radius:10px;border:none;background:#475569;color:#fff;font-weight:900;font-size:15px;cursor:pointer;">⚫ FUERA DE LA APP (Extras)</button>
-      
-      <button onclick="document.getElementById('modalEstadoApp').remove()" style="width:100%;padding:12px;border-radius:10px;border:1px solid #475569;background:transparent;color:#94a3b8;font-weight:700;cursor:pointer;">Cancelar</button>
-    </div>`;
-  document.body.appendChild(m);
-  m.addEventListener("click", e => { if(e.target === m) m.remove(); });
+    </div>
+  `;
+
+  // Animación de apertura
+  overlay.style.display = "block";
+  setTimeout(() => { overlay.style.opacity = "1"; drawer.style.transform = "translateX(0)"; }, 10);
+}
+
+function cerrarMenuEstado() {
+  const drawer = document.getElementById("drawerEstado");
+  const overlay = document.getElementById("overlayEstado");
+  if (drawer && overlay) {
+    drawer.style.transform = "translateX(-100%)";
+    overlay.style.opacity = "0";
+    setTimeout(() => { overlay.style.display = "none"; }, 300);
+  }
 }
 
 function calcularDistanciaAproxMetros(lat1, lon1, lat2, lon2) {
@@ -156,7 +169,7 @@ function contarViajesDia(fechaStr) {
 }
 
 function cambiarEstadoApp(nuevoEstado) {
-  const m = document.getElementById("modalEstadoApp"); if(m) m.remove();
+  cerrarMenuEstado();
   
   if(estadoApp === nuevoEstado) {
     if (nuevoEstado === 'ocupado' && typeof ultimaPosicion !== 'undefined' && ultimaPosicion) {

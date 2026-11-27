@@ -1048,7 +1048,6 @@ function calcularProximoReset(){
 let touchStartX = 0;
 let touchStartY = 0;
 const umbralDeslizamiento = 80; // Píxeles mínimos para considerar que es un deslizamiento
-const margenBorde = 40; // Píxeles desde el borde (un poco más adentro para no activar el "Atrás" de Android)
 
 document.addEventListener('touchstart', e => {
   touchStartX = e.changedTouches[0].screenX;
@@ -1062,22 +1061,24 @@ document.addEventListener('touchend', e => {
   const deltaX = touchEndX - touchStartX;
   const deltaY = Math.abs(touchEndY - touchStartY);
 
-  // Si el movimiento es más vertical que horizontal, ignoramos (es un scroll)
+  // Si el movimiento es muy vertical, ignoramos (es un scroll)
   if (deltaY > 60) return; 
 
-  // 1. Deslizar de IZQUIERDA a DERECHA (Empieza cerca del borde izquierdo) -> Menú de ESTADOS
-  if (touchStartX < margenBorde && deltaX > umbralDeslizamiento) {
+  const mitadPantalla = window.innerWidth / 2;
+
+  // 1. Deslizar de IZQUIERDA a DERECHA (Empieza en la mitad izquierda) -> Menú de ESTADOS
+  // Si el usuario empieza en la mitad izquierda y mueve el dedo a la derecha
+  if (touchStartX < mitadPantalla && deltaX > umbralDeslizamiento) {
     if (typeof abrirMenuEstado === 'function') {
       abrirMenuEstado(); 
     }
   }
 
-  // 2. Deslizar de DERECHA a IZQUIERDA (Empieza cerca del borde derecho) -> Menú de CAJA/HERRAMIENTAS
+  // 2. Deslizar de DERECHA a IZQUIERDA (Empieza en la mitad derecha) -> Menú de CAJA/HERRAMIENTAS
   const touchInInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
   const touchInMap = e.target.closest('#mapa-leaflet');
-
-  // Evitamos que salte si estamos en un input o en el mapa
-  if (!touchInInput && !touchInMap && touchStartX > (window.innerWidth - margenBorde) && deltaX < -umbralDeslizamiento) {
+  
+  if (!touchInInput && !touchInMap && touchStartX > mitadPantalla && deltaX < -umbralDeslizamiento) {
     const drawer = document.getElementById("drawer");
     if (drawer && !drawer.classList.contains("active")) {
       toggleMenu(); 

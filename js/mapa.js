@@ -211,38 +211,45 @@ async function abrirMapaPantalla(){
   const p=document.getElementById("mapaPantalla"); if(p)p.style.display="block";
   const cont = document.getElementById("mapaContenido");
   
-  cont.innerHTML = `
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;text-align:center;">
-      <div style="font-size:48px;margin-bottom:16px;animation:spin 2s linear infinite;display:inline-block;">🌍</div>
-      <div id="loadingText" style="font-size:16px;color:#38bdf8;font-weight:800;margin-bottom:16px;">Iniciando motor...</div>
-      <div style="width:80%;max-width:300px;background:#1e293b;border-radius:10px;height:12px;overflow:hidden;border:1px solid #334155;">
-        <div id="loadingBar" style="width:0%;height:100%;background:linear-gradient(90deg, #0ea5e9, #38bdf8);transition:width 0.8s ease-in-out;"></div>
+  // 👇 MAGIA: Si ya cargó al inicio de la app, nos saltamos el Loading 👇
+  if (!leafletLoaded || !geoAMB || !geoZBE || !geoPROV) {
+    cont.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;text-align:center;">
+        <div style="font-size:48px;margin-bottom:16px;animation:spin 2s linear infinite;display:inline-block;">🌍</div>
+        <div id="loadingText" style="font-size:16px;color:#38bdf8;font-weight:800;margin-bottom:16px;">Iniciando motor...</div>
+        <div style="width:80%;max-width:300px;background:#1e293b;border-radius:10px;height:12px;overflow:hidden;border:1px solid #334155;">
+          <div id="loadingBar" style="width:0%;height:100%;background:linear-gradient(90deg, #0ea5e9, #38bdf8);transition:width 0.8s ease-in-out;"></div>
+        </div>
       </div>
-    </div>
-    <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
-  `;
+      <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
+    `;
 
-  const setLoad = (txt, pct) => {
-    const t = document.getElementById("loadingText"), b = document.getElementById("loadingBar");
-    if(t) t.textContent = txt;
-    if(b) b.style.width = pct + "%";
-  };
+    const setLoad = (txt, pct) => {
+      const t = document.getElementById("loadingText"), b = document.getElementById("loadingBar");
+      if(t) t.textContent = txt;
+      if(b) b.style.width = pct + "%";
+    };
 
-  setLoad("Cargando motor del mapa...", 10);
-  try { await cargarLeaflet(); } 
-  catch(e){ cont.innerHTML = "<div style='text-align:center;color:#ef4444;padding:30px;background:#1e293b;border-radius:12px;'>❌ Error: "+e.message+"<br><br><button onclick='abrirMapaPantalla()' style='margin-top:12px;padding:10px 20px;border-radius:8px;border:none;background:#334155;color:#fff;font-weight:800;'>Reintentar</button></div>"; return; }
+    setLoad("Cargando motor del mapa...", 10);
+    try { await cargarLeaflet(); } 
+    catch(e){ cont.innerHTML = "<div style='text-align:center;color:#ef4444;padding:30px;background:#1e293b;border-radius:12px;'>❌ Error: "+e.message+"<br><br><button onclick='abrirMapaPantalla()' style='margin-top:12px;padding:10px 20px;border-radius:8px;border:none;background:#334155;color:#fff;font-weight:800;'>Reintentar</button></div>"; return; }
 
-  setLoad("Descargando zona AMB...", 30);
-  await new Promise(r => setTimeout(r, 600)); 
-  setLoad("Descargando ZBE (Rondas)...", 50);
-  await new Promise(r => setTimeout(r, 600));
-  setLoad("Descargando provincia...", 70);
-  await cargarPoligonos(); 
-  setLoad("Dibujando mapa...", 90);
-  await new Promise(r => setTimeout(r, 600)); 
-  setLoad("¡Listo!", 100);
-  await new Promise(r => setTimeout(r, 500)); 
+    setLoad("Descargando zona AMB...", 30);
+    await new Promise(r => setTimeout(r, 400)); 
+    setLoad("Descargando ZBE (Rondas)...", 50);
+    await new Promise(r => setTimeout(r, 400));
+    setLoad("Descargando provincia...", 70);
+    await cargarPoligonos(); 
+    setLoad("Dibujando mapa...", 90);
+    await new Promise(r => setTimeout(r, 400)); 
+    setLoad("¡Listo!", 100);
+    await new Promise(r => setTimeout(r, 400)); 
+  } else {
+    // Si ya está todo cargado, vaciamos el contenedor y pasamos directo al mapa
+    cont.innerHTML = "";
+  }
 
+  // PANTALLA REAL DEL MAPA
   cont.innerHTML = `
     <div id="geoEstadoBadge" style="text-align:center;margin-bottom:12px;padding:14px;border-radius:12px;border:2px solid #475569;background:linear-gradient(135deg,#1e293b,#0f172a);color:#94a3b8;font-size:15px;font-weight:900;letter-spacing:0.5px;transition:all 0.3s">⚫ RASTREO DETENIDO<div style='font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px'>Pulsa INICIAR para empezar</div></div>
     <div id="resumenJornadaBox" style="display:flex; justify-content:center; gap:8px; margin-bottom:12px;"></div>

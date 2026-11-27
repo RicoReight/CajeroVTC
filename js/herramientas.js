@@ -480,10 +480,11 @@ function actualizarBotonCochePrincipal(){
   let widget = document.getElementById("widgetCochePrincipal");
   if(!widget){
     widget = document.createElement("div"); widget.id = "widgetCochePrincipal";
-    widget.style.cssText = "margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%;";
+    widget.style.cssText = "margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px; width: 100%;";
     target.parentNode.insertBefore(widget, target);
   }
 
+  // --- FILA SUPERIOR: COCHE Y CAMPANA ---
   let carHtml = "";
   if(cocheActual){
     const cocheData = pinesLista.find(x => x.mat === cocheActual);
@@ -494,18 +495,18 @@ function actualizarBotonCochePrincipal(){
     let iconosHtml = "";
     if(!cb || pb || sp) iconosHtml = `<div style="display: flex; gap: 6px; align-items: center; border-left: 1px solid rgba(255,255,255,0.2); padding-left: 8px; margin-left: 2px;">${svgCombustible}${svgBarca}${svgSinPeaje}</div>`;
     carHtml = `
-      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="background: linear-gradient(135deg, #064e3b, #065f46); border: 1px solid #10b981; border-radius: 20px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 10px; box-shadow: 0 2px 8px rgba(16,185,129,0.2); cursor: pointer;">
+      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="flex: 1; background: linear-gradient(135deg, #064e3b, #065f46); border: 1px solid #10b981; border-radius: 20px; padding: 6px 12px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 2px 8px rgba(16,185,129,0.2); cursor: pointer;">
         <span style="font-size: 14px;">🚗</span>
         <span style="font-size: 14px; font-weight: 900; color: #fff; letter-spacing: 1px;">${cocheActual}</span>
         ${iconosHtml}
-        <span style="font-size: 14px; color: #4ade80; font-weight: 900; margin-left: ${iconosHtml ? '2px' : '6px'};">›</span>
+        <span style="font-size: 14px; color: #4ade80; font-weight: 900;">›</span>
       </div>`;
   } else {
     carHtml = `
-      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="background: #1e293b; border: 1px dashed #475569; border-radius: 20px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+      <div onclick="if(typeof abrirPinesPantalla==='function')abrirPinesPantalla()" style="flex: 1; background: #1e293b; border: 1px dashed #475569; border-radius: 20px; padding: 6px 12px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;">
         <span style="font-size: 14px;">🚗</span>
         <span style="font-size: 13px; font-weight: 700; color: #94a3b8;">Asignar coche</span>
-        <span style="font-size: 14px; color: #94a3b8; font-weight: 900; margin-left: 4px;">›</span>
+        <span style="font-size: 14px; color: #94a3b8; font-weight: 900;">›</span>
       </div>`;
   }
 
@@ -515,14 +516,27 @@ function actualizarBotonCochePrincipal(){
     const urgente = avisos.some(a => a.tipo === "urgente");
     const colorBg = urgente ? "linear-gradient(135deg,#7f1d1d,#991b1b)" : "linear-gradient(135deg,#7c2d12,#9a3412)";
     const colorBorder = urgente ? "#ef4444" : "#ea580c", colorIcon = urgente ? "#fca5a5" : "#fed7aa", shadow = urgente ? "rgba(239,68,68,0.45)" : "rgba(234,88,12,0.35)";
-    alertHtml = `<div onclick="abrirModalAvisos()" title="${avisos.length} aviso${avisos.length !== 1 ? 's' : ''}" style="background:${colorBg}; border:1px solid ${colorBorder}; border-radius:20px; padding:6px 12px; display:inline-flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 2px 8px ${shadow};"><span style="font-size:16px;">🔔</span><span style="font-size:14px; font-weight:900; color:${colorIcon}; letter-spacing:0.5px;">${avisos.length}</span></div>`;
+    alertHtml = `<div onclick="abrirModalAvisos()" title="${avisos.length} aviso${avisos.length !== 1 ? 's' : ''}" style="background:${colorBg}; border:1px solid ${colorBorder}; border-radius:20px; padding:6px 16px; display:flex; align-items:center; gap:8px; cursor:pointer; box-shadow:0 2px 8px ${shadow}; flex-shrink: 0;"><span style="font-size:18px;">🔔</span><span style="font-size:15px; font-weight:900; color:${colorIcon}; letter-spacing:0.5px;">${avisos.length}</span></div>`;
+  } else {
+    // Si no hay avisos, mostramos la campana apagada igualmente para mantener el diseño
+    alertHtml = `<div onclick="abrirModalAvisos()" style="background:#1e293b; border:1px solid #334155; border-radius:20px; padding:6px 16px; display:flex; align-items:center; gap:8px; cursor:pointer; flex-shrink: 0;"><span style="font-size:18px; opacity:0.5;">🔔</span></div>`;
   }
 
-  // 👇 AQUÍ ESTÁ LA MAGIA: Añadimos el botón del estado al lado del coche 👇
+  // --- FILA INFERIOR: EL ESTADO (ANCHO COMPLETO) ---
   let estadoHtml = (typeof obtenerBotonEstadoHTML === "function") ? obtenerBotonEstadoHTML() : "";
 
-  // Pintamos todo: Coche + Estado + Avisos
-  widget.innerHTML = carHtml + estadoHtml + alertHtml;
+  // Envolvemos el estado en un contenedor ancho
+  let estadoWrapper = `<div style="width: 100%;">${estadoHtml}</div>`;
+
+  // Pintamos todo
+  widget.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%;">
+      ${carHtml}
+      ${alertHtml}
+    </div>
+    ${estadoWrapper}
+  `;
+
   return true;
 }
 

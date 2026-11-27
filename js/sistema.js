@@ -968,17 +968,21 @@ window.addEventListener('focus', () => { activarPantallaSiempreActiva(); });
 /* ==================== INIT (ARRANQUE) ==================== */
 async function init(){
   const splashText = document.querySelector('.splash-sub');
-  const updateSplash = (txt) => { if(splashText) splashText.textContent = txt; };
+  const splashBar = document.getElementById('splashBar');
+  
+  const updateSplash = (txt, pct) => { 
+    if(splashText) splashText.textContent = txt; 
+    if(splashBar) splashBar.style.width = pct + "%";
+  };
 
   try {
-    // 1. Precargar Audios
-    updateSplash("Cargando audios...");
+    updateSplash("Cargando audios...", 20);
     await cargarManifestAudios();
 
-    // 2. Precargar Mapa y Polígonos
-    updateSplash("Preparando mapas...");
+    updateSplash("Preparando mapas...", 50);
     if (typeof cargarLeaflet === 'function') await cargarLeaflet();
-    updateSplash("Descargando zonas...");
+
+    updateSplash("Descargando zonas...", 80);
     if (typeof cargarPoligonos === 'function') await cargarPoligonos();
 
   } catch(e) {

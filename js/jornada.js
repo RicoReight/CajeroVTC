@@ -94,7 +94,7 @@ function abrirMenuEstado() {
   };
 
   const horasApp = sLibre + sOcupado;
-  const jornadaTotal = horasApp + sIncidencia + sDescanso + sFuera;
+  const jornadaTotal = horasApp + sIncidencia + sFuera;
 
   drawer.innerHTML = `
     <div style="padding:20px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center; background:#0f172a;">
@@ -119,6 +119,10 @@ function abrirMenuEstado() {
         <div style="display:flex; justify-content:space-between; margin-top:4px;">
           <span style="font-size:12px; color:#e2e8f0; font-weight:800;">⏱️ Total Jornada:</span>
           <span style="font-size:12px; color:#e2e8f0; font-weight:900;">${formatT(jornadaTotal)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-top:6px; padding-top:6px; border-top:1px dashed #334155;">
+          <span style="font-size:12px; color:#c084fc; font-weight:800;">🟣 Descanso:</span>
+          <span style="font-size:12px; color:#c084fc; font-weight:900;">${formatT(sDescanso)}</span>
         </div>
       </div>
 
@@ -453,6 +457,9 @@ function iniciarJornada() {
 
   notificado6h40m = false;
   safeStorage.set("uberCambioNotificado6h40m", "0");
+
+  notificadoFinJornada = false;
+  safeStorage.set("uberCambioNotificadoFinJornada", "0");
 }
 
 function detenerJornada() {
@@ -479,6 +486,9 @@ function detenerJornada() {
     setTimeout(() => { mostrarResumenFinJornada(); }, 500);
     notificado6h40m = false;
     safeStorage.set("uberCambioNotificado6h40m", "0");
+
+    notificadoFinJornada = false;
+    safeStorage.set("uberCambioNotificadoFinJornada", "0");
   }
 }
 
@@ -507,7 +517,7 @@ function guardarJornadaEnHistorial() {
     const kms = (typeof calcularKmsTotales === "function") ? calcularKmsTotales(hoy) : "0.00";
     const viajes = (typeof contarViajesDia === "function") ? contarViajesDia(hoy) : 0; // 👈 NUEVO
     const totalHorasApp = sLibre + sOcupado;
-    const totalJornada = totalHorasApp + sIncidencia + sDescanso + sFuera;
+    const totalJornada = totalHorasApp + sIncidencia + sFuera;
 
     const registroHoy = {
       fecha: hoy, 
@@ -544,7 +554,7 @@ function mostrarResumenFinJornada() {
 
   const formatT = (segs) => `${Math.floor(segs / 3600)}h ${Math.floor((segs % 3600) / 60)}m`;
   const totalHorasApp = sLibre + sOcupado;
-  const totalJornada = totalHorasApp + sIncidencia + sDescanso + sFuera;
+  const totalJornada = totalHorasApp + sIncidencia + sFuera;
   const kms = typeof calcularKmsTotales === "function" ? calcularKmsTotales(hoy) : "0.00";
 
   if (totalJornada < 60 && efectivoHoy === 0) { mostrarToast("No hay actividad suficiente."); return; }
@@ -716,13 +726,12 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') { if (typeof guardarJornadaEnHistorial === 'function') guardarJornadaEnHistorial(); }
 });
 
-let notificado6h40m = false;
+let notificadoFinJornada = safeStorage.get("uberCambioNotificadoFinJornada") === "1";
 
 setInterval(() => {
-  // 👇 Solo avisamos si hay coche asignado, no estamos offline, y no hemos avisado ya
   const tieneCoche = (typeof cocheActual !== 'undefined' && cocheActual);
   
-  if (tieneCoche && estadoApp !== 'offline' && !notificado6h40m) {
+  if (tieneCoche && estadoApp !== 'offline' && !notificadoFinJornada) {
     // Calculamos la jornada total en vivo
     let sLibre = segundosLibreHoy, sOcupado = segundosOcupadoHoy, sIncidencia = segundosIncidenciaHoy, sDescanso = segundosDescansoHoy, sFuera = segundosFueraHoy;
     const segsActuales = Math.floor((Date.now() - tiempoInicioEstado) / 1000);
@@ -733,12 +742,19 @@ setInterval(() => {
     if (estadoApp === 'descanso') sDescanso += segsActuales;
     if (estadoApp === 'fuera') sFuera += segsActuales;
 
-    const totalJornada = sLibre + sOcupado + sIncidencia + sDescanso + sFuera;
+    const totalJornada = sLibre + sOcupado + sIncidencia + sFuera;
 
-    if (totalJornada >= 24000) { // 6 horas y 40 minutos
-      notificado6h40m = true;
-      safeStorage.set("uberCambioNotificado6h40m", "1");
-      lanzarNotificacionJornada("⏰ Quedan 20 min de jornada", "Llevas más de 6h y 40m de jornada total. Ve pensando en ir a incidencias y cerrar el día.");
+    // 👇 6 horas y 30 minutos = 23400 segundos 👇
+    if (totalJornada >= 23400) { 
+      notificadoFinJornada = true;
+      safeStorage.set("uberCambioNotificadoFinJornada", "1");
+      
+      // Si estás con un cliente, el mensaje es para que termines el viaje. Si estás libre, para que pares ya.
+      if (estadoApp === 'ocupado') {
+        lanzarNotificacionJornada("⏰ Quedan 10 min de jornada", "Llevas 6h y 30m de jornada total. Termina este viaje y ve pensando en ir a incidencias y cerrar el día.");
+      } else {
+        lanzarNotificacionJornada("⏰ Quedan 10 min de jornada", "Llevas 6h y 30m de jornada total. Ve pensando en ir a incidencias y cerrar el día.");
+      }
     }
   }
 }, 60000);  // Revisa cada minuto

@@ -172,6 +172,49 @@ function contarViajesDia(fechaStr) {
   return 0;
 }
 
+async function programarAvisoDescanso() {
+  try {
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
+    const LN = Cap.Plugins.LocalNotifications;
+    
+    // 1. Cancelamos cualquier aviso de descanso anterior
+    const pending = await LN.getPending();
+    const aBorrar = pending.notifications.filter(n => n.id === 800001);
+    if(aBorrar.length > 0) await LN.cancel({ notifications: aBorrar });
+
+    // 2. Programamos el nuevo aviso a los 30 minutos exactos (30 * 60 * 1000)
+    const fechaAviso = new Date(Date.now() + (30 * 60 * 1000)); 
+    
+    await LN.schedule({
+      notifications: [{
+        id: 800001,
+        title: "☕ Descanso Completado",
+        body: "Has descansado 30 minutos. ¡Recuerda volver a activar la APP!",
+        channelId: 'recordatorios-alta',
+        schedule: { at: fechaAviso, allowWhileIdle: true },
+        actions: [
+          { id: 'libre', title: '🟢 Volver a trabajar' },
+          { id: 'fuera', title: '⚫ Fuera APP' }
+        ]
+      }]
+    });
+    console.log("⏰ Aviso de descanso programado para dentro de 30 min");
+  } catch(e) { console.warn("Error programando aviso descanso", e); }
+}
+
+async function cancelarAvisoDescanso() {
+  try {
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.Plugins || !Cap.Plugins.LocalNotifications) return;
+    const LN = Cap.Plugins.LocalNotifications;
+    const pending = await LN.getPending();
+    const aBorrar = pending.notifications.filter(n => n.id === 800001);
+    if(aBorrar.length > 0) await LN.cancel({ notifications: aBorrar });
+    console.log("🛑 Aviso de descanso cancelado");
+  } catch(e) {}
+}
+
 function cambiarEstadoApp(nuevoEstado) {
   cerrarMenuEstado();
   
@@ -253,9 +296,14 @@ function cambiarEstadoApp(nuevoEstado) {
   safeStorage.set("uberCambioTiempoFuera_" + hoy, segundosFueraHoy);
 
   if (nuevoEstado === 'descanso') {
+    programarAvisoDescanso(); // 👈 Programa el aviso nativo a los 30m
+  } else if (estadoApp === 'descanso' && nuevoEstado !== 'descanso') {
+    cancelarAvisoDescanso();  // 👈 Cancela el aviso si sales del descanso antes de tiempo
+  }
+
+  if (nuevoEstado === 'descanso') {
     tiempoInicioTramoContinuo = Date.now();
     notificado6h = false;
-    notificadoDescanso30m = false;
   } else if (nuevoEstado === 'offline' || nuevoEstado === 'fuera') {
     tiempoInicioTramoContinuo = Date.now();
     notificado6h = false;
@@ -264,7 +312,6 @@ function cambiarEstadoApp(nuevoEstado) {
       tiempoInicioTramoContinuo = Date.now();
       notificado6h = false;
     }
-    notificadoDescanso30m = false;
   }
   
   safeStorage.set("uberCambioTramoContinuoStart", tiempoInicioTramoContinuo);
@@ -287,11 +334,11 @@ function cambiarEstadoApp(nuevoEstado) {
 setInterval(() => {
   const ahora = Date.now();
   
-  // 1. Aviso de 15 min antes de las 6 Horas
+  // 1. Aviso de 15 min antes de las 6 Horas continuas
   if ((estadoApp === 'libre' || estadoApp === 'ocupado') && !notificado6h) {
     const diffHoras = (ahora - tiempoInicioTramoContinuo) / (1000 * 60 * 60);
     
-    if (diffHoras >= 5.75) { // 5 horas y 45 minutos (15 min antes de las 6h)
+    if (diffHoras >= 5.75) { // 5h 45m
       notificado6h = true;
       safeStorage.set("uberCambioNotificado6h", "1");
       
@@ -308,20 +355,37 @@ setInterval(() => {
     }
   }
   
-  // 2. Aviso de 30 minutos de Descanso
-  if (estadoApp === 'descanso' && !notificadoDescanso30m) {
-    const diffMinutos = (ahora - tiempoInicioEstado) / (1000 * 60);
+  // 2. Aviso de 6h 30m de Jornada Total
+  const tieneCoche = (typeof cocheActual !== 'undefined' && cocheActual);
+  let notificadoFinJornada = safeStorage.get("uberCambioNotificadoFinJornada") === "1";
+
+  if (tieneCoche && estadoApp !== 'offline' && !notificadoFinJornada) {
+    // Calculamos el total
+    let sLibre = segundosLibreHoy, sOcupado = segundosOcupadoHoy, sIncidencia = segundosIncidenciaHoy, sDescanso = segundosDescansoHoy, sFuera = segundosFueraHoy;
+    const segsActuales = Math.floor((ahora - tiempoInicioEstado) / 1000);
     
-    if (diffMinutos >= 30) {
-      notificadoDescanso30m = true;
-      safeStorage.set("uberCambioNotificadoDescanso30m", "1");
+    if (estadoApp === 'libre') sLibre += segsActuales;
+    if (estadoApp === 'ocupado') sOcupado += segsActuales;
+    if (estadoApp === 'incidencia') sIncidencia += segsActuales;
+    if (estadoApp === 'descanso') sDescanso += segsActuales;
+    if (estadoApp === 'fuera') sFuera += segsActuales;
+
+    // Jornada total SIN contar el descanso
+    const totalJornada = sLibre + sOcupado + sIncidencia + sFuera;
+
+    if (totalJornada >= 23400) { // 6h 30m = 23400 segundos
+      safeStorage.set("uberCambioNotificadoFinJornada", "1");
       
       const acciones = [
-        { id: 'libre', title: '🟢 Volver a trabajar' },
+        { id: 'libre', title: '🟢 Modo Libre' },
         { id: 'fuera', title: '⚫ Fuera APP' }
       ];
-      
-      lanzarNotificacionJornada("☕ Descanso Completado", "Has descansado 30 minutos. ¡Recuerda volver a activar la APP!", acciones);
+
+      if (estadoApp === 'ocupado') {
+        lanzarNotificacionJornada("⏰ Quedan 10 min de jornada", "Llevas 6h y 30m de jornada total. Termina este viaje y ve pensando en cerrar el día.", acciones);
+      } else {
+        lanzarNotificacionJornada("⏰ Quedan 10 min de jornada", "Llevas 6h y 30m de jornada total. Ve pensando en ir a incidencias y cerrar el día.", acciones);
+      }
     }
   }
 }, 60000);
@@ -763,6 +827,17 @@ setInterval(() => {
 setInterval(() => {
   const hoy = fechaLocalStr();
   if (hoy !== fechaJornadaActual) {
-    notificado6h40m = false;
+    fechaJornadaActual = hoy;
+    segundosLibreHoy = parseInt(safeStorage.get("uberCambioTiempoLibre_" + hoy)) || 0;
+    segundosOcupadoHoy = parseInt(safeStorage.get("uberCambioTiempoOcupado_" + hoy)) || 0;
+    segundosIncidenciaHoy = parseInt(safeStorage.get("uberCambioTiempoIncidencia_" + hoy)) || 0;
+    segundosDescansoHoy = parseInt(safeStorage.get("uberCambioTiempoDescanso_" + hoy)) || 0;
+    segundosFueraHoy = parseInt(safeStorage.get("uberCambioTiempoFuera_" + hoy)) || 0;
+    
+    // 👇 CLAVE: Reiniciamos el cronómetro interno para que no cuente lo de ayer
+    tiempoInicioEstado = Date.now(); 
+    notificado6h = false;
+    safeStorage.set("uberCambioNotificado6h", "0");
+    safeStorage.set("uberCambioNotificadoFinJornada", "0");
   }
 }, 60000);

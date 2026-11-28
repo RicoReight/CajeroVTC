@@ -355,12 +355,12 @@ setInterval(() => {
     }
   }
   
-  // 2. Aviso de 6h 30m de Jornada Total
+  // 2. Aviso de Fin de Jornada (Configurable)
   const tieneCoche = (typeof cocheActual !== 'undefined' && cocheActual);
   let notificadoFinJornada = safeStorage.get("uberCambioNotificadoFinJornada") === "1";
 
   if (tieneCoche && estadoApp !== 'offline' && !notificadoFinJornada) {
-    // Calculamos el total
+    // Calculamos el total actual
     let sLibre = segundosLibreHoy, sOcupado = segundosOcupadoHoy, sIncidencia = segundosIncidenciaHoy, sDescanso = segundosDescansoHoy, sFuera = segundosFueraHoy;
     const segsActuales = Math.floor((ahora - tiempoInicioEstado) / 1000);
     
@@ -373,7 +373,12 @@ setInterval(() => {
     // Jornada total SIN contar el descanso
     const totalJornada = sLibre + sOcupado + sIncidencia + sFuera;
 
-    if (totalJornada >= 23400) { // 6h 30m = 23400 segundos
+    // 👇 LEEMOS LA HORA CONFIGURADA (Por defecto 06:30) 👇
+    const horaAvisoStr = safeStorage.get("uberCambioAvisoFinJornada") || "06:30";
+    const [hhAviso, mmAviso] = horaAvisoStr.split(":").map(Number);
+    const segundosAvisoFin = (hhAviso * 3600) + (mmAviso * 60);
+
+    if (totalJornada >= segundosAvisoFin) { 
       safeStorage.set("uberCambioNotificadoFinJornada", "1");
       
       const acciones = [
@@ -381,10 +386,12 @@ setInterval(() => {
         { id: 'fuera', title: '⚫ Fuera APP' }
       ];
 
+      const textoTiempo = `Llevas ${hhAviso}h y ${mmAviso}m de jornada total.`;
+
       if (estadoApp === 'ocupado') {
-        lanzarNotificacionJornada("⏰ Quedan 10 min de jornada", "Llevas 6h y 30m de jornada total. Termina este viaje y ve pensando en cerrar el día.", acciones);
+        lanzarNotificacionJornada("⏰ Hora de plegar", `${textoTiempo} Termina este viaje y ve pensando en cerrar el día.`, acciones);
       } else {
-        lanzarNotificacionJornada("⏰ Quedan 10 min de jornada", "Llevas 6h y 30m de jornada total. Ve pensando en ir a incidencias y cerrar el día.", acciones);
+        lanzarNotificacionJornada("⏰ Hora de plegar", `${textoTiempo} Ve pensando en ir a incidencias y cerrar el día.`, acciones);
       }
     }
   }

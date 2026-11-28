@@ -133,13 +133,29 @@ function renderResetPanel(){
       boxCoche.style.cssText = "margin-top:16px; margin-bottom:16px; padding:14px; background:#1e293b; border-radius:12px; border:1px solid #334155";
       btnSaltar.parentNode.insertBefore(boxCoche, btnSaltar.nextSibling);
     }
-    if(!(document.activeElement && document.activeElement.id === "inputHoraJornadaReset")){
+    if(!(document.activeElement && document.activeElement.id === "inputHoraJornadaReset") && !(document.activeElement && document.activeElement.id === "inputAvisoFinJornada")){
       const cocheSel = (typeof cocheActual !== "undefined" && cocheActual) ? cocheActual : "Ninguno";
       const horaSel = (typeof horaFinJornada !== "undefined") ? horaFinJornada : "18:00";
+      
+      // 👇 NUEVO DISEÑO CON LOS DOS CAMPOS DE HORA 👇
       boxCoche.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-size:13px;color:#38bdf8;font-weight:900;letter-spacing:1px">🚗 FIN DE JORNADA (COCHE)</div><div style="font-size:11px;color:#64748b;font-weight:700">Coche actual: <b style="color:#fff">${cocheSel}</b></div></div>
-        <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.4">A esta hora, el coche se liberará solo. Podrás cambiarlo al día siguiente.</div>
-        <div style="display:flex;align-items:center;gap:10px"><input type="time" id="inputHoraJornadaReset" value="${horaSel}" style="flex:1;font-size:24px;font-weight:900;padding:12px;border-radius:10px;border:2px solid #0891b2;background:#0f172a;color:#22d3ee;text-align:center;outline:none;font-family:monospace;box-sizing:border-box"><button type="button" onclick="guardarHoraJornadaDesdeReset()" style="background:#0891b2;color:#fff;border:none;border-radius:10px;padding:14px 18px;font-weight:900;font-size:14px;cursor:pointer">Guardar</button></div>`;
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div style="font-size:13px;color:#38bdf8;font-weight:900;letter-spacing:1px">🚗 FIN DE JORNADA (COCHE)</div>
+          <div style="font-size:11px;color:#64748b;font-weight:700">Coche actual: <b style="color:#fff">${cocheSel}</b></div>
+        </div>
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.4">A esta hora, el coche se liberará solo y te avisará cuando lleves un tiempo trabajando.</div>
+        
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+           <div>
+              <div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:4px">LIBERAR COCHE</div>
+              <input type="time" id="inputHoraJornadaReset" value="${horaSel}" style="width:100%;font-size:20px;font-weight:900;padding:10px;border-radius:10px;border:2px solid #0891b2;background:#0f172a;color:#22d3ee;text-align:center;outline:none;font-family:monospace;box-sizing:border-box">
+           </div>
+           <div>
+              <div style="font-size:11px;color:#f59e0b;font-weight:800;margin-bottom:4px">AVISO JORNADA</div>
+              <input type="time" id="inputAvisoFinJornada" value="${safeStorage.get("uberCambioAvisoFinJornada") || '06:30'}" style="width:100%;font-size:20px;font-weight:900;padding:10px;border-radius:10px;border:2px solid #d97706;background:#0f172a;color:#fbbf24;text-align:center;outline:none;font-family:monospace;box-sizing:border-box">
+           </div>
+        </div>
+        <button type="button" onclick="guardarHoraJornadaDesdeReset()" style="width:100%;background:#0891b2;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:900;font-size:14px;cursor:pointer">Guardar Horas</button>`;
     }
   }
 
@@ -182,10 +198,19 @@ function guardarDiaReset(){
 }
 
 function guardarHoraJornadaDesdeReset(){
-  const inp = document.getElementById("inputHoraJornadaReset"); if(!inp) return;
-  const v = inp.value;
-  if(!/^\d{2}:\d{2}$/.test(v)){ alert("Hora inválida"); return; }
-  horaFinJornada = v; saveHoraFinJornada(); mostrarToast("⏰ Fin de jornada: " + v);
+  const inp = document.getElementById("inputHoraJornadaReset");
+  const inpAviso = document.getElementById("inputAvisoFinJornada");
+  
+  if(inp && /^\d{2}:\d{2}$/.test(inp.value)) {
+    horaFinJornada = inp.value; 
+    saveHoraFinJornada(); 
+  }
+  
+  if(inpAviso && /^\d{2}:\d{2}$/.test(inpAviso.value)) {
+    safeStorage.set("uberCambioAvisoFinJornada", inpAviso.value);
+  }
+  
+  mostrarToast("⏰ Horas de jornada guardadas");
 }
 
 function guardarConfigRecordatorio(){
